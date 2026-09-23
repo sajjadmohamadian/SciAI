@@ -1,0 +1,6 @@
+{
+  "name": "SciAI",
+  "description": "Scientrix & BiblioFusion: Self-hosted multi-database scientometric intelligence platform with GNNs, Smart Merge (WoS, Scopus, PubMed, OpenAlex, Dimensions, Lens), and direct live connector for Microsoft Power BI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
