@@ -45,6 +45,7 @@ import { ExportReportsStudio } from "./components/ExportReportsStudio.js";
 import { MachineLearningStudio } from "./components/MachineLearningStudio.js";
 import { ComparativeBenchmarkingStudio } from "./components/ComparativeBenchmarkingStudio.js";
 import { PowerBIConnectorStudio } from "./components/PowerBIConnectorStudio.js";
+import { apiJson, getApiErrorMessage } from "./utils/apiClient.js";
 import {
   Database,
   FileText,
@@ -228,33 +229,24 @@ export default function App() {
     setMessage("");
 
     try {
-      const res = await fetch("/api/analyses/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: project?.id,
-          dataset_version_id: selectedVersionId,
-          capability_id: selectedCapability,
-        }),
+      const newAnalysis = await apiJson<any>("/api/analyses/run", {
+        project_id: project?.id,
+        dataset_version_id: selectedVersionId,
+        capability_id: selectedCapability,
       });
 
-      const newAnalysis = await res.json();
-      if (res.ok) {
-        const valAnalysis = validateAnalysisRunResponse(newAnalysis);
-        if (valAnalysis.success && valAnalysis.data) {
-          setAnalyses((prev) => [valAnalysis.data, ...prev]);
-          setSelectedAnalysis(valAnalysis.data);
-          setModal(null);
-          setMessage(`Analysis "${valAnalysis.data.name || selectedCapability}" executed successfully!`);
-        } else {
-          setMessage(valAnalysis.error || "Analysis response structure was malformed.");
-        }
+      const valAnalysis = validateAnalysisRunResponse(newAnalysis);
+      if (valAnalysis.success && valAnalysis.data) {
+        setAnalyses((prev) => [valAnalysis.data, ...prev]);
+        setSelectedAnalysis(valAnalysis.data);
+        setModal(null);
+        setMessage(`Analysis "${valAnalysis.data.name || selectedCapability}" executed successfully!`);
       } else {
-        setMessage(newAnalysis?.error || "Execution failed");
+        setMessage(valAnalysis.error || "Analysis response structure was malformed.");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error running analysis:", err);
-      setMessage("Failed to execute analysis on server");
+      setMessage(getApiErrorMessage(err, "Failed to execute analysis on server"));
     } finally {
       setRunning(false);
     }
@@ -290,33 +282,24 @@ export default function App() {
         return;
       }
 
-      const res = await fetch("/api/analyses/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: project?.id,
-          dataset_version_id: version.id,
-          capability_id: capabilityId,
-          parameters: parameters || {},
-        }),
+      const newAnalysis = await apiJson<any>("/api/analyses/run", {
+        project_id: project?.id,
+        dataset_version_id: version.id,
+        capability_id: capabilityId,
+        parameters: parameters || {},
       });
 
-      const newAnalysis = await res.json();
-      if (res.ok) {
-        const valAnalysis = validateAnalysisRunResponse(newAnalysis);
-        if (valAnalysis.success && valAnalysis.data) {
-          setAnalyses((prev) => [valAnalysis.data, ...prev.filter((a) => a.id !== valAnalysis.data.id)]);
-          setSelectedAnalysis(valAnalysis.data);
-          setMessage(`Executed ${capabilityId.replace(/[._]/g, " ")}`);
-        } else {
-          setMessage(valAnalysis.error || "Execution returned invalid analysis structure.");
-        }
+      const valAnalysis = validateAnalysisRunResponse(newAnalysis);
+      if (valAnalysis.success && valAnalysis.data) {
+        setAnalyses((prev) => [valAnalysis.data, ...prev.filter((a) => a.id !== valAnalysis.data.id)]);
+        setSelectedAnalysis(valAnalysis.data);
+        setMessage(`Executed ${capabilityId.replace(/[._]/g, " ")}`);
       } else {
-        setMessage(newAnalysis?.error || "Execution failed");
+        setMessage(valAnalysis.error || "Execution returned invalid analysis structure.");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Quick run failed:", err);
-      setMessage("Failed to execute analysis on server");
+      setMessage(getApiErrorMessage(err, "Failed to execute analysis on server"));
     }
   };
 

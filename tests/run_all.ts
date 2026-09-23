@@ -27,6 +27,7 @@ const testFiles = [
   path.resolve("tests/parsers_scientific.test.ts"),
   path.resolve("tests/side_effects.test.ts"),
   path.resolve("tests/version_selection_race.test.ts"),
+  path.resolve("tests/api_client.test.ts"),
   path.resolve("tests/response_validation.test.ts"),
 ];
 

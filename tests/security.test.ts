@@ -264,6 +264,42 @@ describe("Security & Authentication Suite", () => {
       const json2 = await res2.json();
       assert.deepEqual(json1, json2, "Canonical /api and alias routes must return identical shapes");
     });
+
+    test("Protected upload and sample cohort mutations return 401 without credentials", async () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+
+      const uploadRes = await fetch(`${baseUrl}/api/datasets/upload`, {
+        method: "POST",
+      });
+      assert.equal(uploadRes.status, 401);
+      const uploadJson = await uploadRes.json();
+      assert(uploadJson.error?.includes("Authentication required"));
+
+      const cohortRes = await fetch(`${baseUrl}/api/datasets/load-sample-cohort`, {
+        method: "POST",
+      });
+      assert.equal(cohortRes.status, 401);
+      const cohortJson = await cohortRes.json();
+      assert(cohortJson.error?.includes("Authentication required"));
+    });
+
+    test("Browser-like Origin and Referer headers do not bypass protected mutations", async () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+
+      const res = await fetch(`${baseUrl}/api/datasets/load-sample-cohort`, {
+        method: "POST",
+        headers: {
+          Origin: baseUrl,
+          Referer: `${baseUrl}/`,
+        },
+      });
+
+      assert.equal(res.status, 401);
+      const json = await res.json();
+      assert(json.error?.includes("Authentication required"));
+    });
   });
 
   describe("Bibliometric Upload Safety, Validation & Cleanup", () => {
