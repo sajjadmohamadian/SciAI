@@ -611,14 +611,25 @@ export function validateThematicEvolutionResponse(raw: unknown): ValidationOutco
 
   const cleanPeriods = [];
   for (const p of obj.periods) {
-    if (p && typeof p === "object" && typeof p.periodIndex === "number") {
+    if (p && typeof p === "object") {
+      const period = p as Record<string, unknown>;
+      const index = typeof period.index === "number"
+        ? period.index
+        : typeof period.periodIndex === "number"
+          ? period.periodIndex
+          : null;
+      if (index === null) continue;
+
       cleanPeriods.push({
-        periodIndex: p.periodIndex,
-        label: typeof p.label === "string" ? p.label : `Period ${p.periodIndex + 1}`,
-        startYear: typeof p.startYear === "number" ? p.startYear : 2000,
-        endYear: typeof p.endYear === "number" ? p.endYear : 2024,
-        documentCount: typeof p.documentCount === "number" ? p.documentCount : 0,
-        themeCount: typeof p.themeCount === "number" ? p.themeCount : 0,
+        index,
+        periodIndex: index,
+        label: typeof period.label === "string" ? period.label : `Period ${index + 1}`,
+        startYear: typeof period.startYear === "number" ? period.startYear : 2000,
+        endYear: typeof period.endYear === "number" ? period.endYear : 2024,
+        docCount: typeof period.docCount === "number" ? period.docCount : typeof period.documentCount === "number" ? period.documentCount : 0,
+        documentCount: typeof period.documentCount === "number" ? period.documentCount : typeof period.docCount === "number" ? period.docCount : 0,
+        themeCount: typeof period.themeCount === "number" ? period.themeCount : 0,
+        stabilityWithNext: typeof period.stabilityWithNext === "number" ? period.stabilityWithNext : undefined,
       });
     }
   }
@@ -629,15 +640,17 @@ export function validateThematicEvolutionResponse(raw: unknown): ValidationOutco
       cleanNodes.push({
         id: n.id,
         name: typeof n.name === "string" ? n.name : "Theme",
+        keywords: Array.isArray(n.keywords) ? n.keywords.map(String) : Array.isArray(n.topKeywords) ? n.topKeywords.map(String) : [],
+        topKeywords: Array.isArray(n.topKeywords) ? n.topKeywords.map(String) : Array.isArray(n.keywords) ? n.keywords.map(String) : [],
         periodIndex: n.periodIndex,
         periodLabel: typeof n.periodLabel === "string" ? n.periodLabel : `Period ${n.periodIndex + 1}`,
-        documentCount: typeof n.documentCount === "number" ? n.documentCount : 0,
-        topKeywords: Array.isArray(n.topKeywords) ? n.topKeywords.map(String) : [],
-        centrality: typeof n.centrality === "number" ? n.centrality : 0,
-        density: typeof n.density === "number" ? n.density : 0,
+        docCount: typeof n.docCount === "number" ? n.docCount : typeof n.documentCount === "number" ? n.documentCount : 0,
+        documentCount: typeof n.documentCount === "number" ? n.documentCount : typeof n.docCount === "number" ? n.docCount : 0,
         totalCitations: typeof n.totalCitations === "number" ? n.totalCitations : 0,
-        rawCentrality: typeof n.rawCentrality === "number" ? n.rawCentrality : 0,
-        rawDensity: typeof n.rawDensity === "number" ? n.rawDensity : 0,
+        centrality: typeof n.centrality === "number" ? n.centrality : typeof n.rawCentrality === "number" ? n.rawCentrality : 0,
+        density: typeof n.density === "number" ? n.density : typeof n.rawDensity === "number" ? n.rawDensity : 0,
+        rawCentrality: typeof n.rawCentrality === "number" ? n.rawCentrality : typeof n.centrality === "number" ? n.centrality : 0,
+        rawDensity: typeof n.rawDensity === "number" ? n.rawDensity : typeof n.density === "number" ? n.density : 0,
         quadrant: (n.quadrant as any) || "Motor Themes",
         quadrantCode: (n.quadrantCode as any) || "Q1",
         clusterSize: typeof n.clusterSize === "number" ? n.clusterSize : 1,

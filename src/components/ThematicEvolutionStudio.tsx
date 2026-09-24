@@ -36,6 +36,11 @@ interface Props {
   onNavigateToFrontier?: () => void;
 }
 
+const getPreferredThematicDatasetId = (datasets: Dataset[]) => {
+  const thematicReadyDataset = datasets.find((d) => (d.record_count || 0) >= 2);
+  return thematicReadyDataset?.id || datasets[0]?.id || "";
+};
+
 export function ThematicEvolutionStudio({
   datasets = [],
   activeDatasetId,
@@ -44,15 +49,25 @@ export function ThematicEvolutionStudio({
 }: Props) {
   // Target Dataset State
   const [selectedDsId, setSelectedDsId] = useState<string>(
-    activeDatasetId || (datasets[0]?.id ?? "")
+    activeDatasetId || getPreferredThematicDatasetId(datasets)
   );
 
-  // Synchronize when parent prop changes
+  // Synchronize when parent prop or dashboard datasets change.
+  // Thematic evolution needs a concrete dataset with temporal keyword records;
+  // the consolidated portfolio placeholder cannot be posted as a real dataset_id.
   useEffect(() => {
     if (activeDatasetId && activeDatasetId !== selectedDsId) {
       setSelectedDsId(activeDatasetId);
+      return;
     }
-  }, [activeDatasetId]);
+
+    const selectedStillExists = datasets.some((d) => d.id === selectedDsId);
+    if ((!selectedDsId || !selectedStillExists) && datasets.length > 0) {
+      const fallbackDatasetId = getPreferredThematicDatasetId(datasets);
+      setSelectedDsId(fallbackDatasetId);
+      onSelectDataset?.(fallbackDatasetId);
+    }
+  }, [activeDatasetId, datasets, selectedDsId, onSelectDataset]);
 
   const handleDatasetChange = (newDsId: string) => {
     setSelectedDsId(newDsId);
