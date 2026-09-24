@@ -202,7 +202,7 @@ export function PrismaExtractionReportStudio({
     });
   }, [extractionOutcomes, dataset?.record_count]);
 
-  // Trigger Gemini AI PRISMA Report Generation
+  // Trigger AI PRISMA Report Generation
   const handleGenerateReport = async () => {
     setIsGenerating(true);
     setReportError(null);
@@ -380,7 +380,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               </span>
               <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700 flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
-                Gemini 3.8 Flash AI
+                Multi-provider AI
               </span>
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">

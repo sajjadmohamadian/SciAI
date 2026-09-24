@@ -21,7 +21,8 @@ import {
   generateResearchGapMatrix,
   generateMultiCorpusDiscrepancyAnalysis,
   generatePrismaSynthesisReport,
-} from "./server/gemini.js";
+} from "./server/ai/service.js";
+import { AiProviderError } from "./server/ai/types.js";
 import {
   parseAnyDatabaseSource,
   detectDatabaseFormat,
@@ -3823,7 +3824,20 @@ app.post(["/api/analyses", "/api/analysis", "/analyses", "/analysis"], requireAp
   }
 });
 
-// AI Research Intelligence synthesis using Gemini
+const getAiRequestOptions = (body: Record<string, unknown>) => ({
+  provider: body.provider,
+  fallback: body.fallback,
+});
+
+const handleAiEndpointError = (res: express.Response, err: unknown, safeMessage: string) => {
+  if (err instanceof AiProviderError && err.code === "invalid_provider") {
+    return res.status(400).json({ error: "Invalid AI provider. Use gemini, claude, or openai." });
+  }
+  console.error(safeMessage);
+  return res.status(500).json({ error: safeMessage });
+};
+
+// AI Research Intelligence synthesis using the server-side provider router
 app.post("/api/ai/interpret", requireApiToken, async (req, res) => {
   try {
     const { analysis_id, capability_id, records, metadata } = req.body;
@@ -3842,26 +3856,29 @@ app.post("/api/ai/interpret", requireApiToken, async (req, res) => {
     const interpretation = await generateScientometricInsight(
       targetCapability,
       targetRecords,
-      targetMetadata
+      targetMetadata,
+      getAiRequestOptions(req.body)
     );
 
-    // If analysis_id is provided, attach it to the analysis object
+    // If analysis_id is provided, attach only the text to the analysis object
     if (targetAnalysis) {
       if (targetAnalysis.result) {
-        targetAnalysis.result.ai_interpretation = interpretation;
+        targetAnalysis.result.ai_interpretation = interpretation.content;
       }
       setAnalysis(targetAnalysis.id, targetAnalysis);
     }
 
     res.json({
       success: true,
+      status: interpretation.status,
       analysis_id,
       capability: targetCapability,
-      interpretation,
+      interpretation: interpretation.content,
+      ai_provenance: interpretation.ai_provenance,
+      warnings: interpretation.warnings,
     });
   } catch (err: unknown) {
-    console.error("AI interpretation error encountered");
-    res.status(500).json({ error: "Failed to generate AI interpretation safely" });
+    return handleAiEndpointError(res, err, "Failed to generate AI interpretation safely");
   }
 });
 
@@ -3872,11 +3889,10 @@ app.post("/api/ai/clusters/label", requireApiToken, async (req, res) => {
     if (!clusters || !Array.isArray(clusters)) {
       return res.status(400).json({ error: "Invalid clusters array" });
     }
-    const labeled = await generateSemanticClusterLabels(clusters);
-    res.json({ success: true, clusters: labeled });
+    const labeled = await generateSemanticClusterLabels(clusters, getAiRequestOptions(req.body));
+    res.json({ success: true, status: labeled.status, clusters: labeled.content, ai_provenance: labeled.ai_provenance, warnings: labeled.warnings });
   } catch (err) {
-    console.error("AI cluster labeling endpoint error encountered");
-    res.status(500).json({ error: "Failed to generate semantic cluster labels safely" });
+    return handleAiEndpointError(res, err, "Failed to generate semantic cluster labels safely");
   }
 });
 
@@ -3895,13 +3911,13 @@ app.post("/api/ai/research-gaps", requireApiToken, async (req, res) => {
       clusters || [],
       motor_themes || [],
       niche_themes || [],
-      recent_keywords || []
+      recent_keywords || [],
+      getAiRequestOptions(req.body)
     );
 
-    res.json({ success: true, dataset_name: targetName, ...gaps });
+    res.json({ success: true, status: gaps.status, dataset_name: targetName, ...gaps.content, ai_provenance: gaps.ai_provenance, warnings: gaps.warnings });
   } catch (err) {
-    console.error("AI research gaps endpoint error encountered");
-    res.status(500).json({ error: "Failed to detect research gaps safely" });
+    return handleAiEndpointError(res, err, "Failed to detect research gaps safely");
   }
 });
 
@@ -3912,12 +3928,12 @@ app.post("/api/ai/manuscript-section", requireApiToken, async (req, res) => {
     const text = await generateManuscriptSection(
       section || "abstract",
       dataset_name || "Active Research Corpus",
-      metrics || {}
+      metrics || {},
+      getAiRequestOptions(req.body)
     );
-    res.json({ success: true, section, content: text });
+    res.json({ success: true, status: text.status, section, content: text.content, ai_provenance: text.ai_provenance, warnings: text.warnings });
   } catch (err) {
-    console.error("AI manuscript section endpoint error encountered");
-    res.status(500).json({ error: "Failed to generate manuscript section safely" });
+    return handleAiEndpointError(res, err, "Failed to generate manuscript section safely");
   }
 });
 
@@ -3944,11 +3960,10 @@ app.post("/api/ai/citation-context", requireApiToken, async (req, res) => {
       citations: d.citations,
     }));
 
-    const result = await analyzeCitationContexts(samplePapers);
-    res.json({ success: true, total_analyzed: samplePapers.length, ...result });
+    const result = await analyzeCitationContexts(samplePapers, getAiRequestOptions(req.body));
+    res.json({ success: true, status: result.status, total_analyzed: samplePapers.length, ...result.content, ai_provenance: result.ai_provenance, warnings: result.warnings });
   } catch (err) {
-    console.error("AI citation context endpoint error encountered");
-    res.status(500).json({ error: "Failed to analyze citation contexts safely" });
+    return handleAiEndpointError(res, err, "Failed to analyze citation contexts safely");
   }
 });
 
@@ -3983,13 +3998,13 @@ app.post("/api/ai/rag-chat", requireApiToken, async (req, res) => {
       query,
       history || [],
       corpusDocs,
-      analysesSummary
+      analysesSummary,
+      getAiRequestOptions(req.body)
     );
 
-    res.json({ success: true, answer });
+    res.json({ success: true, status: answer.status, answer: answer.content, ai_provenance: answer.ai_provenance, warnings: answer.warnings });
   } catch (err) {
-    console.error("AI RAG chat endpoint error encountered");
-    res.status(500).json({ error: "Failed to process scientometric RAG inquiry safely" });
+    return handleAiEndpointError(res, err, "Failed to process scientometric RAG inquiry safely");
   }
 });
 
@@ -4030,12 +4045,11 @@ app.post(["/api/ai/prisma-report", "/ai/prisma-report"], requireApiToken, async 
       includedStudies: Number(includedStudies) || 0,
       databases: Array.isArray(databases) ? databases : [],
       extractionOutcomes: extractionOutcomes || undefined,
-    });
+    }, getAiRequestOptions(req.body));
 
-    res.json({ success: true, report });
+    res.json({ success: true, status: report.status, report: report.content, ai_provenance: report.ai_provenance, warnings: report.warnings });
   } catch (err) {
-    console.error("AI PRISMA report endpoint error encountered");
-    res.status(500).json({ error: "Failed to generate PRISMA methodology report safely" });
+    return handleAiEndpointError(res, err, "Failed to generate PRISMA methodology report safely");
   }
 });
 
@@ -4196,13 +4210,14 @@ app.post("/api/ai/research-gap-matrix", requireApiToken, async (req, res) => {
     const result = await generateResearchGapMatrix(
       dataset_id || "default",
       targetName,
-      targetDocs
+      targetDocs,
+      undefined,
+      getAiRequestOptions(req.body)
     );
 
-    res.json({ success: true, ...result });
+    res.json({ success: true, status: result.status, ...result.content, ai_provenance: result.ai_provenance, warnings: result.warnings });
   } catch (err: any) {
-    console.error("AI research gap matrix endpoint error encountered");
-    res.status(500).json({ error: "Failed to generate research gap matrix safely" });
+    return handleAiEndpointError(res, err, "Failed to generate research gap matrix safely");
   }
 });
 
@@ -4232,10 +4247,9 @@ app.post("/api/ai/corpus-discrepancy", requireApiToken, async (req, res) => {
       targetDocs
     );
 
-    res.json({ success: true, ...result });
+    res.json({ success: true, status: result.status, ...result.content, ai_provenance: result.ai_provenance, warnings: result.warnings });
   } catch (err: any) {
-    console.error("AI corpus discrepancy endpoint error encountered");
-    res.status(500).json({ error: "Failed to analyze multi-corpus discrepancy safely" });
+    return handleAiEndpointError(res, err, "Failed to analyze multi-corpus discrepancy safely");
   }
 });
 

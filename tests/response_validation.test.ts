@@ -179,11 +179,15 @@ describe("Frontend Defensive Response Validation Suite", () => {
       assert.equal(validateResearchGapMatrixResponse(null).success, false);
       assert.equal(validateResearchGapMatrixResponse({ proposals: "not-array" }).success, false);
 
-      const valid = validateResearchGapMatrixResponse({
-        proposals: [{ id: "p1", title: "Gap 1", subField: "Genetics", noveltyScore: 80, feasibilityScore: 90 }],
-        matrixSummary: { totalIdentifiedGaps: 1 },
+      const unavailable = validateResearchGapMatrixResponse({
+        status: "unavailable",
+        proposals: [],
+        matrixSummary: { totalIdentifiedGaps: 0 },
+        ai_provenance: { provider: "unavailable" },
       });
-      assert.equal(valid.success, true);
+      assert.equal(unavailable.success, true);
+      assert.equal(unavailable.isComplete, false);
+      assert.equal(unavailable.isPartial, true);
     });
   });
 

@@ -184,7 +184,7 @@ export function generateWordDocument(stats: CorpusExportStatistics, docs: Biblio
 
   const aiSynthesisSection = aiNarrative ? `
   <div style="background-color: #f5f3ff; border: 1pt solid #ddd6fe; padding: 12pt; margin: 15pt 0; border-radius: 6pt;">
-    <h3 style="color: #4f46e5; margin-top: 0;">AI Scientometric Synthesis & Narrative Interpretation (Gemini 3.8 Flash)</h3>
+    <h3 style="color: #4f46e5; margin-top: 0;">AI Scientometric Synthesis & Narrative Interpretation (Multi-provider AI)</h3>
     <p style="font-size: 10pt; line-height: 1.6; color: #312e81; white-space: pre-wrap;">${escapeXml(aiNarrative)}</p>
   </div>
   ` : "";

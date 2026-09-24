@@ -12,7 +12,9 @@
     "test": "tsx tests/run_all.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.67.0",
     "@google/genai": "^2.4.0",
+    "openai": "^5.22.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "d3": "^7.9.0",

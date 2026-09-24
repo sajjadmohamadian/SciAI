@@ -274,7 +274,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
               <Sparkles className="h-4 w-4 text-indigo-600" />
-              Gemini Scientometric Synthesis
+              AI Scientometric Synthesis
             </div>
             <button
               type="button"
@@ -283,7 +283,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
               className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1 cursor-pointer"
             >
               <RefreshCw className={`h-3 w-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
-              Re-analyze with Gemini
+              Re-analyze with AI
             </button>
           </div>
 

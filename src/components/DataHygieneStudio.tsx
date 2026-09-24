@@ -1059,7 +1059,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-900">
-                  Synthesizing PRISMA 2020 Methodology Narrative via Gemini AI...
+                  Synthesizing PRISMA 2020 Methodology Narrative via Multi-provider AI...
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl mx-auto">
                   Computing quantitative selection yield ratios, auditing PRISMA 2020 checklist items (Page et al., BMJ 2021), and formulating a publication-ready Methods manuscript draft for peer-reviewed journals.
@@ -1095,7 +1095,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               <div className="space-y-2 max-w-2xl">
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-100/70 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
                   <Sparkles className="h-3 w-3" />
-                  Gemini AI Scientometric Copilot
+                  AI Scientometric Copilot
                 </div>
                 <h3 className="text-base font-bold text-slate-900">
                   Generate PRISMA 2020 Methodology Narrative & Synthesis Report

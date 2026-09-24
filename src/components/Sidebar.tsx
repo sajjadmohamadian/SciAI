@@ -158,7 +158,7 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "ai",
         label: "AI Intelligence",
         icon: <Sparkles className="h-4 w-4 text-indigo-500" />,
-        badge: "Gemini",
+        badge: "AI",
         badgeColor: "text-indigo-700 bg-indigo-50 border-indigo-200",
         description: "Automated Synthesis",
       },

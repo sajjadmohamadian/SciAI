@@ -198,7 +198,7 @@ Thematic keyword co-occurrence analysis identifies the strategic driving themes:
                 AI Scientometric Synthesis & Academic Manuscript Studio
               </h3>
               <span className="rounded-full bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 text-[9px]">
-                Gemini 3.8 Flash
+                Multi-provider AI
               </span>
             </div>
             <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">

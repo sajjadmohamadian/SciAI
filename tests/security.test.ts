@@ -419,6 +419,24 @@ describe("Security & Authentication Suite", () => {
       assert.equal(analysisRes.status, 401);
       const analysisJson = await analysisRes.json();
       assert(analysisJson.error?.includes("Authentication required"));
+
+      const aiRes = await fetch(`${baseUrl}/api/ai/rag-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: baseUrl,
+          Referer: `${baseUrl}/`,
+        },
+        body: JSON.stringify({ query: "summarize", provider: "claude" }),
+      });
+      assert.equal(aiRes.status, 401);
+      const aiJson = await aiRes.json();
+      assert(aiJson.error?.includes("Authentication required"));
+      const serialized = JSON.stringify(aiJson);
+      assert(!serialized.includes(TEST_TOKEN));
+      assert(!serialized.includes("GEMINI_API_KEY"));
+      assert(!serialized.includes("ANTHROPIC_API_KEY"));
+      assert(!serialized.includes("OPENAI_API_KEY"));
     });
   });
 

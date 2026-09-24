@@ -50,7 +50,7 @@ export function AiIntelligenceView({ datasets = [], analyses = [] }: Props) {
   >([
     {
       role: "ai",
-      text: `Hello! I am your Scientometric AI Research Copilot powered by Gemini 3.8 Flash.
+      text: `Hello! I am your Scientometric AI Research Copilot powered by SciAI's multi-provider AI router.
 I am grounded directly in your active workspace containing ${datasets.length} datasets and ${analyses.length} completed analytical modules.
 
 You can ask me questions such as:
@@ -330,7 +330,7 @@ You can ask me questions such as:
               <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
                 Scientometric AI Copilot & Research Studio
                 <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-                  Gemini 3.8 Flash
+                  Multi-provider AI
                 </span>
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -525,7 +525,7 @@ You can ask me questions such as:
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3 text-xs text-indigo-700 font-medium">
                   <Sparkles className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                  Gemini is retrieving relevant corpus documents and calculating scientometric context...
+                  AI provider router is retrieving relevant corpus documents and calculating scientometric context...
                 </div>
               </div>
             )}
@@ -612,7 +612,7 @@ You can ask me questions such as:
                 Synthesizing Thematic White-Spaces into Novelty-Feasibility Matrix...
               </div>
               <div className="text-xs text-slate-400 mt-1">
-                Gemini 3.8 Flash evaluating research potential, methodology pathways, and risk profiles
+                Multi-provider AI evaluating research potential, methodology pathways, and risk profiles
               </div>
             </div>
           ) : gapMatrixData ? (

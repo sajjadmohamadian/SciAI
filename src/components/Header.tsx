@@ -38,7 +38,7 @@ export function Header({
     benchmark: { label: "Comparative Benchmarking Studio", subtitle: "Biblium Cross-Dataset Hypotheses & Thematic Specificity" },
     powerbi: { label: "Power BI Live Connector", subtitle: "Direct OData / Web Feed & Star-Schema Relational Model" },
     reports: { label: "Executive Reports Studio", subtitle: "Publication-Ready Summaries & Multi-Format Export" },
-    ai: { label: "AI Research Intelligence", subtitle: "Gemini-powered Synthesis" },
+    ai: { label: "AI Research Intelligence", subtitle: "Multi-provider Synthesis" },
   };
 
   const current = titles[activeTab] || titles.overview;

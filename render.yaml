@@ -17,3 +17,15 @@ services:
         value: "true"
       - key: SCIAI_API_TOKEN
         generateValue: true
+      - key: SCIAI_AI_DEFAULT_PROVIDER
+        value: gemini
+      - key: SCIAI_AI_PROVIDER_ORDER
+        value: gemini,claude,openai
+      - key: SCIAI_AI_ALLOW_FALLBACK
+        value: "true"
+      - key: SCIAI_GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: SCIAI_CLAUDE_MODEL
+        value: claude-opus-5
+      - key: SCIAI_OPENAI_MODEL
+        value: gpt-4.1-mini

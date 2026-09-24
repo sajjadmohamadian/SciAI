@@ -34,6 +34,31 @@ For hosted browser use, choose one of these safe patterns:
 
 Do not add an anonymous token/session bootstrap endpoint. The browser cannot safely receive `SCIAI_API_TOKEN`.
 
+## AI provider configuration
+
+SciAI supports a server-side AI provider router for Gemini, Claude, and OpenAI. Deterministic SciAI code remains authoritative for scientometric metrics; AI providers are used only for explanation, summarization, labeling, narrative drafting, and research suggestions grounded in supplied data. Unsupported values must be shown as `unavailable`, not invented.
+
+Provider keys are server-only secrets:
+
+- `GEMINI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+
+Never expose provider keys through `VITE_*` variables, frontend code, browser storage, rendered HTML, query strings, or public capability endpoints. AI routes remain protected by `SCIAI_API_TOKEN`; public upload mode does not make AI routes public.
+
+Routing is configured with:
+
+```env
+SCIAI_AI_DEFAULT_PROVIDER="gemini"
+SCIAI_AI_PROVIDER_ORDER="gemini,claude,openai"
+SCIAI_AI_ALLOW_FALLBACK="true"
+SCIAI_GEMINI_MODEL="gemini-flash-latest"
+SCIAI_CLAUDE_MODEL="claude-opus-5"
+SCIAI_OPENAI_MODEL="gpt-4.1-mini"
+```
+
+Protected AI responses include `ai_provenance` with the provider/model used, attempted fallback path, timestamp, and limitations explaining that AI output is interpretive only.
+
 ## Upload API
 
 - Health check: `GET /api/health`

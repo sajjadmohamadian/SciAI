@@ -118,7 +118,7 @@ export function CorpusPipelineStudio({
               Corpus Acquisition & Harmonization Pipeline
             </h1>
             <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex live graph, fuse heterogeneous databases with schema alignment, and synthesize PRISMA 2020 extraction outcomes with Gemini AI.
+              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex live graph, fuse heterogeneous databases with schema alignment, and synthesize PRISMA 2020 extraction outcomes with multi-provider AI.
             </p>
           </div>
 

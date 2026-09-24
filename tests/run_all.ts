@@ -28,6 +28,8 @@ const testFiles = [
   path.resolve("tests/side_effects.test.ts"),
   path.resolve("tests/version_selection_race.test.ts"),
   path.resolve("tests/api_client.test.ts"),
+  path.resolve("tests/ai_provider_config.test.ts"),
+  path.resolve("tests/ai_provider_routing.test.ts"),
   path.resolve("tests/response_validation.test.ts"),
 ];
 

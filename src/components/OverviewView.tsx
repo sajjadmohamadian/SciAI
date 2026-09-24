@@ -656,7 +656,7 @@ export function OverviewView({
         </div>
       </section>
 
-      {/* 4. One-Click AI Research Intelligence Brief (Gemini) */}
+      {/* 4. One-Click AI Research Intelligence Brief */}
       <section className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start gap-3">
@@ -666,7 +666,7 @@ export function OverviewView({
             <div>
               <div className="flex items-center gap-2">
                 <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                  Gemini Flash Intelligence
+                  AI Intelligence
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400">
                   Automated Synthesis Engine

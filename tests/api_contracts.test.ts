@@ -212,4 +212,43 @@ describe("API Contracts & Analysis Route Aliases Suite", () => {
       assert(json.error?.includes("Analysis not found"));
     });
   });
+
+  describe("Protected AI provider route contracts", () => {
+    test("AI route preserves response fields and adds provenance when providers are unavailable", async () => {
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+
+      const res = await fetch(`${baseUrl}/api/ai/rag-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${TEST_TOKEN}`,
+        },
+        body: JSON.stringify({ query: "What is in the corpus?" }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.success, true);
+      assert.equal(json.status, "unavailable");
+      assert.equal(json.answer, "unavailable");
+      assert.equal(json.ai_provenance.provider, "unavailable");
+      assert(Array.isArray(json.ai_provenance.attemptedProviders));
+    });
+
+    test("AI route rejects invalid provider with 400", async () => {
+      const res = await fetch(`${baseUrl}/api/ai/rag-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${TEST_TOKEN}`,
+        },
+        body: JSON.stringify({ query: "test", provider: "bad-provider" }),
+      });
+      assert.equal(res.status, 400);
+      const json = await res.json();
+      assert(json.error?.includes("Invalid AI provider"));
+    });
+  });
 });

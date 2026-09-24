@@ -806,6 +806,15 @@ export function validateResearchGapMatrixResponse(raw: unknown): AIResponseOutco
   }
 
   if (!Array.isArray(obj.proposals) || obj.proposals.length === 0) {
+    if (obj.status === "unavailable") {
+      return {
+        success: true,
+        isComplete: false,
+        isPartial: true,
+        data: obj as unknown as ResearchGapMatrixOutput,
+        error: "Research gap matrix is unavailable for this provider configuration.",
+      };
+    }
     return {
       success: false,
       isComplete: false,
@@ -827,6 +836,15 @@ export function validateCorpusDiscrepancyResponse(raw: unknown): AIResponseOutco
   }
 
   if (!Array.isArray(obj.databaseMetrics) || !obj.vennIntersections) {
+    if (obj.status === "unavailable") {
+      return {
+        success: true,
+        isComplete: false,
+        isPartial: true,
+        data: obj as unknown as MultiCorpusDiscrepancyOutput,
+        error: "Multi-corpus discrepancy analysis is unavailable for this provider configuration.",
+      };
+    }
     return {
       success: false,
       isComplete: false,
