@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
+import { apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
 
 interface Props {
   datasets: Dataset[];
@@ -202,14 +203,9 @@ export function DatasetsView({
     setDeleteError(null);
 
     try {
-      const res = await fetch(`/api/datasets/${datasetToDelete.id}`, {
+      await apiRequest(`/api/datasets/${datasetToDelete.id}`, {
         method: "DELETE",
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to delete dataset from server");
-      }
 
       const deletedId = datasetToDelete.id;
       setDatasetToDelete(null);
@@ -225,8 +221,7 @@ export function DatasetsView({
         setSelectedDataset(remaining.length > 0 ? remaining[0] : null);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Error deleting dataset";
-      setDeleteError(message);
+      setDeleteError(getApiErrorMessage(err, "Error deleting dataset"));
     } finally {
       setIsDeleting(false);
     }

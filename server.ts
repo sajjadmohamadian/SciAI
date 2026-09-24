@@ -210,14 +210,40 @@ const isLoopbackHost = () => {
 };
 const isDevBypassEnabled = () => isLoopbackHost() && process.env.SCIAI_DEV_AUTH_BYPASS === "true";
 const getConfiguredApiToken = () => (process.env.SCIAI_API_TOKEN || process.env.API_TOKEN || "").trim();
+const isPublicUploadsEnabled = () => process.env.SCIAI_PUBLIC_UPLOADS === "true";
 
-// Startup validation: fail closed if non-loopback and no token configured
+const normalizeOrigin = (origin: string) => {
+  const trimmed = origin.trim();
+  return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
+};
+
+const parsePublicUploadOrigins = () => {
+  const rawOriginList = process.env.SCIAI_PUBLIC_ORIGIN || process.env.APP_URL || "";
+  const configuredOrigins = rawOriginList
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      try {
+        return new URL(entry).origin;
+      } catch {
+        return normalizeOrigin(entry);
+      }
+    })
+    .filter((entry) => entry && entry !== "*");
+
+  return configuredOrigins.length > 0 ? configuredOrigins : allowedOrigins;
+};
+
+// Startup validation: fail closed if non-loopback and no token configured.
+// Public upload mode is an explicit opt-in exception for hosts that intentionally expose upload only.
 if (
   process.env.NODE_ENV !== "test" &&
   !process.execArgv.includes("--test") &&
   process.env.npm_lifecycle_event !== "test" &&
   !isLoopbackHost() &&
-  !getConfiguredApiToken()
+  !getConfiguredApiToken() &&
+  !isPublicUploadsEnabled()
 ) {
   console.error("CRITICAL CONFIGURATION ERROR: Server is configured to bind to non-loopback host '%s', but SCIAI_API_TOKEN is not set. Refusing to start an unprotected server.", getHost());
   process.exit(1);
@@ -298,6 +324,71 @@ export const requireNonLoopbackToken: express.RequestHandler = (req, res, next) 
     return next();
   }
   return requireApiToken(req, res, next);
+};
+
+const PUBLIC_UPLOAD_RATE_WINDOW_MS = 15 * 60 * 1000;
+const PUBLIC_UPLOAD_MAX_ATTEMPTS = 20;
+const publicUploadRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+const getRequestIp = (req: express.Request) => {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
+    return forwardedFor.split(",")[0].trim();
+  }
+  return req.ip || req.socket.remoteAddress || "unknown";
+};
+
+const isPublicUploadOriginAllowed = (req: express.Request) => {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  if (typeof origin !== "string") return false;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  return parsePublicUploadOrigins().includes(normalizedOrigin);
+};
+
+const consumePublicUploadRateLimit = (req: express.Request) => {
+  const now = Date.now();
+  const key = getRequestIp(req);
+  const bucket = publicUploadRateBuckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    publicUploadRateBuckets.set(key, { count: 1, resetAt: now + PUBLIC_UPLOAD_RATE_WINDOW_MS });
+    return true;
+  }
+
+  if (bucket.count >= PUBLIC_UPLOAD_MAX_ATTEMPTS) {
+    return false;
+  }
+
+  bucket.count += 1;
+  return true;
+};
+
+export const requireUploadPermission: express.RequestHandler = (req, res, next) => {
+  const hasTokenHeader = req.headers.authorization !== undefined || req.headers["x-api-key"] !== undefined;
+
+  if (hasTokenHeader) {
+    return requireApiToken(req, res, next);
+  }
+
+  if (!isPublicUploadsEnabled()) {
+    return requireApiToken(req, res, next);
+  }
+
+  if (!isPublicUploadOriginAllowed(req)) {
+    return res.status(403).json({
+      error: "Public upload rejected: request origin is not allowed for this SciAI deployment.",
+    });
+  }
+
+  if (!consumePublicUploadRateLimit(req)) {
+    return res.status(429).json({
+      error: "Public upload rate limit exceeded. Please wait before uploading more files.",
+    });
+  }
+
+  return next();
 };
 
 // Bounded body parsers (protect against memory exhaustion from oversized raw payloads)
@@ -2502,7 +2593,7 @@ app.delete(["/api/datasets/:dataset_id", "/datasets/:dataset_id"], requireApiTok
 });
 
 // Multi-Database File Ingestion & Auto-Detection
-app.post(["/api/datasets/upload", "/datasets/upload"], requireApiToken, safeUploadAny, (req, res) => {
+app.post(["/api/datasets/upload", "/datasets/upload"], requireUploadPermission, safeUploadAny, (req, res) => {
   try {
     const files = req.files as Express.Multer.File[] | undefined;
     const bodyContent = req.body.content as string | undefined;

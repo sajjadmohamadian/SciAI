@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   HelpCircle,
 } from "lucide-react";
+import { apiJson, apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
 
 interface Props {
   datasets: Dataset[];
@@ -84,26 +85,21 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
     setMerging(true);
 
     try {
-      const res = await fetch("/api/datasets/smart-merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_ids: selectedDatasetIds,
-          target_name: customName.trim() || undefined,
-          similarity_threshold: similarityThreshold,
-          allow_year_tolerance: allowYearTolerance,
-        }),
+      const data: any = await apiJson("/api/datasets/smart-merge", {
+        dataset_ids: selectedDatasetIds,
+        target_name: customName.trim() || undefined,
+        similarity_threshold: similarityThreshold,
+        allow_year_tolerance: allowYearTolerance,
       });
 
-      const data = await res.json();
-      if (res.ok && data.summary) {
+      if (data.summary) {
         setSummary(data.summary);
         onRefreshData();
       } else {
-        setErrorMsg(data.error || "Failed to execute smart merge.");
+        setErrorMsg("Failed to execute smart merge.");
       }
-    } catch (err) {
-      setErrorMsg("Network error connecting to backend merge pipeline.");
+    } catch (err: unknown) {
+      setErrorMsg(getApiErrorMessage(err, "Network error connecting to backend merge pipeline."));
     } finally {
       setMerging(false);
     }
@@ -113,18 +109,17 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
     setLoadingSample(true);
     setErrorMsg("");
     try {
-      const res = await fetch("/api/datasets/load-sample-cohort", {
+      const data: any = await apiRequest("/api/datasets/load-sample-cohort", {
         method: "POST",
       });
-      const data = await res.json();
-      if (res.ok && data.merge_summary) {
+      if (data.merge_summary) {
         setSummary(data.merge_summary);
         onRefreshData();
       } else {
-        setErrorMsg(data.error || "Failed to load sample cohort.");
+        setErrorMsg("Failed to load sample cohort.");
       }
-    } catch (err) {
-      setErrorMsg("Error communicating with server.");
+    } catch (err: unknown) {
+      setErrorMsg(getApiErrorMessage(err, "Error communicating with server."));
     } finally {
       setLoadingSample(false);
     }

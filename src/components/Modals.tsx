@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Dataset, DatasetVersion, Capability } from "../types.js";
 import { Modal } from "./CommonUI.js";
 import { Upload, Play, Database, FileSpreadsheet, CheckCircle } from "lucide-react";
+import { apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
 
 export function RunAnalysisModal({
   datasets = [],
@@ -229,37 +230,19 @@ export function UploadDatasetModal({
     }
 
     try {
-      const res = await fetch("/api/datasets/upload", {
+      const data: any = await apiRequest("/api/datasets/upload", {
         method: "POST",
         body: formData,
       });
-      const resText = await res.text();
-      let data: any = null;
-      try {
-        data = JSON.parse(resText);
-      } catch {
-        if (resText.trim().startsWith("<") || res.headers.get("content-type")?.includes("text/html")) {
-          throw new Error("Server received the request but returned an HTML page. The server may still be initializing or restarting. Please retry in a few seconds.");
-        }
-        throw new Error(
-          res.status === 413
-            ? "File size exceeds server limit (100MB). Please upload a smaller export file."
-            : `Server returned error (${res.status}): ${resText.slice(0, 150) || res.statusText}`
-        );
-      }
 
-      if (res.ok && data) {
-        const count = data.datasets?.length || 1;
-        const msg = data.merge_result
-          ? `Successfully ingested ${count} dataset(s) with ${data.total_records_ingested} records and performed Smart Merge into ${data.merge_result.final_unique_count} unified records!`
-          : `Successfully imported ${count} dataset(s) with ${data.total_records_ingested} records!`;
-        onUploadSuccess(msg);
-        onClose();
-      } else {
-        setError(data?.error || "Failed to upload dataset");
-      }
-    } catch (err: any) {
-      setError(err?.message || "Failed to communicate with server");
+      const count = data.datasets?.length || 1;
+      const msg = data.merge_result
+        ? `Successfully ingested ${count} dataset(s) with ${data.total_records_ingested} records and performed Smart Merge into ${data.merge_result.final_unique_count} unified records!`
+        : `Successfully imported ${count} dataset(s) with ${data.total_records_ingested} records!`;
+      onUploadSuccess(msg);
+      onClose();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Failed to upload dataset"));
     } finally {
       setUploading(false);
     }
@@ -269,28 +252,18 @@ export function UploadDatasetModal({
     setUploading(true);
     setError("");
     try {
-      const res = await fetch("/api/datasets/load-sample-cohort", {
+      const data: any = await apiRequest("/api/datasets/load-sample-cohort", {
         method: "POST",
       });
-      const resText = await res.text();
-      let data: any = null;
-      try {
-        data = JSON.parse(resText);
-      } catch {
-        if (resText.trim().startsWith("<") || res.headers.get("content-type")?.includes("text/html")) {
-          throw new Error("Server received the request but returned an HTML page. Please retry in a few seconds.");
-        }
-        throw new Error(`Server returned error (${res.status}): ${resText.slice(0, 150) || res.statusText}`);
-      }
 
-      if (res.ok && data) {
+      if (data.merge_summary || data.created?.length || data.message) {
         onUploadSuccess(`Successfully ingested authentic 6-Database Sample Cohort (WoS, Scopus, PubMed, OpenAlex, Dimensions, Lens) and created consolidated Master Corpus!`);
         onClose();
       } else {
-        setError(data?.error || "Failed to load sample cohort");
+        setError("Failed to load sample cohort");
       }
-    } catch (err: any) {
-      setError(err?.message || "Failed to load sample cohort");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Failed to load sample cohort"));
     } finally {
       setUploading(false);
     }
