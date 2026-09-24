@@ -44,6 +44,12 @@ Uploads use browser-generated multipart `FormData`; do not manually set the mult
 
 When `SCIAI_PUBLIC_UPLOADS="true"`, unauthenticated browser uploads are accepted only for the upload endpoint and only from the configured public origin. Public uploads use the same file validation and upload-size limits plus a lightweight in-memory IP rate limit. Public uploads write into the shared SciAI dataset store, so do not use this mode for private per-user data until real user accounts and per-user authorization exist.
 
+## Render deployment
+
+This repository includes `render.yaml` for Render Blueprint deployment. It builds with `npm install && npm run build` and starts with `npm start`. Render should provide `PORT`; the blueprint sets `HOST=0.0.0.0`, `NODE_ENV=production`, `SCIAI_PUBLIC_UPLOADS=true`, and generates a private `SCIAI_API_TOKEN`.
+
+After Render creates the service URL, set `SCIAI_PUBLIC_ORIGIN` to that exact origin, for example `https://your-service.onrender.com`, then redeploy. If Render provides `RENDER_EXTERNAL_URL`, SciAI can use it as a fallback public-upload origin.
+
 Example server-to-server upload shape:
 
 ```bash

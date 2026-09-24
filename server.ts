@@ -218,7 +218,7 @@ const normalizeOrigin = (origin: string) => {
 };
 
 const parsePublicUploadOrigins = () => {
-  const rawOriginList = process.env.SCIAI_PUBLIC_ORIGIN || process.env.APP_URL || "";
+  const rawOriginList = process.env.SCIAI_PUBLIC_ORIGIN || process.env.RENDER_EXTERNAL_URL || process.env.APP_URL || "";
   const configuredOrigins = rawOriginList
     .split(",")
     .map((entry) => entry.trim())
