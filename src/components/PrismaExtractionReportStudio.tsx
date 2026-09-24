@@ -26,6 +26,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
+import { useAiProvider } from "../context/AiProviderContext.js";
 
 interface Props {
   dataset: Dataset;
@@ -42,6 +43,7 @@ export function PrismaExtractionReportStudio({
   onNavigateToDedup,
   onRefreshData,
 }: Props) {
+  const { getAiRequestOptions } = useAiProvider();
   // Document state for extraction outcomes
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
@@ -225,6 +227,7 @@ export function PrismaExtractionReportStudio({
           includedStudies: funnel.includedStudies,
           databases: Object.keys(extractionOutcomes.sourceDistribution),
           extractionOutcomes,
+          ...getAiRequestOptions(),
         }),
       });
 

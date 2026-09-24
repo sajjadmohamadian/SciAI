@@ -59,6 +59,8 @@ SCIAI_OPENAI_MODEL="gpt-4.1-mini"
 
 Protected AI responses include `ai_provenance` with the provider/model used, attempted fallback path, timestamp, and limitations explaining that AI output is interpretive only.
 
+The AI workspace also provides an in-memory provider selector with `Server default`, Gemini, Claude, and OpenAI choices plus an optional fallback toggle. `Server default` follows the deployment configuration above; the selector only sends the chosen provider preference to protected AI routes. Provider keys remain server-managed and are never sent to or stored in the browser.
+
 ## Upload API
 
 - Health check: `GET /api/health`

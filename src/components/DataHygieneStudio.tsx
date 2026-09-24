@@ -28,6 +28,7 @@ import {
   Award,
   ExternalLink,
 } from "lucide-react";
+import { useAiProvider } from "../context/AiProviderContext.js";
 
 interface Props {
   datasets: Dataset[];
@@ -61,6 +62,7 @@ export function DataHygieneStudio({
   onRefreshData,
   initialSubTab,
 }: Props) {
+  const { getAiRequestOptions } = useAiProvider();
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
   );
@@ -374,6 +376,7 @@ export function DataHygieneStudio({
           includedStudies: prismaState.includedStudies,
           databases: Object.keys(healthMetrics.database_distribution || {}),
           extractionOutcomes,
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();

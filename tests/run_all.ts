@@ -30,6 +30,7 @@ const testFiles = [
   path.resolve("tests/api_client.test.ts"),
   path.resolve("tests/ai_provider_config.test.ts"),
   path.resolve("tests/ai_provider_routing.test.ts"),
+  path.resolve("tests/ai_provider_ui.test.ts"),
   path.resolve("tests/response_validation.test.ts"),
 ];
 

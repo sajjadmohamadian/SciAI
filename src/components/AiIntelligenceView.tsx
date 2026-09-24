@@ -8,6 +8,8 @@ import {
   validateResearchGapMatrixResponse,
   validateCorpusDiscrepancyResponse,
 } from "../utils/responseValidation.js";
+import { useAiProvider } from "../context/AiProviderContext.js";
+import { AiProviderSelector } from "./AiProviderSelector.js";
 import {
   Sparkles,
   Send,
@@ -36,7 +38,16 @@ interface Props {
 
 type AIToolTab = "rag_chat" | "gap_matrix" | "corpus_discrepancy" | "white_spaces" | "manuscript_studio" | "citation_intent";
 
+type AiResponseProvenance = {
+  provider?: string;
+  model?: string;
+  attemptedProviders?: Array<{ provider?: string; status?: string }>;
+};
+
 export function AiIntelligenceView({ datasets = [], analyses = [] }: Props) {
+  const { getAiRequestOptions } = useAiProvider();
+  const [lastAiProvenance, setLastAiProvenance] = useState<AiResponseProvenance | null>(null);
+  const [lastAiWarnings, setLastAiWarnings] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<AIToolTab>("rag_chat");
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>(
     datasets.length > 0 ? datasets[0].id : ""
@@ -94,9 +105,12 @@ You can ask me questions such as:
         body: JSON.stringify({
           dataset_id: selectedDatasetId,
           dataset_name: currentDataset?.name || "Active Research Corpus",
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateResearchGapMatrixResponse(data);
       if (val.success && val.data) {
         setGapMatrixData(val.data);
@@ -126,6 +140,8 @@ You can ask me questions such as:
         }),
       });
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateCorpusDiscrepancyResponse(data);
       if (val.success && val.data) {
         setDiscrepancyData(val.data);
@@ -177,10 +193,13 @@ You can ask me questions such as:
           query: userMessage,
           history: conversation.map((c) => ({ role: c.role, text: c.text })),
           dataset_id: selectedDatasetId || undefined,
+          ...getAiRequestOptions(),
         }),
       });
 
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateRagChatResponse(data);
       if (val.success && val.data) {
         setConversation((prev) => [
@@ -233,9 +252,12 @@ You can ask me questions such as:
           motor_themes: ["Supervised Deep Learning", "Diagnostic Accuracy", "Pathology AI"],
           niche_themes: ["Quantum ML", "Synthetic Biology Biomarkers"],
           recent_keywords: ["Foundation Models", "Vision Transformers", "Federated Learning"],
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateResearchGapsResponse(data);
       if (val.success && val.data) {
         setGapsResult(val.data);
@@ -273,9 +295,12 @@ You can ask me questions such as:
             collaboration_index: 3.42,
             growth_rate_annual: "18.4%",
           },
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateManuscriptSectionResponse(data);
       if (val.success && val.data) {
         setManuscriptContent(val.data);
@@ -300,9 +325,12 @@ You can ask me questions such as:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dataset_id: selectedDatasetId || undefined,
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();
+      setLastAiProvenance(data.ai_provenance || null);
+      setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateCitationContextResponse(data);
       if (val.success && val.data) {
         setCitationData(val.data);
@@ -340,24 +368,44 @@ You can ask me questions such as:
           </div>
         </div>
 
-        {/* Dataset selector */}
-        {datasets.length > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-            <span className="text-[11px] font-bold text-slate-500 uppercase">Active Corpus:</span>
-            <select
-              value={selectedDatasetId}
-              onChange={(e) => setSelectedDatasetId(e.target.value)}
-              className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count} docs)
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <AiProviderSelector />
+
+          {/* Dataset selector */}
+          {datasets.length > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Active Corpus:</span>
+              <select
+                value={selectedDatasetId}
+                onChange={(e) => setSelectedDatasetId(e.target.value)}
+                className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer"
+              >
+                {datasets.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.record_count} docs)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
+
+      {lastAiProvenance && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-2xs">
+          <span className="font-bold uppercase tracking-wide text-slate-500">Last AI response</span>
+          <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+            {lastAiProvenance.provider || "unavailable"}
+            {lastAiProvenance.model && lastAiProvenance.model !== "unavailable" ? ` · ${lastAiProvenance.model}` : ""}
+          </span>
+          {lastAiProvenance.attemptedProviders && lastAiProvenance.attemptedProviders.length > 1 && (
+            <span className="text-amber-700">Fallback path attempted</span>
+          )}
+          {lastAiWarnings.map((warning) => (
+            <span key={warning} className="text-amber-700">{warning}</span>
+          ))}
+        </div>
+      )}
 
       {/* Feature Mode Switcher Tabs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">

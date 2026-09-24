@@ -12,6 +12,7 @@ import {
   EmptyState,
 } from "./CommonUI.js";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
+import { useAiProvider } from "../context/AiProviderContext.js";
 import { VisualizerChart } from "./VisualizerChart.js";
 import { NetworkGraph } from "./NetworkGraph.js";
 import {
@@ -76,6 +77,7 @@ export function OverviewView({
   onNavigateTab,
   onOpenUpload,
 }: Props) {
+  const { getAiRequestOptions } = useAiProvider();
   // Active dataset context: "" represents all datasets combined
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
   // Growth chart view mode: "annual" vs "cumulative"
@@ -306,6 +308,7 @@ export function OverviewView({
             total_citations: citationStats.totalCitations,
             top_keywords: topKeywords,
           },
+          ...getAiRequestOptions(),
         }),
       });
 

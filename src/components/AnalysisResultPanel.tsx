@@ -5,6 +5,7 @@ import { VisualizerChart } from "./VisualizerChart.js";
 import { NetworkGraph } from "./NetworkGraph.js";
 import { Download, Sparkles, RefreshCw, FileText, BarChart3, Network, Table } from "lucide-react";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
+import { useAiProvider } from "../context/AiProviderContext.js";
 
 interface Props {
   analysis: Analysis | null;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
+  const { getAiRequestOptions } = useAiProvider();
   const [activeTab, setActiveTab] = useState<"visual" | "table" | "ai">("visual");
   const [filterQuery, setFilterQuery] = useState("");
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -75,6 +77,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
           capability_id: capabilityId,
           records: records.slice(0, 20),
           metadata,
+          ...getAiRequestOptions(),
         }),
       });
       const data = await res.json();
