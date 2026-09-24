@@ -29,7 +29,8 @@ For hosted browser use, choose one of these safe patterns:
 
 1. **Trusted gateway injection**: authenticate users at a same-origin gateway/reverse proxy, strip client-supplied auth headers, and inject server-side credentials only on the trusted server-to-server hop.
 2. **Real browser auth/session**: add a login provider, secure `HttpOnly` cookies, CSRF/Origin protections, and server-side session authorization.
-3. **Read-only hosted UI with admin API mutations**: keep protected mutations unavailable in the browser when token auth is enabled and use server-to-server/admin tools for writes.
+3. **Public upload mode**: if uploads must be open to everyone, set `SCIAI_PUBLIC_UPLOADS="true"` and configure `SCIAI_PUBLIC_ORIGIN` to the exact hosted site origin. This makes only `POST /api/datasets/upload` public; sample cohort loading, Smart Merge, dataset deletion, analysis execution, imports, and AI/ML mutations remain protected.
+4. **Read-only hosted UI with admin API mutations**: keep protected mutations unavailable in the browser when token auth is enabled and use server-to-server/admin tools for writes.
 
 Do not add an anonymous token/session bootstrap endpoint. The browser cannot safely receive `SCIAI_API_TOKEN`.
 
@@ -40,6 +41,8 @@ Do not add an anonymous token/session bootstrap endpoint. The browser cannot saf
 - Sample cohort: `POST /api/datasets/load-sample-cohort`
 
 Uploads use browser-generated multipart `FormData`; do not manually set the multipart `Content-Type` boundary. The server enforces bounded temporary-file upload limits: 25 MB per file, 50 MB per request, and up to 10 files.
+
+When `SCIAI_PUBLIC_UPLOADS="true"`, unauthenticated browser uploads are accepted only for the upload endpoint and only from the configured public origin. Public uploads use the same file validation and upload-size limits plus a lightweight in-memory IP rate limit. Public uploads write into the shared SciAI dataset store, so do not use this mode for private per-user data until real user accounts and per-user authorization exist.
 
 Example server-to-server upload shape:
 

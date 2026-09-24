@@ -10,7 +10,7 @@ import {
   validateBibliometricUpload,
   detectDatabaseFormat,
 } from "../server/parsers/detector.js";
-import { cleanupUploadedFiles, requireApiToken, requireNonLoopbackToken, app } from "../server.ts";
+import { cleanupUploadedFiles, requireApiToken, requireNonLoopbackToken, requireUploadPermission, app } from "../server.ts";
 
 describe("Security & Authentication Suite", () => {
   const TEST_TOKEN = "sciai-test-secure-token-abcdef123456";
@@ -228,6 +228,12 @@ describe("Security & Authentication Suite", () => {
     });
 
     afterEach(async () => {
+      delete process.env.SCIAI_API_TOKEN;
+      delete process.env.API_TOKEN;
+      delete process.env.SCIAI_DEV_AUTH_BYPASS;
+      delete process.env.SCIAI_PUBLIC_UPLOADS;
+      delete process.env.SCIAI_PUBLIC_ORIGIN;
+      delete process.env.APP_URL;
       server.closeAllConnections?.();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
@@ -299,6 +305,120 @@ describe("Security & Authentication Suite", () => {
       assert.equal(res.status, 401);
       const json = await res.json();
       assert(json.error?.includes("Authentication required"));
+    });
+
+    test("Public uploads are disabled by default and still require credentials", () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+      delete process.env.SCIAI_PUBLIC_UPLOADS;
+
+      const req: any = { headers: {}, query: {}, ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" } };
+      const res = createMockRes();
+      let nextCalled = false;
+
+      requireUploadPermission(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, false);
+      assert.equal(res.statusCode, 401);
+      assert(res._data?.error?.includes("Authentication required"));
+    });
+
+    test("Public upload mode allows upload middleware only when explicitly enabled with an allowed origin", () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+      process.env.SCIAI_PUBLIC_UPLOADS = "true";
+      process.env.SCIAI_PUBLIC_ORIGIN = baseUrl;
+
+      const req: any = {
+        headers: { origin: baseUrl },
+        query: {},
+        ip: `127.0.0.1-public-${Date.now()}`,
+        socket: { remoteAddress: "127.0.0.1" },
+      };
+      const res = createMockRes();
+      let nextCalled = false;
+
+      requireUploadPermission(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, true);
+      assert.equal(res.statusCode, 200);
+    });
+
+    test("Public upload mode rejects disallowed browser origins", () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+      process.env.SCIAI_PUBLIC_UPLOADS = "true";
+      process.env.SCIAI_PUBLIC_ORIGIN = baseUrl;
+
+      const req: any = {
+        headers: { origin: "https://evil.example" },
+        query: {},
+        ip: `127.0.0.1-origin-${Date.now()}`,
+        socket: { remoteAddress: "127.0.0.1" },
+      };
+      const res = createMockRes();
+      let nextCalled = false;
+
+      requireUploadPermission(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, false);
+      assert.equal(res.statusCode, 403);
+      assert(res._data?.error?.includes("origin is not allowed"));
+    });
+
+    test("Valid API token still authorizes upload when public uploads are disabled", () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+      process.env.SCIAI_PUBLIC_UPLOADS = "false";
+
+      const req: any = {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        query: {},
+        ip: "127.0.0.1",
+        socket: { remoteAddress: "127.0.0.1" },
+      };
+      const res = createMockRes();
+      let nextCalled = false;
+
+      requireUploadPermission(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, true);
+      assert.equal(res.statusCode, 200);
+    });
+
+    test("Public upload mode does not make other protected routes public", async () => {
+      process.env.SCIAI_API_TOKEN = TEST_TOKEN;
+      process.env.SCIAI_DEV_AUTH_BYPASS = "false";
+      process.env.SCIAI_PUBLIC_UPLOADS = "true";
+      process.env.SCIAI_PUBLIC_ORIGIN = baseUrl;
+
+      const cohortRes = await fetch(`${baseUrl}/api/datasets/load-sample-cohort`, {
+        method: "POST",
+        headers: { Origin: baseUrl },
+      });
+      assert.equal(cohortRes.status, 401);
+      const cohortJson = await cohortRes.json();
+      assert(cohortJson.error?.includes("Authentication required"));
+
+      const analysisRes = await fetch(`${baseUrl}/api/analyses/run`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: baseUrl,
+        },
+        body: JSON.stringify({ project_id: "x", dataset_version_id: "y", capability_id: "z" }),
+      });
+      assert.equal(analysisRes.status, 401);
+      const analysisJson = await analysisRes.json();
+      assert(analysisJson.error?.includes("Authentication required"));
     });
   });
 
