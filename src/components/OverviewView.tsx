@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { BRAND } from "../brand.js";
 import {
   Dataset,
   Analysis,
@@ -440,62 +441,93 @@ export function OverviewView({
   return (
     <div className="space-y-8">
       {/* 1. Header & Active Dataset Context Selector */}
-      <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200/80 pb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-              Research Intelligence Cockpit
-            </span>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-              Direct Persistent Storage
-            </span>
+      <section className="overflow-hidden rounded-3xl border border-[#D8DDD8] bg-[#F7F8F6] shadow-xs">
+        <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
+          <div className="relative p-6 sm:p-7">
+            <div className="absolute inset-y-0 right-0 hidden w-px bg-[#D8DDD8] lg:block" />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#315C7C]/20 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#315C7C]">
+                Local evidence workspace
+              </span>
+              <span className="rounded-full border border-[#D8DDD8] bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-[#27313C]/70">
+                Direct persistent storage
+              </span>
+            </div>
+            <h1 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-[#101820] sm:text-4xl">
+              {BRAND.name} Research Intelligence
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#27313C]/75">
+              Map scientific evidence across sources, citations, authors, and emerging fronts.
+            </p>
+            <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
+                <div className="text-[10px] font-semibold text-[#27313C]/55">Research corpus</div>
+                <div className="mt-1 text-lg font-bold text-[#101820]">{activeDocCount.toLocaleString()}</div>
+              </div>
+              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
+                <div className="text-[10px] font-semibold text-[#27313C]/55">Sources</div>
+                <div className="mt-1 text-lg font-bold text-[#101820]">{provenanceDistribution.length}</div>
+              </div>
+              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
+                <div className="text-[10px] font-semibold text-[#27313C]/55">Citations</div>
+                <div className="mt-1 text-lg font-bold text-[#101820]">{citationStats.totalCitations.toLocaleString()}</div>
+              </div>
+              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
+                <div className="text-[10px] font-semibold text-[#27313C]/55">Span</div>
+                <div className="mt-1 text-lg font-bold text-[#101820]">{yearStats.minYear}–{yearStats.maxYear}</div>
+              </div>
+            </div>
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            Scientometric Overview
-          </h1>
-          <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-            Multi-dimensional quantitative evaluation of scientific output, author productivity, citation dynamics, and knowledge structures.
-          </p>
-        </div>
 
-        {/* Active Dataset Switcher */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <label htmlFor="active-corpus-select" className="sr-only">
-              Select Active Dataset
-            </label>
-            <select
-              id="active-corpus-select"
-              value={selectedDatasetId}
-              onChange={(e) => setSelectedDatasetId(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs focus:border-slate-900 focus:outline-hidden transition cursor-pointer"
-            >
-              <option value="">Consolidated Dataset Portfolio (All Datasets)</option>
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count} records)
-                </option>
-              ))}
-            </select>
+          {/* Active Dataset Switcher */}
+          <div className="flex flex-col justify-between gap-4 bg-white/70 p-5 sm:p-6">
+            <div>
+              <div className="text-xs font-bold text-[#101820]">Evidence scope</div>
+              <p className="mt-1 text-xs leading-5 text-[#27313C]/65">
+                Select a dataset view, import bibliographic records, or reconcile overlapping sources.
+              </p>
+            </div>
+            <div className="space-y-2.5">
+              <div className="relative">
+                <label htmlFor="active-corpus-select" className="sr-only">
+                  Select Active Dataset
+                </label>
+                <select
+                  id="active-corpus-select"
+                  value={selectedDatasetId}
+                  onChange={(e) => setSelectedDatasetId(e.target.value)}
+                  className="w-full rounded-xl border border-[#D8DDD8] bg-white px-3.5 py-2 text-xs font-bold text-[#101820] shadow-xs focus:border-[#315C7C] focus:outline-hidden transition cursor-pointer"
+                >
+                  <option value="">Consolidated Dataset Portfolio (All Datasets)</option>
+                  {datasets.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.record_count} records)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenUpload}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#D8DDD8] bg-white px-3 py-2 text-xs font-bold text-[#27313C] shadow-xs hover:border-[#315C7C]/35 hover:text-[#101820] transition cursor-pointer"
+                >
+                  <Database className="h-3.5 w-3.5 text-[#315C7C]" />
+                  Import Records
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab("merge")}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#315C7C] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#27313C] transition cursor-pointer"
+                >
+                  <GitMerge className="h-3.5 w-3.5 text-[#DDE8E0]" />
+                  Smart Merge
+                </button>
+              </div>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onOpenUpload}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer"
-          >
-            <Database className="h-3.5 w-3.5 text-slate-500" />
-            Import Records
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateTab("merge")}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-          >
-            <GitMerge className="h-3.5 w-3.5 text-emerald-400" />
-            Smart Merge
-          </button>
         </div>
       </section>
 

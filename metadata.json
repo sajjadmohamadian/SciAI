@@ -1,6 +1,6 @@
 {
   "name": "SciAI",
-  "description": "Scientrix & BiblioFusion: Self-hosted multi-database scientometric intelligence platform with GNNs, Smart Merge (WoS, Scopus, PubMed, OpenAlex, Dimensions, Lens), multi-provider AI synthesis, and direct live connector for Microsoft Power BI.",
+  "description": "SciAI is a self-hosted research-intelligence platform for multi-source bibliographic corpora, scientometric analysis, citation networks, AI-assisted interpretation, and enterprise reporting.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_AI_PROVIDER_ROUTER"]
 }

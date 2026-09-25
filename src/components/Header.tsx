@@ -1,4 +1,5 @@
 import React from "react";
+import { BRAND } from "../brand.js";
 import { NavTab } from "./Sidebar.js";
 import { RefreshCw, Upload, Play, Menu } from "lucide-react";
 
@@ -57,11 +58,16 @@ export function Header({
             </button>
           )}
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              SciAI Research Intelligence
+            <div className="flex items-center gap-2 text-[10px] font-semibold text-[#315C7C]">
+              <span>{BRAND.name}</span>
+              <span className="h-1 w-1 rounded-full bg-[#6E8B3D]" />
+              <span>{BRAND.shellDescriptor}</span>
             </div>
-            <div className="text-sm font-black text-slate-900 tracking-tight">
+            <div className="text-sm font-bold text-[#101820] tracking-tight">
               {current.label}
+            </div>
+            <div className="hidden text-[11px] font-medium text-slate-500 sm:block">
+              {current.subtitle}
             </div>
           </div>
         </div>

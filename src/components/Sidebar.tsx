@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { BRAND } from "../brand.js";
 import { Project } from "../types.js";
 import {
   LayoutDashboard,
@@ -63,6 +64,22 @@ export interface NavGroup {
   id: string;
   title: string;
   items: NavItem[];
+}
+
+function BrandMark() {
+  return (
+    <div aria-hidden="true" className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-[#315C7C]/25 bg-[#101820] text-white shadow-xs">
+      <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <path d="M8 25.5 17.5 16 28 21" fill="none" stroke="#8AA9BE" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M15.5 12 24 8" fill="none" stroke="#6E8B3D" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="8" cy="25.5" r="2.1" fill="#6E8B3D" />
+        <circle cx="17.5" cy="16" r="2" fill="#F7F8F6" />
+        <circle cx="28" cy="21" r="2.1" fill="#B7832F" />
+        <circle cx="24" cy="8" r="1.8" fill="#6D5BA6" />
+      </svg>
+      <span className="relative text-[13px] font-bold tracking-[-0.04em]">S</span>
+    </div>
+  );
 }
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -257,20 +274,18 @@ export function Sidebar({
   const content = (
     <div className="flex h-full flex-col bg-white">
       {/* Brand Header */}
-      <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-white font-black text-sm shadow-xs">
-            S
-          </div>
+      <div className="flex h-18 items-center justify-between border-b border-[#D8DDD8] bg-[#F7F8F6]/80 px-5">
+        <div className="flex items-center gap-3">
+          <BrandMark />
           <div>
-            <div className="text-sm font-black tracking-tight text-slate-900 flex items-center gap-1.5">
-              SciAI
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">
-                v0.1
+            <div className="flex items-center gap-1.5 text-sm font-bold tracking-tight text-[#101820]">
+              {BRAND.name}
+              <span className="rounded-md border border-[#D8DDD8] bg-white px-1.5 py-0.5 text-[9px] font-bold text-[#27313C]">
+                {BRAND.version}
               </span>
             </div>
-            <div className="text-[10px] font-semibold text-slate-400">
-              Scientometrics & Intelligence
+            <div className="text-[10px] font-semibold text-[#315C7C]">
+              {BRAND.shellDescriptor}
             </div>
           </div>
         </div>
@@ -371,8 +386,8 @@ export function Sidebar({
                           onClick={() => handleSelectTab(item.id)}
                           className={`w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
                             isActive
-                              ? "bg-slate-950 text-white shadow-xs"
-                              : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-950"
+                              ? "border border-[#315C7C]/25 bg-[#315C7C] text-white shadow-xs"
+                              : "text-[#27313C] hover:bg-[#F7F8F6] hover:text-[#101820]"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 truncate">
@@ -407,14 +422,14 @@ export function Sidebar({
       {/* Workspace Footer Card */}
       <div className="border-t border-slate-200 p-3">
         <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Active Workspace
+          <div className="text-[10px] font-bold text-[#315C7C]">
+            Workspace
           </div>
-          <div className="mt-1 truncate text-xs font-bold text-slate-900">
-            {project?.name || "SciAI Research Workspace"}
+          <div className="mt-1 truncate text-xs font-bold text-[#101820]">
+            {project?.name || `${BRAND.name} Research Intelligence`}
           </div>
-          <div className="mt-0.5 text-[10px] text-slate-400">
-            SQLite Persisted • Offline Ready
+          <div className="mt-0.5 text-[10px] text-[#27313C]/60">
+            Local evidence store · Offline ready
           </div>
         </div>
       </div>
