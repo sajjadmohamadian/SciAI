@@ -34,6 +34,17 @@ For hosted browser use, choose one of these safe patterns:
 
 Do not add an anonymous token/session bootstrap endpoint. The browser cannot safely receive `SCIAI_API_TOKEN`.
 
+## Terminology
+
+SciAI uses a controlled vocabulary for scientific and product-facing language:
+
+- **Dataset** means the managed/imported data container stored by SciAI.
+- **Research corpus** means the publications or bibliographic records selected for analysis.
+- **Bibliographic record** means an imported or normalized row-level bibliographic unit.
+- **Publication** means a scholarly work counted in scientometric metrics.
+- **Data source**, **bibliographic database**, and **bibliographic index** are distinct source concepts and should not be used interchangeably.
+- **AI-assisted** output is interpretive; deterministic SciAI metrics remain authoritative, and unsupported values are reported as `unavailable`.
+
 ## AI provider configuration
 
 SciAI supports a server-side AI provider router for Gemini, Claude, and OpenAI. Deterministic SciAI code remains authoritative for scientometric metrics; AI providers are used only for explanation, summarization, labeling, narrative drafting, and research suggestions grounded in supplied data. Unsupported values must be shown as `unavailable`, not invented.

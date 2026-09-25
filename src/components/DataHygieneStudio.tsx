@@ -531,7 +531,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `PRISMA-2020-Flowchart-${currentDataset?.name || "Corpus"}.svg`;
+    a.download = `PRISMA-2020-Flowchart-${currentDataset?.name || "Dataset"}.svg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -540,7 +540,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Corpus Selector */}
+      {/* Top Header & Dataset Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             </span>
           </div>
           <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            Corpus Management & Data Hygiene
+            Dataset Management & Data Hygiene
           </h1>
           <p className="mt-1 text-xs text-slate-500 max-w-2xl">
             Audit metadata completeness, execute rule-based de-duplication across bibliographic sources, and generate publication-ready PRISMA 2020 flow diagrams.
@@ -585,7 +585,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
           >
             <Upload className="h-3.5 w-3.5" />
-            Upload New Corpus
+            Upload New Dataset
           </button>
         </div>
       </div>
@@ -616,7 +616,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             }`}
           >
             <GitMerge className="h-3.5 w-3.5" />
-            De-duplication & Record Merging
+            Deduplication & Bibliographic Record Merging
             {duplicateClusters.length > 0 && (
               <span className="ml-1 rounded-full bg-rose-500 text-white px-1.5 py-0.2 text-[10px]">
                 {duplicateClusters.length}
@@ -647,14 +647,14 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
-            Browse Canonical Records ({documents.length})
+            Browse Canonical Bibliographic Records ({documents.length})
           </button>
         </div>
 
         {isLoadingDocs && (
           <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-semibold animate-pulse">
             <RefreshCw className="h-3 w-3 animate-spin" />
-            Reading records...
+            Reading bibliographic records...
           </span>
         )}
       </div>
@@ -825,7 +825,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                {isDeduplicating ? "Scanning Corpus..." : "Run Deduplication Scan"}
+                {isDeduplicating ? "Scanning Dataset..." : "Run Deduplication Scan"}
               </button>
             </div>
 

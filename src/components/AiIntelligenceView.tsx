@@ -61,18 +61,18 @@ export function AiIntelligenceView({ datasets = [], analyses = [] }: Props) {
   >([
     {
       role: "ai",
-      text: `Hello! I am your Scientometric AI Research Copilot powered by SciAI's multi-provider AI router.
-I am grounded directly in your active workspace containing ${datasets.length} datasets and ${analyses.length} completed analytical modules.
+      text: `Hello! I am your Scientometric AI Research Assistant powered by SciAI's multi-provider AI router.
+I am grounded directly in your active workspace containing ${datasets.length} datasets and ${analyses.length} completed analysis runs.
 
 You can ask me questions such as:
-- "Which papers form the nuclear core in Bradford's Zone 1?"
+- "Which publications form the nuclear core in Bradford's Zone 1?"
 - "What is the degree of conformity to Lotka's Law and Price's square root conjecture?"
 - "Summarize the major invisible colleges in our collaboration network."
 - "What are the most cited articles published after 2020?"`,
     },
   ]);
 
-  // 2. White-Space / Research Gaps state
+  // 2. Research Gaps state
   const [gapsLoading, setGapsLoading] = useState(false);
   const [gapsError, setGapsError] = useState<string | null>(null);
   const [gapsIsPartial, setGapsIsPartial] = useState(false);
@@ -88,7 +88,7 @@ You can ask me questions such as:
   const [gapMatrixData, setGapMatrixData] = useState<ResearchGapMatrixOutput | null>(null);
   const [selectedQuadrantFilter, setSelectedQuadrantFilter] = useState<string>("all");
 
-  // New Feature: Multi-Corpus Discrepancy & Indexing Bias Analysis (WoS vs Scopus vs PubMed)
+  // New Feature: Multi-Source Discrepancy & Indexing Coverage Analysis (WoS vs Scopus vs PubMed)
   const [discrepancyLoading, setDiscrepancyLoading] = useState(false);
   const [discrepancyError, setDiscrepancyError] = useState<string | null>(null);
   const [discrepancyData, setDiscrepancyData] = useState<MultiCorpusDiscrepancyOutput | null>(null);
@@ -104,7 +104,7 @@ You can ask me questions such as:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dataset_id: selectedDatasetId,
-          dataset_name: currentDataset?.name || "Active Research Corpus",
+          dataset_name: currentDataset?.name || "Active Dataset",
           ...getAiRequestOptions(),
         }),
       });
@@ -136,7 +136,7 @@ You can ask me questions such as:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dataset_id: selectedDatasetId,
-          dataset_name: currentDataset?.name || "Active Research Corpus",
+          dataset_name: currentDataset?.name || "Active Dataset",
         }),
       });
       const data = await res.json();
@@ -231,7 +231,7 @@ You can ask me questions such as:
     }
   };
 
-  // Run White-Space Detection
+  // Run Research Gap Detection
   const runWhiteSpaces = async () => {
     setGapsLoading(true);
     setGapsError(null);
@@ -243,7 +243,7 @@ You can ask me questions such as:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dataset_id: selectedDatasetId,
-          dataset_name: currentDataset?.name || "Active Corpus",
+          dataset_name: currentDataset?.name || "Active Dataset",
           clusters: [
             { name: "Deep Learning & Image Processing", top_members: ["CNN", "ResNet", "Segmentation"], size: 18 },
             { name: "Clinical Oncology & Biomarkers", top_members: ["Prognosis", "Survival", "Biomarker"], size: 14 },
@@ -287,7 +287,7 @@ You can ask me questions such as:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           section: sec,
-          dataset_name: currentDataset?.name || "Active Research Corpus",
+          dataset_name: currentDataset?.name || "Active Dataset",
           metrics: {
             record_count: currentDataset?.record_count || 120,
             lotka_beta: 2.14,
@@ -362,7 +362,7 @@ You can ask me questions such as:
                 </span>
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                Full-stack AI suite: Corpus-Wide RAG, White-Space Topology, Manuscript Synthesis, and Citation Sentiment.
+                Full-stack AI assistance: research corpus RAG, research gap mapping, manuscript synthesis, and citation context analysis.
               </p>
             </div>
           </div>
@@ -374,7 +374,7 @@ You can ask me questions such as:
           {/* Dataset selector */}
           {datasets.length > 0 && (
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Active Corpus:</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Active Dataset:</span>
               <select
                 value={selectedDatasetId}
                 onChange={(e) => setSelectedDatasetId(e.target.value)}
@@ -382,7 +382,7 @@ You can ask me questions such as:
               >
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({d.record_count} docs)
+                    {d.name} ({d.record_count} records)
                   </option>
                 ))}
               </select>
@@ -422,7 +422,7 @@ You can ask me questions such as:
             <BrainCircuit className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-black truncate">1. Corpus RAG</div>
+            <div className="text-xs font-black truncate">1. Research Corpus RAG</div>
             <div className="text-[10px] text-slate-500 truncate">Q&A & Inquiries</div>
           </div>
         </button>
@@ -464,7 +464,7 @@ You can ask me questions such as:
             <Database className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-black truncate">3. Indexing Bias</div>
+            <div className="text-xs font-black truncate">3. Indexing Coverage</div>
             <div className="text-[10px] text-slate-500 truncate">WoS vs Scopus vs PubMed</div>
           </div>
         </button>
@@ -485,7 +485,7 @@ You can ask me questions such as:
             <Compass className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-black truncate">4. White-Spaces</div>
+            <div className="text-xs font-black truncate">4. Research Gaps</div>
             <div className="text-[10px] text-slate-500 truncate">Structural Gaps</div>
           </div>
         </button>
@@ -507,7 +507,7 @@ You can ask me questions such as:
           </div>
           <div className="min-w-0">
             <div className="text-xs font-black truncate">5. Manuscript</div>
-            <div className="text-[10px] text-slate-500 truncate">Paper Synthesis</div>
+            <div className="text-[10px] text-slate-500 truncate">Manuscript Synthesis</div>
           </div>
         </button>
 
@@ -527,7 +527,7 @@ You can ask me questions such as:
             <Quote className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-black truncate">6. Citation Sentiment</div>
+            <div className="text-xs font-black truncate">6. Citation Context</div>
             <div className="text-[10px] text-slate-500 truncate">Rhetorical Roles</div>
           </div>
         </button>
@@ -542,11 +542,11 @@ You can ask me questions such as:
             <div className="flex items-center gap-2.5">
               <BrainCircuit className="h-4 w-4 text-indigo-600" />
               <span className="text-xs font-black text-slate-800">
-                Corpus-Wide Scientometric RAG Assistant
+                Corpus-Grounded Scientometric RAG Assistant
               </span>
             </div>
             <span className="text-[10px] font-semibold text-slate-400">
-              Live Token Indexing ({datasets.length} Datasets, {analyses.length} Analytical Runs)
+              Live Token Indexing ({datasets.length} datasets, {analyses.length} analysis runs)
             </span>
           </div>
 
@@ -573,7 +573,7 @@ You can ask me questions such as:
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3 text-xs text-indigo-700 font-medium">
                   <Sparkles className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                  AI provider router is retrieving relevant corpus documents and calculating scientometric context...
+                  AI provider router is retrieving relevant research corpus publications and calculating scientometric context...
                 </div>
               </div>
             )}
@@ -610,7 +610,7 @@ You can ask me questions such as:
           {gapMatrixError && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
               <div>
-                <span className="font-bold">Gap Matrix Unavailable: </span>
+                <span className="font-bold">Research Gap Matrix Unavailable: </span>
                 {gapMatrixError}
               </div>
               <button
@@ -626,7 +626,7 @@ You can ask me questions such as:
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">
-                  AI-Augmented Intelligence
+                  Research Assistance & Augmented Analysis
                 </span>
                 <span className="rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 text-[10px] font-mono text-indigo-700">
                   Matrix Framework
@@ -657,7 +657,7 @@ You can ask me questions such as:
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
               <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
               <div className="mt-3 text-sm font-bold text-slate-800">
-                Synthesizing Thematic White-Spaces into Novelty-Feasibility Matrix...
+                Synthesizing Research Gaps into Novelty-Feasibility Matrix...
               </div>
               <div className="text-xs text-slate-400 mt-1">
                 Multi-provider AI evaluating research potential, methodology pathways, and risk profiles
@@ -835,10 +835,10 @@ You can ask me questions such as:
                 </span>
               </div>
               <h2 className="text-xl font-black text-slate-900 mt-1">
-                Multi-Corpus Indexing Bias & Discrepancy (WoS vs. Scopus vs. PubMed)
+                Multi-Source Indexing Coverage & Discrepancy Analysis (WoS vs. Scopus vs. PubMed)
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Evaluation of indexing gaps, language bias, and citation lag discrepancies across major scientific databases.
+                Evaluation of indexing coverage gaps, language coverage patterns, and citation lag discrepancies across major bibliographic databases.
               </p>
             </div>
 
@@ -849,7 +849,7 @@ You can ask me questions such as:
               className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${discrepancyLoading ? "animate-spin" : ""}`} />
-              Re-Analyze Bias
+              Re-Analyze Coverage
             </button>
           </div>
 
@@ -857,7 +857,7 @@ You can ask me questions such as:
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
               <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
               <div className="mt-3 text-sm font-bold text-slate-800">
-                Auditing Indexing Bias across WoS, Scopus, PubMed, and CrossRef...
+                Auditing indexing coverage across WoS, Scopus, PubMed, and CrossRef...
               </div>
               <div className="text-xs text-slate-400 mt-1">
                 Comparing coverage disparities, regional blind spots, and citation differential ratios
@@ -878,7 +878,7 @@ You can ask me questions such as:
 
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-500">Corpus Coverage:</span>
+                        <span className="text-slate-500">Source Coverage:</span>
                         <span className="font-bold text-indigo-700">{c.coverageEstimatePercent}%</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
@@ -891,7 +891,7 @@ You can ask me questions such as:
 
                     <div className="space-y-1.5 pt-1 text-xs">
                       <div>
-                        <span className="font-bold text-slate-700">Primary Bias: </span>
+                        <span className="font-bold text-slate-700">Primary Coverage Pattern: </span>
                         <span className="text-rose-700 font-semibold">{c.primaryBias}</span>
                       </div>
                       <div>
@@ -907,12 +907,12 @@ You can ask me questions such as:
                 ))}
               </div>
 
-              {/* Systematic Indexing Blindspots */}
+              {/* Systematic Indexing Coverage Gaps */}
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
                   <h3 className="text-sm font-black text-slate-900">
-                    Systematic Indexing Blindspots & Omissions
+                    Indexing Coverage Gaps & Omissions
                   </h3>
                 </div>
 
@@ -937,7 +937,7 @@ You can ask me questions such as:
                 <div className="flex items-center gap-2">
                   <Award className="h-5 w-5 text-indigo-600" />
                   <h3 className="text-sm font-black text-slate-900">
-                    Recommended Multi-Corpus De-Duplication & Normalization Workflow
+                    Recommended Multi-Source Deduplication & Normalization Workflow
                   </h3>
                 </div>
 
@@ -959,7 +959,7 @@ You can ask me questions such as:
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
               <Database className="h-10 w-10 text-slate-300 mx-auto" />
               <h3 className="mt-3 text-sm font-bold text-slate-900">
-                No Multi-Corpus Discrepancy Analysis Run
+                No Multi-Source Discrepancy Analysis Run
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                 Evaluate systematic disparities, non-English literature exclusions, and citation coverage differences across WoS, Scopus, and PubMed.
@@ -970,7 +970,7 @@ You can ask me questions such as:
                 className="mt-4 cursor-pointer inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                Analyze Database Discrepancies
+                Analyze Source Discrepancies
               </button>
             </div>
           )}
@@ -984,22 +984,22 @@ You can ask me questions such as:
         <div className="space-y-6">
           {gapsError && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
-              <span className="font-bold">White-Spaces Analysis Unavailable: </span>
+              <span className="font-bold">Research Gap Analysis Unavailable: </span>
               {gapsError}
             </div>
           )}
           {gapsIsPartial && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 font-medium">
-              Partial Result: AI response was incomplete. Do not treat as authoritative analysis.
+              Partial Result: AI response was incomplete. Do not treat it as authoritative analysis.
             </div>
           )}
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-900">
-                Topological White-Spaces & Structural Holes
+                Research Gaps & Structural Holes
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Algorithmic discovery of low-edge bridges and unexploited thematic intersections.
+                AI-assisted identification of low-edge bridges and underexplored thematic intersections.
               </p>
             </div>
             <button
@@ -1009,7 +1009,7 @@ You can ask me questions such as:
               className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${gapsLoading ? "animate-spin" : ""}`} />
-              Re-Scan White Spaces
+              Re-Scan Research Gaps
             </button>
           </div>
 
@@ -1025,7 +1025,7 @@ You can ask me questions such as:
             </div>
           ) : gapsResult ? (
             <div className="space-y-6">
-              {/* White Spaces */}
+              {/* Research Gaps */}
               <div className="grid gap-4 md:grid-cols-2">
                 {gapsResult.white_spaces.map((gap, i) => (
                   <div
@@ -1037,7 +1037,7 @@ You can ask me questions such as:
                         {gap.title}
                       </h3>
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-800">
-                        White Space #{i + 1}
+                        Research Gap #{i + 1}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 leading-relaxed">
@@ -1226,14 +1226,14 @@ You can ask me questions such as:
         <div className="space-y-6">
           {citationError && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
-              <span className="font-bold">Citation Intent Analysis Unavailable: </span>
+              <span className="font-bold">Citation Context Analysis Unavailable: </span>
               {citationError}
             </div>
           )}
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-900">
-                Citation Context & Rhetorical Intent Analysis
+                Citation Context Analysis & Rhetorical Intent
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Classify whether citations represent direct methodological adoption, affirmative replication, or comparative critique.
@@ -1254,7 +1254,7 @@ You can ask me questions such as:
             <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
               <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
               <div className="mt-3 text-sm font-bold text-slate-800">
-                Evaluating Citation Sentiments & Rhetorical Drivers...
+                Evaluating citation contexts and rhetorical drivers...
               </div>
             </div>
           ) : citationData ? (
@@ -1313,7 +1313,7 @@ You can ask me questions such as:
               {/* Synthesis Note */}
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-2">
                 <div className="text-xs font-black text-slate-900 uppercase tracking-wide">
-                  Corpus Rhetorical Profile
+                  Research Corpus Rhetorical Profile
                 </div>
                 <p className="text-xs text-slate-700 leading-relaxed">
                   {citationData.sentiment_summary}

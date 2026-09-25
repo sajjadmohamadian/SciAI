@@ -127,8 +127,8 @@ describe("Frontend Defensive Response Validation Suite", () => {
     });
   });
 
-  // 5. AI Intelligence Validation (Incomplete vs Authoritative)
-  describe("AI Intelligence Response Validation", () => {
+  // 5. AI Research Assistance Validation (Incomplete vs Authoritative)
+  describe("AI Research Assistance Response Validation", () => {
     test("identifies incomplete or partial RAG chat response as non-authoritative", () => {
       const completeRes = validateRagChatResponse({ answer: "Comprehensive explanation with evidence.", sources: ["p1"] });
       assert.equal(completeRes.success, true);

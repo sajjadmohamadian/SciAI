@@ -133,7 +133,7 @@ export async function detectResearchGapsAndWhiteSpaces(
     unexplored_intersections: [],
     future_trend_forecasts: [],
   };
-  const prompt = withGroundingPolicy(`Identify possible research white spaces and hypotheses for dataset "${datasetName}" using only supplied context.
+  const prompt = withGroundingPolicy(`Identify possible research gaps and hypotheses for dataset "${datasetName}" using only supplied context.
 
 Active Clusters:
 ${JSON.stringify(clusters, null, 2)}
@@ -141,7 +141,7 @@ Motor Themes: ${motorThemes.join(", ") || "unavailable"}
 Niche Themes: ${nicheThemes.join(", ") || "unavailable"}
 Recent Keywords: ${recentKeywords.join(", ") || "unavailable"}
 
-Return JSON with white_spaces, unexplored_intersections, and future_trend_forecasts.`, "Research gaps are hypotheses/suggestions, not measured discoveries. Avoid unsupported growth rates.");
+Return JSON with white_spaces, unexplored_intersections, and future_trend_forecasts. The white_spaces key is a compatibility field whose values should be research gaps.`, "Research gaps are hypotheses/suggestions, not measured discoveries. Avoid unsupported growth rates.");
 
   const result = await callAiJson<unknown>({ task: "research_gaps", prompt, responseFormat: "json", temperature: 0.3, ...parseOptions(options) });
   const parsed = result.status === "available" ? validateResearchGaps(result.content) : null;
@@ -186,9 +186,9 @@ export async function analyzeCitationContexts(
     sentiment_summary: "unavailable",
     exemplar_analyses: [],
   };
-  const prompt = withGroundingPolicy(`Analyze citation rhetorical intent from these supplied representative works only.
+  const prompt = withGroundingPolicy(`Analyze citation context and rhetorical intent from these supplied representative works only.
 
-Representative Papers:
+Representative Publications:
 ${JSON.stringify(samplePapers.slice(0, 10), null, 2)}
 
 Return JSON with affirmative_adoption, methodological_application, conceptual_background, critical_comparative, sentiment_summary, and exemplar_analyses. Use "unavailable" for percentages if abstracts or citation contexts are insufficient.`, "Do not estimate percentages unless supported by supplied context; missing values must be unavailable.");
@@ -276,10 +276,10 @@ export async function generateResearchGapMatrix(
   const sampleTitles = corpusDocs.slice(0, 10).map((d) => d.title);
   const prompt = withGroundingPolicy(`Synthesize an AI-assisted research opportunity matrix from the supplied corpus vocabulary. Treat proposals as suggestions, not computed discoveries.
 
-Corpus: "${datasetName}" (${corpusDocs.length} documents)
+Research Corpus: "${datasetName}" (${corpusDocs.length} publications)
 Key Core Keywords: ${sampleKeywords.join(", ") || "unavailable"}
 Thematic Clusters: ${(thematicClusters || []).join(", ") || "unavailable"}
-Sample Corpus Titles:
+Sample Research Corpus Titles:
 ${sampleTitles.join("\n") || "unavailable"}
 
 Return JSON with proposals and matrixSummary.`, "Scores are heuristic suggestions only; do not invent references or factual evidence outside supplied context.");
@@ -320,10 +320,10 @@ export async function generateMultiCorpusDiscrepancyAnalysis(
       citationInflationLeader: "unavailable",
       clinicalDepthLeader: "unavailable",
       eliteSelectivityLeader: "unavailable",
-      recommendedIndexingStrategy: "Computed source counts are available from imported records; cross-database overlap quality is unavailable without canonical source identifiers.",
+      recommendedIndexingStrategy: "Computed source counts are available from imported bibliographic records; cross-database overlap quality is unavailable without canonical source identifiers.",
       systematicReviewWarning: "unavailable",
     },
-  }, createUnavailableProvenance([], ["This endpoint uses deterministic imported-source counts only; unsupported cross-database metrics are unavailable."]));
+  }, createUnavailableProvenance([], ["This endpoint uses deterministic imported-source counts only; unsupported cross-database coverage metrics are unavailable."]));
 }
 
 export async function generatePrismaSynthesisReport(
@@ -340,7 +340,7 @@ export async function generatePrismaSynthesisReport(
   const eligibilityRetention = ((input.includedStudies / assessedCount) * 100).toFixed(1);
   const finalYield = ((input.includedStudies / totalIdentified) * 100).toFixed(1);
   const fallback: PrismaAIReport = {
-    datasetName: input.datasetName || "Bibliometric Corpus",
+    datasetName: input.datasetName || "Bibliometric Dataset",
     generatedAt: new Date().toISOString(),
     executiveSummary: "unavailable",
     methodologyNarrative: "unavailable",

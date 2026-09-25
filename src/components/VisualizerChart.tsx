@@ -521,7 +521,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
             <div className="font-bold text-amber-950">Scientometric Provenance & Field Normalization Notice</div>
             <p className="text-[11px] leading-relaxed text-amber-800">
               Citation-window adjustment accounts for elapsed exposure time using available publication dates without synthesizing imaginary trajectory profiles.
-              Disciplinary field normalization (such as MNCS or journal percentiles) is intentionally marked <strong>Unavailable</strong> because this corpus does not contain external reference population baseline tables.
+              Disciplinary field normalization (such as MNCS or journal percentiles) is intentionally marked <strong>Unavailable</strong> because this research corpus does not contain external reference population baseline tables.
             </p>
           </div>
         </div>
@@ -992,7 +992,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
         label: author,
         xName: "Career Start Year",
         yName: "Total Citations",
-        zName: "Paper Count",
+        zName: "Publication Count",
         extra: `h-index: ${hIndex} • m-quotient: ${mQuot} • g-index: ${r.g_index || 0}`,
       };
     });
@@ -1188,7 +1188,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
                 <XAxis dataKey="tier" tick={{ fontSize: 10, fill: "#64748b" }} />
                 <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="papers" name="Paper Count" fill="#0f172a" radius={[3, 3, 0, 0]} barSize={16} />
+                <Bar dataKey="papers" name="Publication Count" fill="#0f172a" radius={[3, 3, 0, 0]} barSize={16} />
                 <Bar dataKey="avg_citations" name="Avg Citations" fill="#10b981" radius={[3, 3, 0, 0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
@@ -1797,7 +1797,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
                     <Cell key={`cell-c-${idx}`} fill={entry.fill} stroke="#ffffff" strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(val: any) => [`${val} documents`, "Corpus Volume"]} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(val: any) => [`${val} publications`, "Publication Volume"]} />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
               </PieChart>
             </ResponsiveContainer>

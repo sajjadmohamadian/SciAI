@@ -78,11 +78,11 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "corpus-pipeline",
-        label: "Corpus & Pipeline",
+        label: "Dataset & Corpus Pipeline",
         icon: <Layers className="h-4 w-4 text-emerald-600" />,
         badge: "Phase 1",
         badgeColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
-        description: "Unified 4-Step Data Studio",
+        description: "Unified 4-Step Dataset Studio",
       },
     ],
   },
@@ -140,7 +140,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "ai-intelligence",
-    title: "Advanced Intelligence & AI",
+    title: "Advanced Research Assistance",
     items: [
       {
         id: "ml",
@@ -156,11 +156,11 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "ai",
-        label: "AI Intelligence",
+        label: "AI Research Assistance",
         icon: <Sparkles className="h-4 w-4 text-indigo-500" />,
         badge: "AI",
         badgeColor: "text-indigo-700 bg-indigo-50 border-indigo-200",
-        description: "Automated Synthesis",
+        description: "AI-Assisted Synthesis",
       },
     ],
   },

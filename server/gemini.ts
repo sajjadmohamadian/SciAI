@@ -208,7 +208,7 @@ Return a strict JSON array conforming to the schema.`;
 }
 
 /**
- * 3. Research Gaps & White-Space Detection
+ * 3. Research Gaps Detection
  * Detects structural holes between isolated clusters, emerging topics, and unexplored combinations.
  */
 export async function detectResearchGapsAndWhiteSpaces(
@@ -787,8 +787,8 @@ Return strictly valid JSON matching this schema:
 }
 
 /**
- * 8. Multi-Corpus Discrepancy & Indexing Bias Analyzer
- * Analyzes indexing differentials, citation inflation, coverage gaps, and disciplinary skews
+ * 8. Multi-Source Discrepancy & Indexing Coverage Analyzer
+ * Analyzes indexing coverage differentials, citation lag patterns, coverage gaps, and disciplinary skews
  * between Web of Science (WoS), Scopus, and PubMed.
  */
 export async function generateMultiCorpusDiscrepancyAnalysis(

@@ -114,9 +114,9 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             <StatusBadge status={analysis.status || "completed"} />
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Capability: <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">{capabilityId}</code> · 
-            Provider: {String(result.provider || "SciAINativeProvider")} · 
-            {records.length} records processed
+            Capability: <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">{capabilityId}</code> ·
+            Computation Provider: {String(result.provider || "SciAINativeProvider")} ·
+            {records.length} bibliographic records processed
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition disabled:opacity-50 cursor-pointer"
           >
             <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-            {isGeneratingAi ? "Synthesizing..." : "AI Intelligence"}
+            {isGeneratingAi ? "Synthesizing..." : "AI Research Synthesis"}
           </button>
           <button
             type="button"
@@ -185,7 +185,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             }`}
           >
             <Table className="h-4 w-4" />
-            Tabular Records ({records.length})
+            Bibliographic Records ({records.length})
           </button>
           <button
             type="button"
@@ -206,7 +206,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             type="text"
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            placeholder="Filter records..."
+            placeholder="Filter bibliographic records..."
             className="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs outline-none focus:border-slate-950 w-48"
           />
         )}
@@ -258,13 +258,13 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
               </table>
               {filteredRecords.length > 100 && (
                 <div className="bg-slate-50 px-4 py-2 text-center text-xs text-slate-500">
-                  Showing first 100 of {filteredRecords.length} records.
+                  Showing first 100 of {filteredRecords.length} bibliographic records.
                 </div>
               )}
             </div>
           ) : (
             <EmptyState
-              title="No records matching filter"
+              title="No bibliographic records matching filter"
               description="Try adjusting your filter keyword."
             />
           )}
@@ -299,14 +299,14 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
 
           {aiIsPartial && !aiError && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 font-medium">
-              Partial Interpretation: Response was truncated or preliminary. Not authoritative.
+              Partial Interpretation: Response was truncated or preliminary. It is not authoritative.
             </div>
           )}
 
           <div className="mt-3 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap font-sans">
             {aiInsight || (
               <div className="py-6 text-center text-slate-500">
-                <p>No AI interpretation generated yet for this run.</p>
+                <p>No AI-assisted interpretation generated yet for this analysis run.</p>
                 <button
                   type="button"
                   onClick={handleGenerateAiInsight}

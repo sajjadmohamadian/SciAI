@@ -69,10 +69,10 @@ export function CorpusPipelineStudio({
     {
       id: "repository" as PipelineStep,
       stepNumber: "1",
-      title: "Corpus Repository",
+      title: "Dataset Repository",
       subtitle: "Files & Versions",
       icon: Database,
-      badge: `${datasets.length} Corpuses`,
+      badge: `${datasets.length} Datasets`,
     },
     {
       id: "openalex" as PipelineStep,
@@ -111,21 +111,21 @@ export function CorpusPipelineStudio({
                 Phase 1 Unified Workspace
               </span>
               <span className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700">
-                Corpus & Data Pipeline
+                Dataset & Research Corpus Pipeline
               </span>
             </div>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              Corpus Acquisition & Harmonization Pipeline
+              Dataset Acquisition & Research Corpus Harmonization Pipeline
             </h1>
             <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex live graph, fuse heterogeneous databases with schema alignment, and synthesize PRISMA 2020 extraction outcomes with multi-provider AI.
+              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex live graph, fuse heterogeneous data sources with schema alignment, and synthesize PRISMA 2020 extraction outcomes with multi-provider AI.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-1.5 text-xs">
               <Database className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-slate-500">Active Corpus:</span>
+              <span className="text-slate-500">Active Dataset:</span>
               <select
                 value={selectedDatasetId || currentDataset?.id || ""}
                 onChange={(e) => onSelectDataset?.(e.target.value)}
@@ -133,7 +133,7 @@ export function CorpusPipelineStudio({
               >
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({d.record_count.toLocaleString()} docs)
+                    {d.name} ({d.record_count.toLocaleString()} records)
                   </option>
                 ))}
               </select>
@@ -145,7 +145,7 @@ export function CorpusPipelineStudio({
               className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
             >
               <Upload className="h-3.5 w-3.5" />
-              Upload Corpus
+              Upload Dataset
             </button>
           </div>
         </div>
@@ -270,12 +270,12 @@ export function CorpusPipelineStudio({
                   }`}
                 >
                   <ShieldCheck className="h-3.5 w-3.5 text-slate-600" />
-                  Corpus Hygiene & Deduplication Engine
+                  Dataset Hygiene & Deduplication Engine
                 </button>
               </div>
 
               <div className="text-xs text-slate-500 pr-2">
-                Active Corpus: <span className="font-bold text-slate-800">{currentDataset?.name}</span> ({currentDataset?.record_count.toLocaleString()} records)
+                Active Dataset: <span className="font-bold text-slate-800">{currentDataset?.name}</span> ({currentDataset?.record_count.toLocaleString()} records)
               </div>
             </div>
 

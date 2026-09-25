@@ -102,8 +102,8 @@ export function ExportReportsStudio({ dataset, analyses, onNavigateToPowerBI, on
 
 ---
 
-## 1. Executive Summary & Corpus Demographics
-- **Total Canonical Documents**: ${totalDocs} records
+## 1. Executive Summary & Research Corpus Demographics
+- **Total Canonical Publications**: ${totalDocs} bibliographic records
 - **Primary Methodological Base**: Cross-database de-duplicated cohort (WoS, Scopus, PubMed, OpenAlex, Lens, Dimensions)
 - **Top Productive Author**: ${topAuthor} (Lead h-index: ${maxH})
 - **Core Bradford Nucleus**: ${coreJournals} primary journals (Bradford multiplier $k = ${multiplierK}$)
@@ -202,7 +202,7 @@ Thematic keyword co-occurrence analysis identifies the strategic driving themes:
               </span>
             </div>
             <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-              Auto-generate publication-ready journal sections (Abstracts, Methods, Empirical Discussions, Research White-Spaces, and Working Hypotheses) formatted for <em>Scientometrics</em> and <em>JASIST</em>.
+              Auto-generate publication-ready journal sections (Abstracts, Methods, Empirical Discussions, Research Gaps, and Working Hypotheses) formatted for <em>Scientometrics</em> and <em>JASIST</em>.
             </p>
           </div>
         </div>

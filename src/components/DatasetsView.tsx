@@ -232,10 +232,10 @@ export function DatasetsView({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            Datasets & Corpus Repositories
+            Dataset Repository
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Manage imported bibliographic files, inspect 3-tier data health, generate methodology narratives, and trigger capability runs.
+            Manage imported bibliographic datasets, inspect 3-tier data health, generate methodology narratives, and trigger analysis runs.
           </p>
         </div>
         <button
@@ -368,7 +368,7 @@ export function DatasetsView({
                   <p className="mt-1 text-xs text-slate-500">
                     Source: <span className="font-semibold text-slate-700">{selectedDataset.source}</span> · 
                     Created: {selectedDataset.created_at ? new Date(selectedDataset.created_at).toLocaleDateString() : "Recent"} · 
-                    Total Indexed: {selectedDataset.record_count} papers
+                    Total Indexed: {selectedDataset.record_count} publications
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

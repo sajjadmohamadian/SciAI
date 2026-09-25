@@ -304,7 +304,7 @@ in
           {/* Dataset Selector */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Active Corpus:
+              Active Dataset:
             </label>
             <select
               value={currentDatasetId}

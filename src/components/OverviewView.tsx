@@ -439,7 +439,7 @@ export function OverviewView({
 
   return (
     <div className="space-y-8">
-      {/* 1. Header & Active Corpus Context Selector */}
+      {/* 1. Header & Active Dataset Context Selector */}
       <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-slate-200/80 pb-6">
         <div>
           <div className="flex items-center gap-2">
@@ -458,11 +458,11 @@ export function OverviewView({
           </p>
         </div>
 
-        {/* Active Corpus Switcher */}
+        {/* Active Dataset Switcher */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <label htmlFor="active-corpus-select" className="sr-only">
-              Select Active Corpus
+              Select Active Dataset
             </label>
             <select
               id="active-corpus-select"
@@ -470,10 +470,10 @@ export function OverviewView({
               onChange={(e) => setSelectedDatasetId(e.target.value)}
               className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs focus:border-slate-900 focus:outline-hidden transition cursor-pointer"
             >
-              <option value="">Consolidated Portfolio (All Collections)</option>
+              <option value="">Consolidated Dataset Portfolio (All Datasets)</option>
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count} docs)
+                  {d.name} ({d.record_count} records)
                 </option>
               ))}
             </select>
@@ -501,11 +501,11 @@ export function OverviewView({
 
       {/* 2. Upgraded 4-Pillar Scientometric Health Matrix */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Pillar 1: Corpus Volume */}
+        {/* Pillar 1: Publication Volume */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300">
           <div className="flex items-center justify-between">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Corpus Volume
+              Publication Volume
             </div>
             <div className="rounded-lg bg-blue-50 p-1.5 text-blue-600">
               <FileText className="h-4 w-4" />
@@ -515,11 +515,11 @@ export function OverviewView({
             <span className="text-2xl font-black tracking-tight text-slate-900">
               {loading ? "..." : activeDocCount.toLocaleString()}
             </span>
-            <span className="text-xs font-semibold text-slate-500">Indexed Papers</span>
+            <span className="text-xs font-semibold text-slate-500">Indexed Publications</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2">
-            <span>Collections: {activeDataset ? 1 : datasets.length}</span>
-            <span className="font-semibold text-emerald-600">Full Metadata Active</span>
+            <span>Datasets: {activeDataset ? 1 : datasets.length}</span>
+            <span className="font-semibold text-emerald-600">Bibliographic Metadata Active</span>
           </div>
         </div>
 
@@ -540,7 +540,7 @@ export function OverviewView({
             <span className="text-xs font-semibold text-slate-500">Total Citations</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2">
-            <span>CPP: {citationStats.avgPerDoc} cites/paper</span>
+            <span>CPP: {citationStats.avgPerDoc} citations/publication</span>
             <span className="font-semibold text-emerald-600">Top Velocity: 340+</span>
           </div>
         </div>
@@ -563,7 +563,7 @@ export function OverviewView({
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2">
             <span>Co-Authorship Ratio</span>
-            <span className="font-semibold text-slate-800">{authorStats.collabRatio} authors/doc</span>
+            <span className="font-semibold text-slate-800">{authorStats.collabRatio} authors/publication</span>
           </div>
         </div>
 
@@ -584,26 +584,26 @@ export function OverviewView({
             <span className="text-xs font-semibold text-slate-500">Active Span</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-2">
-            <span>Peak: {yearStats.peakYear} ({yearStats.peakCount} docs)</span>
+            <span>Peak: {yearStats.peakYear} ({yearStats.peakCount} publications)</span>
             <span className="font-semibold text-emerald-600">CAGR {yearStats.cagr}</span>
           </div>
         </div>
       </section>
 
-      {/* 3. Multi-Database Provenance & Deduplication Status (BiblioFusion Bar) */}
+      {/* 3. Multi-Source Provenance & Deduplication Status (BiblioFusion Bar) */}
       <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                BiblioFusion 6-Database Engine
+                BiblioFusion 6-Source Engine
               </span>
               <span className="text-[11px] font-semibold text-slate-500">
-                Provenance & Cross-Database Coverage
+                Provenance & Cross-Source Coverage
               </span>
             </div>
             <h2 className="mt-1 text-base font-black text-slate-900 tracking-tight">
-              Database Harmonization Breakdown
+              Bibliographic Source Harmonization
             </h2>
             <p className="text-xs text-slate-500 max-w-2xl mt-0.5">
               Multi-source deduplication running exact DOI + PMID matching and Jaro-Winkler title distance checks.
@@ -659,7 +659,7 @@ export function OverviewView({
         </div>
       </section>
 
-      {/* 4. One-Click AI Research Intelligence Brief */}
+      {/* 4. One-Click AI-Assisted Research Brief */}
       <section className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-start gap-3">
@@ -669,17 +669,17 @@ export function OverviewView({
             <div>
               <div className="flex items-center gap-2">
                 <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                  AI Intelligence
+                  AI Research Assistance
                 </span>
                 <span className="text-[10px] font-semibold text-slate-400">
-                  Automated Synthesis Engine
+                  AI-Assisted Synthesis Engine
                 </span>
               </div>
               <h2 className="mt-1 text-base font-black text-slate-900 tracking-tight">
                 Executive Scientometric Synthesis
               </h2>
               <p className="text-xs text-slate-500">
-                Instant AI-driven interpretation of research frontiers, author collaboration hubs, and citation momentum.
+                AI-assisted interpretation of research frontiers, author collaboration hubs, and citation momentum.
               </p>
             </div>
           </div>
@@ -703,7 +703,7 @@ export function OverviewView({
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isAiGenerating ? "animate-spin" : ""}`} />
-              {isAiGenerating ? "Synthesizing..." : aiBrief ? "Refresh Synthesis" : "Generate Corpus Brief"}
+              {isAiGenerating ? "Synthesizing..." : aiBrief ? "Refresh Synthesis" : "Generate Research Corpus Brief"}
             </button>
           </div>
         </div>
@@ -728,7 +728,7 @@ export function OverviewView({
 
           {aiBriefIsPartial && !aiBriefError && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 mb-3 font-medium">
-              Partial / Incomplete AI Result: The synthesis was only partially generated and should not be treated as authoritative.
+              Partial / Incomplete AI-Assisted Result: The synthesis was only partially generated and should not be treated as authoritative.
             </div>
           )}
 
@@ -739,7 +739,7 @@ export function OverviewView({
           ) : !aiBriefError ? (
             <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-center">
               <p className="text-xs text-indigo-900/80">
-                Click <strong>&ldquo;Generate Corpus Brief&rdquo;</strong> to extract high-level strategic takeaways, emerging research clusters, and breakthrough velocity markers.
+                Click <strong>&ldquo;Generate Research Corpus Brief&rdquo;</strong> to extract high-level strategic takeaways, emerging research clusters, and breakthrough velocity markers.
               </p>
             </div>
           ) : null}
@@ -803,7 +803,7 @@ export function OverviewView({
                     <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#0f172a", borderRadius: "10px", border: "none", color: "#f8fafc", fontSize: "12px" }}
-                      formatter={(val: any) => [`${val} papers`, growthViewMode === "annual" ? "Annual Output" : "Cumulative Output"]}
+                      formatter={(val: any) => [`${val} publications`, growthViewMode === "annual" ? "Annual Output" : "Cumulative Output"]}
                     />
                     <Area
                       type="monotone"
@@ -827,7 +827,7 @@ export function OverviewView({
           </div>
 
           <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-            <span>Peak: {yearStats.peakYear} ({yearStats.peakCount} papers)</span>
+            <span>Peak: {yearStats.peakYear} ({yearStats.peakCount} publications)</span>
             <button
               type="button"
               onClick={() => {
@@ -1114,7 +1114,7 @@ export function OverviewView({
         {/* Dataset Quick Inventory */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
           <SectionHeader
-            title="Corpus Inventory"
+            title="Dataset Inventory"
             description="Stored datasets in SQLite"
             action={
               <button

@@ -3896,12 +3896,12 @@ app.post("/api/ai/clusters/label", requireApiToken, async (req, res) => {
   }
 });
 
-// AI Feature 3: Research Gaps & White-Space Detection
+// AI Feature 3: Research Gaps Detection
 app.post("/api/ai/research-gaps", requireApiToken, async (req, res) => {
   try {
     const { dataset_id, dataset_name, clusters, motor_themes, niche_themes, recent_keywords } = req.body;
 
-    let targetName = dataset_name || "Active Corpus";
+    let targetName = dataset_name || "Active Dataset";
     if (dataset_id && datasets.has(dataset_id)) {
       targetName = datasets.get(dataset_id)!.name;
     }
@@ -4192,7 +4192,7 @@ app.post("/api/ai/research-gap-matrix", requireApiToken, async (req, res) => {
   try {
     const { dataset_id, dataset_name } = req.body;
     let targetDocs: BibliometricDocument[] = [];
-    let targetName = dataset_name || "Active Corpus";
+    let targetName = dataset_name || "Active Dataset";
 
     if (dataset_id) {
       const targetDs = datasets.get(dataset_id);
@@ -4221,12 +4221,12 @@ app.post("/api/ai/research-gap-matrix", requireApiToken, async (req, res) => {
   }
 });
 
-// AI Feature 8: Multi-Corpus Discrepancy & Indexing Bias Analysis
+// AI Feature 8: Multi-Source Discrepancy & Indexing Coverage Analysis
 app.post("/api/ai/corpus-discrepancy", requireApiToken, async (req, res) => {
   try {
     const { dataset_id, dataset_name } = req.body;
     let targetDocs: BibliometricDocument[] = [];
-    let targetName = dataset_name || "Active Corpus";
+    let targetName = dataset_name || "Active Dataset";
 
     if (dataset_id) {
       const targetDs = datasets.get(dataset_id);

@@ -18,15 +18,15 @@ export function Header({
   onToggleMobileNav,
 }: Props) {
   const titles: Record<NavTab, { label: string; subtitle: string }> = {
-    overview: { label: "Research Overview", subtitle: "Corpus Metrics & Visual Trends" },
-    "corpus-pipeline": { label: "Corpus & Data Pipeline (Phase 1)", subtitle: "Integrated Acquisition, Ingestion, Harmonization & PRISMA Quality Assurance" },
-    "data-hygiene": { label: "Data & Hygiene (Phase 1)", subtitle: "Corpus Management, Deduplication & PRISMA Flow Diagram" },
-    datasets: { label: "Datasets & Versions", subtitle: "Scientific Repositories & Parsers" },
+    overview: { label: "Research Overview", subtitle: "Scientometric Metrics & Visual Trends" },
+    "corpus-pipeline": { label: "Dataset & Research Corpus Pipeline (Phase 1)", subtitle: "Integrated Acquisition, Ingestion, Harmonization & PRISMA Quality Assurance" },
+    "data-hygiene": { label: "Data & Hygiene (Phase 1)", subtitle: "Dataset Management, Deduplication & PRISMA Flow Diagram" },
+    datasets: { label: "Datasets & Versions", subtitle: "Bibliographic Dataset Repository & Parsers" },
     openalex: { label: "OpenAlex Explorer", subtitle: "Live Global Knowledge Graph & Citation Net" },
-    merge: { label: "Smart Merge Studio", subtitle: "Multi-Database Harmonization & Deduplication" },
+    merge: { label: "Smart Merge Studio", subtitle: "Multi-Source Harmonization & Deduplication" },
     descriptive: { label: "Descriptive Analytics (Phase 2)", subtitle: "Macro Trends, Lotka's Law & Bradford's Law" },
     entities: { label: "Entity Explorer (Phase 3)", subtitle: "5-Dimensional Micro Analysis with H-Index & G-Index" },
-    analyses: { label: "Analyses Runs", subtitle: "Scientometric Capability Executions" },
+    analyses: { label: "Analysis Runs", subtitle: "Scientometric Analysis Method Executions" },
     authors: { label: "Author Productivity", subtitle: "Lotka's Law & H-Index Metrics" },
     sources: { label: "Source Productivity", subtitle: "Bradford's Law of Scattering" },
     keywords: { label: "Keyword Dynamics", subtitle: "Frequency & Co-occurrence Networks" },
@@ -38,7 +38,7 @@ export function Header({
     benchmark: { label: "Comparative Benchmarking Studio", subtitle: "Biblium Cross-Dataset Hypotheses & Thematic Specificity" },
     powerbi: { label: "Power BI Live Connector", subtitle: "Direct OData / Web Feed & Star-Schema Relational Model" },
     reports: { label: "Executive Reports Studio", subtitle: "Publication-Ready Summaries & Multi-Format Export" },
-    ai: { label: "AI Research Intelligence", subtitle: "Multi-provider Synthesis" },
+    ai: { label: "AI Research Assistance", subtitle: "Multi-provider AI-Assisted Synthesis" },
   };
 
   const current = titles[activeTab] || titles.overview;
