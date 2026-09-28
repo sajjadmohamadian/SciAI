@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { BRAND } from "../brand.js";
 import {
   Dataset,
@@ -7,20 +7,11 @@ import {
   ResultRecord,
 } from "../types.js";
 import { NavTab } from "./Sidebar.js";
-import {
-  SectionHeader,
-  StatusBadge,
-  EmptyState,
-} from "./CommonUI.js";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
 import { useAiProvider } from "../context/AiProviderContext.js";
-import { VisualizerChart } from "./VisualizerChart.js";
-import { NetworkGraph } from "./NetworkGraph.js";
 import {
   Database,
   FileText,
-  Activity,
-  CheckCircle2,
   GitMerge,
   TrendingUp,
   Users,
@@ -36,31 +27,18 @@ import {
   History,
   GitBranch,
   ArrowUpRight,
-  Play,
   Layers,
-  ShieldCheck,
   Copy,
   Check,
   RefreshCw,
   Search,
-  ExternalLink,
 } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
 
 interface Props {
   datasets: Dataset[];
   analyses: Analysis[];
   capabilities: Capability[];
   loading: boolean;
-  onSelectAnalysis: (a: Analysis) => void;
   onQuickRun: (capId: string) => void;
   onOpenRunAnalysis: () => void;
   onNavigateTab: (tab: NavTab) => void;
@@ -72,32 +50,39 @@ export function OverviewView({
   analyses,
   capabilities,
   loading,
-  onSelectAnalysis,
-  onQuickRun,
-  onOpenRunAnalysis,
   onNavigateTab,
   onOpenUpload,
 }: Props) {
   const { getAiRequestOptions } = useAiProvider();
   // Active dataset context: "" represents all datasets combined
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
-  // Growth chart view mode: "annual" vs "cumulative"
-  const [growthViewMode, setGrowthViewMode] = useState<"annual" | "cumulative">("annual");
-  // Topology view mode: "authors" vs "keywords"
-  const [topologyViewMode, setTopologyViewMode] = useState<"authors" | "keywords">("authors");
-  // Studio launchpad category filter
-  const [studioCategory, setStudioCategory] = useState<"all" | "laws" | "temporal" | "advanced">("all");
+  // Capability guide category filter
+  const [studioCategory, setStudioCategory] = useState<"all" | "acquisition" | "descriptive" | "entities" | "temporal" | "networks" | "ai" | "delivery">("all");
   // AI brief state
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiBrief, setAiBrief] = useState<string | null>(null);
   const [aiBriefError, setAiBriefError] = useState<string | null>(null);
   const [aiBriefIsPartial, setAiBriefIsPartial] = useState(false);
   const [copiedBrief, setCopiedBrief] = useState(false);
+  const [activeDatasetDocuments, setActiveDatasetDocuments] = useState<ResultRecord[]>([]);
 
-  // Helper to locate analysis by capability
+  // Determine active dataset object
+  const activeDataset = useMemo(() => {
+    if (!selectedDatasetId) return null;
+    return datasets.find((d) => d.id === selectedDatasetId) || null;
+  }, [selectedDatasetId, datasets]);
+
+  // Helper to locate analysis by capability, preferring the selected dataset when scoped.
   const findAnalysisByCapability = (capId: string) => {
-    return analyses.find(
+    const matches = analyses.filter(
       (a) => a.capability_id === capId || a.analysis_type === capId
+    );
+
+    if (!selectedDatasetId) return matches[0];
+
+    return (
+      matches.find((a) => a.dataset_id === selectedDatasetId) ||
+      matches.find((a) => a.dataset_version_id?.includes(selectedDatasetId))
     );
   };
 
@@ -107,15 +92,51 @@ export function OverviewView({
     findAnalysisByCapability("citation.total") ||
     findAnalysisByCapability("citation.distribution");
   const keywordAnalysis = findAnalysisByCapability("keyword.frequency");
-  const collabAnalysis = findAnalysisByCapability("author.co_authorship");
 
-  // Determine active dataset object
-  const activeDataset = useMemo(() => {
-    if (!selectedDatasetId) return null;
-    return datasets.find((d) => d.id === selectedDatasetId) || null;
-  }, [selectedDatasetId, datasets]);
+  const capabilityNames = useMemo(() => new Set(capabilities.map((cap) => cap.name)), [capabilities]);
+  const hasCapability = (capId?: string) => !capId || capabilityNames.has(capId);
 
-  // Aggregate documents count
+  useEffect(() => {
+    if (!selectedDatasetId) {
+      setActiveDatasetDocuments([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/datasets/${selectedDatasetId}/documents?limit=5000`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Dataset documents unavailable"))))
+      .then((data) => {
+        if (!cancelled) {
+          setActiveDatasetDocuments(Array.isArray(data.documents) ? data.documents : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActiveDatasetDocuments([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDatasetId]);
+
+  const activeDatasetYearRecords = useMemo(() => {
+    if (!activeDataset || activeDatasetDocuments.length === 0) return [];
+
+    const counts = new Map<number, number>();
+    for (const doc of activeDatasetDocuments) {
+      const year = Number(doc.year || doc.PY || doc.publication_year || doc.Year || doc.name);
+      if (year > 1900) {
+        counts.set(year, (counts.get(year) || 0) + 1);
+      }
+    }
+
+    return Array.from(counts.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([year, documents]) => ({ year, documents, count: documents }));
+  }, [activeDataset, activeDatasetDocuments]);
+
   const activeDocCount = useMemo(() => {
     if (activeDataset) {
       return activeDataset.record_count || 0;
@@ -125,7 +146,9 @@ export function OverviewView({
 
   // Compute publication years and cumulative curve from growthAnalysis
   const yearStats = useMemo(() => {
-    const records = growthAnalysis?.result?.records || [];
+    const records = activeDatasetYearRecords.length > 0
+      ? activeDatasetYearRecords
+      : growthAnalysis?.result?.records || [];
     if (records.length === 0) {
       return {
         minYear: 2018,
@@ -193,7 +216,7 @@ export function OverviewView({
       records: sorted.map((s) => ({ year: String(s.year), documents: s.documents })),
       cumulativeRecords,
     };
-  }, [growthAnalysis]);
+  }, [growthAnalysis, activeDatasetYearRecords]);
 
   // Compute Citation and Author stats
   const citationStats = useMemo(() => {
@@ -233,54 +256,6 @@ export function OverviewView({
       collabRatio,
     };
   }, [authorAnalysis, activeDocCount]);
-
-  // Database Provenance Breakdown
-  const provenanceDistribution = useMemo(() => {
-    const rawCounts: Record<string, number> = {
-      "Web of Science": 0,
-      "Scopus": 0,
-      "PubMed": 0,
-      "OpenAlex": 0,
-      "Dimensions": 0,
-      "Lens.org": 0,
-    };
-
-    if (datasets.length === 0) {
-      rawCounts["Web of Science"] = 35;
-      rawCounts["Scopus"] = 28;
-      rawCounts["PubMed"] = 22;
-      rawCounts["OpenAlex"] = 15;
-    } else {
-      datasets.forEach((ds) => {
-        const src = (ds.source || "").toLowerCase();
-        const cnt = ds.record_count || 1;
-        if (src.includes("wos") || src.includes("web of science")) rawCounts["Web of Science"] += cnt;
-        else if (src.includes("scopus")) rawCounts["Scopus"] += cnt;
-        else if (src.includes("pubmed") || src.includes("medline")) rawCounts["PubMed"] += cnt;
-        else if (src.includes("openalex")) rawCounts["OpenAlex"] += cnt;
-        else if (src.includes("dimension")) rawCounts["Dimensions"] += cnt;
-        else if (src.includes("lens")) rawCounts["Lens.org"] += cnt;
-        else {
-          // If merged or generic, distribute realistically across primary sources
-          rawCounts["Web of Science"] += Math.round(cnt * 0.35);
-          rawCounts["Scopus"] += Math.round(cnt * 0.28);
-          rawCounts["PubMed"] += Math.round(cnt * 0.22);
-          rawCounts["OpenAlex"] += Math.round(cnt * 0.15);
-        }
-      });
-    }
-
-    const total = Object.values(rawCounts).reduce((a, b) => a + b, 0) || 1;
-
-    return [
-      { name: "Web of Science", count: rawCounts["Web of Science"], pct: Math.round((rawCounts["Web of Science"] / total) * 100), color: "bg-blue-600", textColor: "text-blue-700", bgLight: "bg-blue-50 border-blue-200" },
-      { name: "Scopus", count: rawCounts["Scopus"], pct: Math.round((rawCounts["Scopus"] / total) * 100), color: "bg-orange-500", textColor: "text-orange-700", bgLight: "bg-orange-50 border-orange-200" },
-      { name: "PubMed", count: rawCounts["PubMed"], pct: Math.round((rawCounts["PubMed"] / total) * 100), color: "bg-emerald-600", textColor: "text-emerald-700", bgLight: "bg-emerald-50 border-emerald-200" },
-      { name: "OpenAlex", count: rawCounts["OpenAlex"], pct: Math.round((rawCounts["OpenAlex"] / total) * 100), color: "bg-indigo-600", textColor: "text-indigo-700", bgLight: "bg-indigo-50 border-indigo-200" },
-      { name: "Dimensions", count: rawCounts["Dimensions"], pct: Math.round((rawCounts["Dimensions"] / total) * 100), color: "bg-purple-600", textColor: "text-purple-700", bgLight: "bg-purple-50 border-purple-200" },
-      { name: "Lens.org", count: rawCounts["Lens.org"], pct: Math.round((rawCounts["Lens.org"] / total) * 100), color: "bg-amber-600", textColor: "text-amber-700", bgLight: "bg-amber-50 border-amber-200" },
-    ].filter((p) => p.count > 0);
-  }, [datasets]);
 
   // Generate or regenerate AI Executive Brief
   const handleGenerateAiBrief = async () => {
@@ -340,100 +315,230 @@ export function OverviewView({
     setTimeout(() => setCopiedBrief(false), 2000);
   };
 
-  // Scientometric Studio Launchpad items
-  const studioItems = [
-    // Classical Laws
+  const capabilityCategoryLabels = {
+    all: "All capabilities",
+    acquisition: "Acquisition & hygiene",
+    descriptive: "Descriptive analytics",
+    entities: "Entities & laws",
+    temporal: "Temporal dynamics",
+    networks: "Networks & ML",
+    ai: "AI & benchmarking",
+    delivery: "Reporting & BI",
+  } as const;
+
+  const softwareCapabilities = [
     {
-      id: "source.bradford_law",
-      title: "Bradford's Law (3 Zones)",
-      category: "laws",
-      methodology: "bibliometrix",
-      desc: "Journal tertile scattering & multiplier k calculation.",
-      icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
+      id: "corpus-pipeline",
+      title: "Dataset & Research Corpus Pipeline",
+      category: "acquisition",
+      methodology: "Ingestion workflow",
+      desc: "Imports bibliographic corpora, stores versioned snapshots, and keeps each downstream analysis tied to a dataset version for auditability.",
+      limitation: "Requires at least one uploaded or created dataset before analysis can run.",
+      icon: <Layers className="h-4 w-4 text-emerald-600" />,
       tagColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      targetTab: "corpus-pipeline" as NavTab,
+    },
+    {
+      id: "openalex",
+      title: "OpenAlex Explorer",
+      category: "acquisition",
+      methodology: "OpenAlex API",
+      desc: "Queries the OpenAlex scholarly graph for works, citations, authorship metadata, and candidate records that can become a SciAI dataset.",
+      limitation: "Coverage follows OpenAlex availability and network/API response quality; closed-index records may be absent.",
+      icon: <Search className="h-4 w-4 text-blue-600" />,
+      tagColor: "text-blue-700 bg-blue-50 border-blue-200",
+      targetTab: "openalex" as NavTab,
+    },
+    {
+      id: "merge",
+      title: "Smart Merge Studio",
+      category: "acquisition",
+      methodology: "DOI/title/source harmonization",
+      desc: "Normalizes multi-source bibliographic records and flags duplicates so Web of Science, Scopus, PubMed, OpenAlex, Dimensions, and Lens-style exports can be reconciled.",
+      limitation: "Deduplication confidence depends on available identifiers, titles, years, and source metadata.",
+      icon: <GitMerge className="h-4 w-4 text-amber-600" />,
+      tagColor: "text-amber-700 bg-amber-50 border-amber-200",
+      targetTab: "merge" as NavTab,
+    },
+    {
+      id: "publication.year_distribution",
+      title: "Publication Growth & Annual Output",
+      category: "descriptive",
+      methodology: "Annual distribution",
+      desc: "Computes publication counts by year and cumulative output, a standard descriptive basis for measuring corpus growth and temporal coverage.",
+      limitation: "Requires reliable publication-year metadata; missing years are excluded rather than inferred.",
+      icon: <TrendingUp className="h-4 w-4 text-blue-600" />,
+      tagColor: "text-blue-700 bg-blue-50 border-blue-200",
+      targetTab: "descriptive" as NavTab,
+    },
+    {
+      id: "citation.distribution",
+      title: "Citation Distribution & Velocity",
+      category: "descriptive",
+      methodology: "Citation indicators",
+      desc: "Summarizes citation counts and citation-per-publication patterns for impact screening before deeper author, source, or field-normalized interpretation.",
+      limitation: "Citation metrics are source-dependent and should not be compared across fields without normalization.",
+      icon: <Quote className="h-4 w-4 text-emerald-600" />,
+      tagColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      targetTab: "descriptive" as NavTab,
+    },
+    {
+      id: "keyword.frequency",
+      title: "Keyword Frequency & Concept Density",
+      category: "descriptive",
+      methodology: "Term frequency",
+      desc: "Extracts dominant author/index keywords and term-frequency structure to reveal the vocabulary that anchors a research corpus.",
+      limitation: "Results depend on keyword completeness and harmonization of synonyms, spelling variants, and controlled vocabularies.",
+      icon: <Hash className="h-4 w-4 text-purple-600" />,
+      tagColor: "text-purple-700 bg-purple-50 border-purple-200",
+      targetTab: "keywords" as NavTab,
+    },
+    {
+      id: "author.productivity",
+      title: "Author Productivity Ranking",
+      category: "entities",
+      methodology: "Whole counting",
+      desc: "Ranks authors by publication output and supports productivity screening before applying Lotka-style distribution tests.",
+      limitation: "Name disambiguation is limited by the metadata supplied; ORCID or affiliation fields improve reliability.",
+      icon: <Users className="h-4 w-4 text-purple-600" />,
+      tagColor: "text-purple-700 bg-purple-50 border-purple-200",
+      targetTab: "authors" as NavTab,
     },
     {
       id: "author.lotka_law",
-      title: "Lotka's Law of Productivity",
-      category: "laws",
-      methodology: "K-S Test",
-      desc: "Power-law fitting (C/x^β) with Kolmogorov-Smirnov test.",
-      icon: <Users className="h-4 w-4 text-purple-600" />,
-      tagColor: "text-purple-700 bg-purple-50 border-purple-200",
+      title: "Lotka's Law of Scientific Productivity",
+      category: "entities",
+      methodology: "Lotka / K-S test",
+      desc: "Fits the inverse power-law pattern described by Lotka (1926) and checks how concentrated scientific productivity is in the corpus.",
+      limitation: "Valid interpretation needs enough authors and careful handling of author-name variants.",
+      icon: <Users className="h-4 w-4 text-indigo-600" />,
+      tagColor: "text-indigo-700 bg-indigo-50 border-indigo-200",
+      targetTab: "authors" as NavTab,
+    },
+    {
+      id: "source.bradford_law",
+      title: "Bradford's Law of Scattering",
+      category: "entities",
+      methodology: "Bradford zones",
+      desc: "Partitions journals or sources into core and peripheral zones following Bradford's law of scattering for literature concentration analysis.",
+      limitation: "Source-title normalization matters; incomplete venue names can distort zone boundaries.",
+      icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
+      tagColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      targetTab: "sources" as NavTab,
     },
     {
       id: "citation.advanced_hirsch",
-      title: "Hirsch Matrix (h, g, m, e)",
-      category: "laws",
-      methodology: "CITAN / h-calc",
-      desc: "Multi-indicator matrix: velocity (m) and excess energy (e).",
-      icon: <Sparkles className="h-4 w-4 text-blue-600" />,
+      title: "Hirsch-family Author Metrics",
+      category: "entities",
+      methodology: "h, g, m, e, i10",
+      desc: "Computes h-index family indicators, including Hirsch's h-index, to summarize author impact with complementary excess-citation measures.",
+      limitation: "H-index style indicators are career-length and database dependent; use alongside field and year context.",
+      icon: <Scale className="h-4 w-4 text-blue-600" />,
       tagColor: "text-blue-700 bg-blue-50 border-blue-200",
+      targetTab: "authors" as NavTab,
     },
-    // Temporal & Dynamics
     {
       id: "reference.rpys",
-      title: "RPYS Historical Spectroscopy",
+      title: "Reference Publication Year Spectroscopy",
       category: "temporal",
-      methodology: "metaknowledge",
-      desc: "Historical citation peaks & seminal breakthrough years.",
+      methodology: "RPYS",
+      desc: "Detects historical citation peaks by referenced-publication year, following RPYS practice for identifying intellectual roots and seminal years.",
+      limitation: "Requires cited-reference metadata; sparse reference lists reduce interpretability.",
       icon: <History className="h-4 w-4 text-amber-600" />,
       tagColor: "text-amber-700 bg-amber-50 border-amber-200",
+      targetTab: "historical" as NavTab,
     },
     {
       id: "thematic.evolution",
-      title: "Thematic Longitudinal Slicing",
+      title: "Thematic Evolution & Sankey Slicing",
       category: "temporal",
-      methodology: "SciMAT / Sankey",
-      desc: "Multi-period keyword evolution flows and thematic river maps.",
+      methodology: "SciMAT / inclusion index",
+      desc: "Tracks themes across time slices and visualizes continuity or drift through inclusion-index links and Sankey-style flows.",
+      limitation: "Needs enough records per time slice; very small periods can create unstable theme transitions.",
       icon: <GitBranch className="h-4 w-4 text-purple-600" />,
       tagColor: "text-purple-700 bg-purple-50 border-purple-200",
-      customTab: "thematic" as NavTab,
+      targetTab: "thematic" as NavTab,
     },
     {
       id: "frontier.burst_detection",
-      title: "Kleinberg Burst Detection",
+      title: "Burst Detection & Research Frontiers",
       category: "temporal",
-      methodology: "Kleinberg (2003)",
-      desc: "Detect sudden state-transition spikes in terminology & citations.",
+      methodology: "Kleinberg burst model",
+      desc: "Surfaces rapidly intensifying terms or citation signals using burst-detection logic associated with Kleinberg's temporal burst framework.",
+      limitation: "Burst strength is sensitive to time-window choices and sparse annual data.",
       icon: <Flame className="h-4 w-4 text-rose-600" />,
       tagColor: "text-rose-700 bg-rose-50 border-rose-200",
-      customTab: "frontier" as NavTab,
+      targetTab: "frontier" as NavTab,
     },
-    // Networks & Advanced
     {
       id: "author.co_authorship",
-      title: "VOSviewer Co-Authorship Topology",
-      category: "advanced",
-      methodology: "VOSviewer Modularity",
-      desc: "Interactive cluster graph, density maps & author centrality.",
+      title: "Co-authorship Network Studio",
+      category: "networks",
+      methodology: "Graph topology",
+      desc: "Builds collaboration edges from shared authorship and renders clusters, hubs, and network structure for social organization of science.",
+      limitation: "Network quality depends on author disambiguation and complete author lists.",
       icon: <Share2 className="h-4 w-4 text-sky-600" />,
       tagColor: "text-sky-700 bg-sky-50 border-sky-200",
-      customTab: "collaboration" as NavTab,
+      targetTab: "collaboration" as NavTab,
     },
     {
       id: "ml.topic_modeling",
-      title: "Machine Learning & Topic Models",
-      category: "advanced",
-      methodology: "K-Means & LDA",
-      desc: "Unsupervised topic extraction and GNN link prediction simulator.",
+      title: "Machine Learning Topic Models",
+      category: "networks",
+      methodology: "K-means / LDA",
+      desc: "Provides clustering and topic-modeling views for latent structure discovery in abstracts, keywords, and bibliographic text fields.",
+      limitation: "Requires meaningful text fields and enough documents; topics are exploratory and need domain review.",
       icon: <BrainCircuit className="h-4 w-4 text-emerald-600" />,
       tagColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
-      customTab: "ml" as NavTab,
+      targetTab: "ml" as NavTab,
+    },
+    {
+      id: "benchmark",
+      title: "Comparative Benchmarking",
+      category: "ai",
+      methodology: "Biblium comparison",
+      desc: "Compares datasets and thematic profiles to support cross-corpus hypotheses and specificity checks.",
+      limitation: "Comparisons are only meaningful when datasets have comparable scopes, time ranges, and metadata quality.",
+      icon: <Scale className="h-4 w-4 text-indigo-600" />,
+      tagColor: "text-indigo-700 bg-indigo-50 border-indigo-200",
+      targetTab: "benchmark" as NavTab,
+    },
+    {
+      id: "ai",
+      title: "AI Research Assistance",
+      category: "ai",
+      methodology: "Provider-routed synthesis",
+      desc: "Generates interpretive summaries from deterministic SciAI metrics while preserving provenance, warnings, and unavailable-state honesty.",
+      limitation: "AI output is interpretive, not authoritative; deterministic SciAI metrics remain the source of record.",
+      icon: <Sparkles className="h-4 w-4 text-violet-600" />,
+      tagColor: "text-violet-700 bg-violet-50 border-violet-200",
+      targetTab: "ai" as NavTab,
+    },
+    {
+      id: "reports",
+      title: "Executive Reports Studio",
+      category: "delivery",
+      methodology: "Report assembly",
+      desc: "Packages selected scientometric findings into executive-ready summaries and exportable research dossiers.",
+      limitation: "Report quality follows the completeness of computed analyses and selected dataset context.",
+      icon: <FileText className="h-4 w-4 text-rose-600" />,
+      tagColor: "text-rose-700 bg-rose-50 border-rose-200",
+      targetTab: "reports" as NavTab,
     },
     {
       id: "powerbi.connector",
-      title: "Microsoft Power BI Live Feeds",
-      category: "advanced",
-      methodology: "OData / REST Sync",
-      desc: "Direct M-Query feed for Power BI desktop with automated refresh.",
+      title: "Power BI Live Connector",
+      category: "delivery",
+      methodology: "OData / REST feed",
+      desc: "Exposes analysis-ready structures for enterprise dashboards and Power BI-style reporting workflows.",
+      limitation: "Downstream refresh depends on local server availability and connector configuration.",
       icon: <BarChart3 className="h-4 w-4 text-amber-600" />,
       tagColor: "text-amber-700 bg-amber-50 border-amber-200",
-      customTab: "powerbi" as NavTab,
+      targetTab: "powerbi" as NavTab,
     },
   ];
 
-  const filteredStudios = studioItems.filter((item) => {
+  const filteredCapabilities = softwareCapabilities.filter((item) => {
     if (studioCategory === "all") return true;
     return item.category === studioCategory;
   });
@@ -459,24 +564,6 @@ export function OverviewView({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#27313C]/75">
               Map scientific evidence across sources, citations, authors, and emerging fronts.
             </p>
-            <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
-                <div className="text-[10px] font-semibold text-[#27313C]/55">Research corpus</div>
-                <div className="mt-1 text-lg font-bold text-[#101820]">{activeDocCount.toLocaleString()}</div>
-              </div>
-              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
-                <div className="text-[10px] font-semibold text-[#27313C]/55">Sources</div>
-                <div className="mt-1 text-lg font-bold text-[#101820]">{provenanceDistribution.length}</div>
-              </div>
-              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
-                <div className="text-[10px] font-semibold text-[#27313C]/55">Citations</div>
-                <div className="mt-1 text-lg font-bold text-[#101820]">{citationStats.totalCitations.toLocaleString()}</div>
-              </div>
-              <div className="rounded-2xl border border-[#D8DDD8] bg-white/80 p-3">
-                <div className="text-[10px] font-semibold text-[#27313C]/55">Span</div>
-                <div className="mt-1 text-lg font-bold text-[#101820]">{yearStats.minYear}–{yearStats.maxYear}</div>
-              </div>
-            </div>
           </div>
 
           {/* Active Dataset Switcher */}
@@ -622,75 +709,6 @@ export function OverviewView({
         </div>
       </section>
 
-      {/* 3. Multi-Source Provenance & Deduplication Status (BiblioFusion Bar) */}
-      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                BiblioFusion 6-Source Engine
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500">
-                Provenance & Cross-Source Coverage
-              </span>
-            </div>
-            <h2 className="mt-1 text-base font-black text-slate-900 tracking-tight">
-              Bibliographic Source Harmonization
-            </h2>
-            <p className="text-xs text-slate-500 max-w-2xl mt-0.5">
-              Multi-source deduplication running exact DOI + PMID matching and Jaro-Winkler title distance checks.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => onNavigateTab("openalex")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-            >
-              <Database className="h-3.5 w-3.5 text-blue-600" />
-              OpenAlex Live
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigateTab("merge")}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs transition cursor-pointer"
-            >
-              <GitMerge className="h-3.5 w-3.5" />
-              Smart Merge Studio
-            </button>
-          </div>
-        </div>
-
-        {/* Multi-Database Segmented Distribution Bar */}
-        <div className="mt-5 space-y-3">
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
-            {provenanceDistribution.map((item) => (
-              <div
-                key={item.name}
-                style={{ width: `${Math.max(item.pct, 4)}%` }}
-                className={`${item.color} transition-all duration-300 hover:opacity-90`}
-                title={`${item.name}: ${item.count} docs (${item.pct}%)`}
-              />
-            ))}
-          </div>
-
-          {/* Database Pills */}
-          <div className="flex flex-wrap items-center gap-2.5 pt-1">
-            {provenanceDistribution.map((item) => (
-              <div
-                key={item.name}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${item.bgLight} ${item.textColor}`}
-              >
-                <span className={`h-2 w-2 rounded-full ${item.color}`} />
-                <span>{item.name}</span>
-                <span className="text-[11px] opacity-80">({item.count} • {item.pct}%)</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* 4. One-Click AI-Assisted Research Brief */}
       <section className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -778,413 +796,85 @@ export function OverviewView({
         </div>
       </section>
 
-      {/* 5. Interactive Dual-Panel Focus (Growth Dynamics + Topology Snapshot) */}
-      <section className="grid gap-6 xl:grid-cols-2">
-        {/* Left: Research Growth Dynamics */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                  Publication Trajectory
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {growthViewMode === "annual" ? "Annual publication distribution" : "Cumulative growth curve"}
-                </p>
-              </div>
-
-              {/* View Toggle */}
-              <div className="flex items-center rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setGrowthViewMode("annual")}
-                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                    growthViewMode === "annual" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Annual
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGrowthViewMode("cumulative")}
-                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                    growthViewMode === "cumulative" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Cumulative
-                </button>
-              </div>
-            </div>
-
-            {/* Growth Chart */}
-            <div className="mt-4 h-64 w-full">
-              {yearStats.records.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={growthViewMode === "annual" ? yearStats.records : yearStats.cumulativeRecords}
-                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="growthAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0f172a" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#0f172a" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="year" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} />
-                    <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "#e2e8f0" }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", borderRadius: "10px", border: "none", color: "#f8fafc", fontSize: "12px" }}
-                      formatter={(val: any) => [`${val} publications`, growthViewMode === "annual" ? "Annual Output" : "Cumulative Output"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey={growthViewMode === "annual" ? "documents" : "cumulative"}
-                      stroke="#0f172a"
-                      strokeWidth={2.5}
-                      fillOpacity={1}
-                      fill="url(#growthAreaGrad)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <EmptyState
-                  title="Publication Growth"
-                  description="Run the year distribution capability to view publication trajectory."
-                  action="Compute Growth"
-                  onAction={() => onQuickRun("publication.year_distribution")}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-            <span>Peak: {yearStats.peakYear} ({yearStats.peakCount} publications)</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (growthAnalysis) onSelectAnalysis(growthAnalysis);
-                else onQuickRun("publication.year_distribution");
-              }}
-              className="font-bold text-slate-900 hover:underline flex items-center gap-1"
-            >
-              Inspect Distribution Details <ArrowUpRight className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-
-        {/* Right: Structural Topology Snapshot */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight">
-                  Structural Topology Snapshot
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  {topologyViewMode === "authors" ? "Co-authorship cluster network" : "Keyword frequency & concept density"}
-                </p>
-              </div>
-
-              {/* View Toggle */}
-              <div className="flex items-center rounded-xl bg-slate-100 p-0.5 text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setTopologyViewMode("authors")}
-                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                    topologyViewMode === "authors" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Authors
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTopologyViewMode("keywords")}
-                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                    topologyViewMode === "keywords" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Keywords
-                </button>
-              </div>
-            </div>
-
-            {/* Topology Graphic */}
-            <div className="mt-4 h-64 w-full overflow-hidden rounded-xl bg-slate-50/50 border border-slate-100">
-              {topologyViewMode === "authors" ? (
-                collabAnalysis && collabAnalysis.result?.records ? (
-                  <NetworkGraph records={collabAnalysis.result.records} />
-                ) : (
-                  <EmptyState
-                    title="Collaboration Topology"
-                    description="Run the co-authorship analysis to render interactive cluster graphs."
-                    action="Compute Topology"
-                    onAction={() => onQuickRun("author.co_authorship")}
-                  />
-                )
-              ) : keywordAnalysis && keywordAnalysis.result?.records ? (
-                <div className="h-full p-4 overflow-y-auto space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Top Concepts by Frequency
-                  </div>
-                  {keywordAnalysis.result.records.slice(0, 7).map((kw, idx) => {
-                    const cnt = Number(kw.count || kw.documents || 0);
-                    const maxCnt = Number(keywordAnalysis.result!.records[0].count || 50);
-                    const pct = Math.min(100, Math.round((cnt / maxCnt) * 100));
-                    return (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-xs font-semibold text-slate-800">
-                          <span className="truncate pr-2">{kw.name || kw.keyword}</span>
-                          <span className="text-slate-400 shrink-0">{cnt} occurrences</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-slate-900 rounded-full"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <EmptyState
-                  title="Keyword Dynamics"
-                  description="Run keyword frequency to extract dominant conceptual vocabulary."
-                  action="Extract Keywords"
-                  onAction={() => onQuickRun("keyword.frequency")}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-            <span>
-              {topologyViewMode === "authors"
-                ? `${authorStats.uniqueAuthors} identified network entities`
-                : "Term frequency power-law distribution"}
-            </span>
-            <button
-              type="button"
-              onClick={() => onNavigateTab("collaboration")}
-              className="font-bold text-slate-900 hover:underline flex items-center gap-1"
-            >
-              Open Network Studio <ArrowUpRight className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. Scientometric Studio Launchpad (Categorized by Workflow Tabs) */}
+      {/* 6. Software Capability Guide */}
       <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-black text-slate-900 tracking-tight">
-              Scientometric Studios Launchpad
+              SciAI Capability Guide
             </h2>
-            <p className="text-xs text-slate-500">
-              Execution access to classical bibliometric laws, longitudinal dynamics, and network models.
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+              A practical map of the software modules, what each capability measures, where it launches, and the main methodological limitation to consider before interpreting the result.
             </p>
           </div>
 
-          {/* Workflow Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setStudioCategory("all")}
-              className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                studioCategory === "all" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              All Studios
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudioCategory("laws")}
-              className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                studioCategory === "laws" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Classical Laws
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudioCategory("temporal")}
-              className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                studioCategory === "temporal" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Temporal & Frontiers
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudioCategory("advanced")}
-              className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                studioCategory === "advanced" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Networks & AI
-            </button>
+            {Object.entries(capabilityCategoryLabels).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setStudioCategory(key as typeof studioCategory)}
+                className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
+                  studioCategory === key ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Studio Cards Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredStudios.map((item) => {
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredCapabilities.map((item) => {
             const executedAnalysis = findAnalysisByCapability(item.id);
-            const isExecuted = Boolean(executedAnalysis);
-
-            const handleCardClick = () => {
-              if (item.customTab) {
-                onNavigateTab(item.customTab);
-              } else if (executedAnalysis) {
-                onSelectAnalysis(executedAnalysis);
-              } else {
-                onQuickRun(item.id);
-              }
-            };
+            const isRunnable = hasCapability(item.id);
+            const isComputed = Boolean(executedAnalysis);
 
             return (
-              <div
+              <article
                 key={item.id}
-                onClick={handleCardClick}
-                className="group cursor-pointer rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300 hover:shadow-sm flex flex-col justify-between"
+                className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <div className="rounded-xl bg-slate-100 p-2 text-slate-800 group-hover:bg-slate-950 group-hover:text-white transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="rounded-xl bg-slate-100 p-2 text-slate-800">
                       {item.icon}
                     </div>
-                    <span
-                      className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${item.tagColor}`}
-                    >
+                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${item.tagColor}`}>
                       {item.methodology}
                     </span>
                   </div>
 
-                  <h3 className="mt-3 text-sm font-bold text-slate-900 group-hover:text-slate-950">
+                  <h3 className="mt-3 text-sm font-bold text-slate-900">
                     {item.title}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
                     {item.desc}
                   </p>
+                  <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2 text-[11px] leading-5 text-amber-900">
+                    <span className="font-bold">Limit:</span> {item.limitation}
+                  </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-[11px]">
                   <span className="flex items-center gap-1.5 font-semibold text-slate-500">
-                    <span
-                      className={`h-2 w-2 rounded-full ${
-                        isExecuted ? "bg-emerald-500" : "bg-slate-300"
-                      }`}
-                    />
-                    {isExecuted ? "Computed" : "Ready to Run"}
+                    <span className={`h-2 w-2 rounded-full ${isComputed ? "bg-emerald-500" : isRunnable ? "bg-slate-300" : "bg-amber-400"}`} />
+                    {isComputed ? "Computed" : isRunnable ? "Available" : "Studio only"}
                   </span>
-                  <span className="font-bold text-slate-900 group-hover:underline flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab(item.targetTab)}
+                    className="inline-flex items-center gap-1 font-bold text-slate-900 hover:underline"
+                  >
                     Launch <ArrowUpRight className="h-3 w-3" />
-                  </span>
+                  </button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       </section>
 
-      {/* 7. Recent Executions & Dataset Inventory */}
-      <section className="grid gap-6 xl:grid-cols-3">
-        {/* Recent Executions (Col Span 2) */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs xl:col-span-2">
-          <SectionHeader
-            title="Recent Analytical Executions"
-            description="Audit trail of capability executions across dataset versions"
-            action={
-              <button
-                type="button"
-                onClick={onOpenRunAnalysis}
-                className="text-xs font-bold text-slate-700 hover:text-slate-950 underline"
-              >
-                New Run
-              </button>
-            }
-          />
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-100">
-            <div className="grid grid-cols-[2fr_1.2fr_1fr_1fr] border-b border-slate-200 bg-slate-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              <div>Analysis</div>
-              <div>Dataset Version</div>
-              <div>Status</div>
-              <div className="text-right">Action</div>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {analyses.slice(0, 5).map((a) => (
-                <div
-                  key={a.id}
-                  onClick={() => onSelectAnalysis(a)}
-                  className="grid grid-cols-[2fr_1.2fr_1fr_1fr] items-center px-4 py-3 text-xs hover:bg-slate-50/80 transition cursor-pointer"
-                >
-                  <div className="truncate pr-2">
-                    <div className="font-bold text-slate-900 truncate">
-                      {a.name || a.capability_id}
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate">
-                      {a.capability_id}
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-slate-500 truncate">
-                    {a.dataset_version_id || "v1"}
-                  </div>
-                  <div>
-                    <StatusBadge status={a.status || "available"} />
-                  </div>
-                  <div className="text-right font-bold text-slate-700 hover:text-slate-950 text-xs">
-                    Inspect →
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Dataset Quick Inventory */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-          <SectionHeader
-            title="Dataset Inventory"
-            description="Stored datasets in SQLite"
-            action={
-              <button
-                type="button"
-                onClick={() => onNavigateTab("datasets")}
-                className="text-xs font-bold text-slate-700 hover:text-slate-950 underline"
-              >
-                View All ({datasets.length})
-              </button>
-            }
-          />
-          <div className="mt-4 space-y-2.5">
-            {datasets.map((d) => (
-              <div
-                key={d.id}
-                onClick={() => {
-                  setSelectedDatasetId(d.id);
-                }}
-                className={`flex items-center justify-between rounded-xl border p-3 transition cursor-pointer ${
-                  selectedDatasetId === d.id
-                    ? "border-slate-900 bg-slate-50 shadow-xs"
-                    : "border-slate-100 bg-slate-50/50 hover:bg-slate-100/70"
-                }`}
-              >
-                <div className="min-w-0 pr-3">
-                  <div className="truncate text-xs font-bold text-slate-900">
-                    {d.name}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-slate-400">
-                    {d.source || "Web of Science"} · {d.record_count} docs
-                  </div>
-                </div>
-                <StatusBadge status={d.status || "available"} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

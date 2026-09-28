@@ -1649,7 +1649,7 @@ export function NetworkStudio({
             Scientific Network Analysis & SNA Studio
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            4-Level Citation (Paper, Author, Institution, Country), Coupling, Co-Citation & Clustering Algorithms.
+            Structural Topology Snapshot, 4-level citation networks, coupling, co-citation, co-authorship, keyword co-occurrence, and SNA centrality metrics.
           </p>
         </div>
 
@@ -1877,7 +1877,22 @@ export function NetworkStudio({
         )}
       </div>
 
-      {/* 3. Group Macro SNA Metrics Row */}
+      {/* 3. Structural Topology Snapshot & Group Macro SNA Metrics Row */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-black tracking-tight text-slate-900">
+              Structural Topology Snapshot
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              A network-level summary for the selected typology, including density, clustering, path structure, modularity, and active node/tie counts.
+            </p>
+          </div>
+          <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
+            {ALL_16_NETWORKS.find((item) => item.id === networkType)?.shortLabel || "Active Network"}
+          </span>
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
           <span className="text-[10px] font-bold text-slate-400 uppercase">Network Density</span>

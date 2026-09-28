@@ -25,7 +25,6 @@ import {
   Compass,
   LineChart,
   Layers,
-  Globe2,
 } from "lucide-react";
 
 export type NavTab =
@@ -85,7 +84,7 @@ function BrandMark() {
 export const NAV_GROUPS: NavGroup[] = [
   {
     id: "data-pipeline",
-    title: "Phase 1: Acquisition & Hygiene",
+    title: "Acquisition & Hygiene",
     items: [
       {
         id: "overview",
@@ -97,7 +96,7 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "corpus-pipeline",
         label: "Dataset & Corpus Pipeline",
         icon: <Layers className="h-4 w-4 text-emerald-600" />,
-        badge: "Phase 1",
+        badge: "Pipeline",
         badgeColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
         description: "Unified 4-Step Dataset Studio",
       },
@@ -105,13 +104,13 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "bibliometrics",
-    title: "Phase 2 & 3 Scientometrics",
+    title: "Scientometrics",
     items: [
       {
         id: "descriptive",
         label: "Descriptive Analytics",
         icon: <LineChart className="h-4 w-4 text-blue-600" />,
-        badge: "Phase 2",
+        badge: "Metrics",
         badgeColor: "text-blue-700 bg-blue-50 border-blue-200",
         description: "Macro Trends, Grants, Lotka & Bradford",
       },
@@ -119,7 +118,7 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "entities",
         label: "Entity Explorer",
         icon: <Compass className="h-4 w-4 text-purple-600" />,
-        badge: "Phase 3",
+        badge: "Explorer",
         badgeColor: "text-purple-700 bg-purple-50 border-purple-200",
         description: "Authors, Sources, Affiliations & Grants",
       },

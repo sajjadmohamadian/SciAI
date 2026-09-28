@@ -3,6 +3,7 @@ import { Dataset, DatasetVersion, Capability } from "../types.js";
 import { Modal } from "./CommonUI.js";
 import { Upload, Play, Database, FileSpreadsheet, CheckCircle } from "lucide-react";
 import { apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
+import { CAPABILITY_CATEGORIES, getCapabilityPresentation } from "../utils/capabilityCatalog.js";
 
 export function RunAnalysisModal({
   datasets = [],
@@ -120,47 +121,53 @@ export function RunAnalysisModal({
           <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
             Analytical Capabilities
           </label>
-          <div className="mt-2 max-h-56 overflow-y-auto space-y-1.5 rounded-xl border border-slate-200 p-2 bg-slate-50/50">
-            {(capabilities || []).map((cap) => {
-              const isSelected = selectedCapability === cap.name;
-              const provider = cap.providers?.[0];
-              const label = cap.name
-                .replace(/[._]/g, " ")
-                .replace(/\b\w/g, (l) => l.toUpperCase());
+          <div className="mt-2 max-h-72 overflow-y-auto space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+            {CAPABILITY_CATEGORIES.map((category) => {
+              const options = capabilities.filter(
+                (cap) => getCapabilityPresentation(cap.name).category === category
+              );
+              if (options.length === 0) return null;
 
               return (
-                <button
-                  type="button"
-                  key={cap.name}
-                  onClick={() => onSelectCapability(cap.name)}
-                  className={`w-full text-left rounded-lg p-2.5 transition flex items-center justify-between cursor-pointer ${
-                    isSelected
-                      ? "bg-slate-950 text-white shadow-xs"
-                      : "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200/80"
-                  }`}
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="text-xs font-bold truncate">{label}</div>
-                    <div
-                      className={`text-[10px] truncate ${
-                        isSelected ? "text-slate-400" : "text-slate-500"
-                      }`}
-                    >
-                      {cap.description || cap.name}
-                    </div>
-                  </div>
-                  {provider && (
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                        isSelected
-                          ? "bg-white/15 text-slate-200"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {provider.name}
-                    </span>
-                  )}
-                </button>
+                <section key={category} aria-label={category} className="space-y-1.5">
+                  <h3 className="px-1 pt-1 text-[11px] font-bold text-slate-600">
+                    {category} <span className="font-normal">({options.length})</span>
+                  </h3>
+                  {options.map((cap) => {
+                    const details = getCapabilityPresentation(cap.name);
+                    const isSelected = selectedCapability === cap.name;
+                    const provider = cap.providers?.find((p) => p.available) || cap.providers?.[0];
+
+                    return (
+                      <button
+                        type="button"
+                        key={cap.name}
+                        aria-pressed={isSelected}
+                        onClick={() => onSelectCapability(cap.name)}
+                        className={`w-full rounded-lg p-2.5 text-left transition cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                          isSelected
+                            ? "bg-slate-950 text-white shadow-xs"
+                            : "border border-slate-200/80 bg-white text-slate-800 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="flex flex-wrap items-center justify-between gap-1">
+                          <span className="text-xs font-bold">{details.title}</span>
+                          {provider?.name && (
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${isSelected ? "bg-white/15 text-slate-200" : "bg-slate-100 text-slate-600"}`}>
+                              Registered: {provider.name}
+                            </span>
+                          )}
+                        </span>
+                        <span className={`mt-1 block text-[10px] leading-relaxed ${isSelected ? "text-slate-200" : "text-slate-600"}`}>
+                          {cap.description || cap.name}
+                        </span>
+                        <span className={`mt-1 block text-[10px] ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
+                          Needs: {details.requirement} · Opens in {details.destinationLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </section>
               );
             })}
           </div>

@@ -32,6 +32,8 @@ interface Props {
   datasets: Dataset[];
   selectedDatasetId?: string;
   onSelectDataset?: (id: string) => void;
+  focusDimension?: "authors" | "sources" | "institutions";
+  focusKey?: string;
 }
 
 type EntityDimension = "authors" | "sources" | "keywords" | "institutions" | "grants" | "countries" | "documents";
@@ -54,11 +56,13 @@ export function EntityExplorerStudio({
   datasets = [],
   selectedDatasetId,
   onSelectDataset,
+  focusDimension,
+  focusKey,
 }: Props) {
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
   );
-  const [dimension, setDimension] = useState<EntityDimension>("authors");
+  const [dimension, setDimension] = useState<EntityDimension>(focusDimension || "authors");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"docCount" | "totalCitations" | "hIndex" | "gIndex">("docCount");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -66,6 +70,13 @@ export function EntityExplorerStudio({
 
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (focusDimension) {
+      setDimension(focusDimension);
+      setSelectedEntity(null);
+    }
+  }, [focusDimension, focusKey]);
 
   useEffect(() => {
     if (selectedDatasetId && selectedDatasetId !== activeDatasetId) {

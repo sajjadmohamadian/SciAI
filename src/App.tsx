@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Project,
   Dataset,
@@ -47,6 +47,13 @@ import { ComparativeBenchmarkingStudio } from "./components/ComparativeBenchmark
 import { PowerBIConnectorStudio } from "./components/PowerBIConnectorStudio.js";
 import { apiJson, getApiErrorMessage } from "./utils/apiClient.js";
 import {
+  getAnalysisCapabilityId,
+  getAnalysisDatasetId,
+  getCapabilityPresentation,
+  getStudioRuns,
+  indexVersionOwners,
+} from "./utils/capabilityCatalog.js";
+import {
   Database,
   FileText,
   Activity,
@@ -68,7 +75,6 @@ export default function App() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
-  const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
 
@@ -82,6 +88,10 @@ export default function App() {
   const [versions, setVersions] = useState<DatasetVersion[]>([]);
   const [versionsStatus, setVersionsStatus] = useState<VersionFetchStatus>("idle");
   const [versionError, setVersionError] = useState<string | null>(null);
+  const [versionOwners, setVersionOwners] = useState<Record<string, string>>({});
+  const [focusedAnalysisId, setFocusedAnalysisId] = useState<string | null>(null);
+  const [entityFocus, setEntityFocus] = useState<{ dimension: "authors" | "sources" | "institutions"; key: string } | null>(null);
+  const resultSectionRef = useRef<HTMLElement | null>(null);
 
   const selectedDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
@@ -102,9 +112,6 @@ export default function App() {
         setProject(valDash.data.project);
         setDatasets(valDash.data.datasets);
         setAnalyses(valDash.data.analyses);
-        if (valDash.data.analyses.length > 0) {
-          setSelectedAnalysis(valDash.data.analyses[0]);
-        }
         if (!selectedDatasetId && valDash.data.datasets.length > 0) {
           setSelectedDatasetId(valDash.data.datasets[0].id);
         }
@@ -124,6 +131,27 @@ export default function App() {
   useEffect(() => {
     loadDashboard();
   }, []);
+
+  // Resolve saved analysis versions without changing the modal's selected version.
+  useEffect(() => {
+    if (datasets.length === 0) return;
+    const controller = new AbortController();
+    Promise.all(datasets.map(async (dataset) => {
+      try {
+        const response = await fetch(`/datasets/${encodeURIComponent(dataset.id)}/versions`, { signal: controller.signal });
+        if (!response.ok) return [];
+        const list = validateVersionsList(await response.json());
+        return list.filter((version) => version.dataset_id === dataset.id);
+      } catch {
+        return [];
+      }
+    })).then((lists) => {
+      if (!controller.signal.aborted) {
+        setVersionOwners(indexVersionOwners(lists.flat()));
+      }
+    });
+    return () => controller.abort();
+  }, [datasets]);
 
   // When selectedDatasetId changes, load its versions with race-condition prevention
   useEffect(() => {
@@ -206,6 +234,27 @@ export default function App() {
     setModal("analysis");
   };
 
+  const showAnalysisInStudio = (analysis: Analysis, datasetId: string, versionId: string) => {
+    const details = getCapabilityPresentation(getAnalysisCapabilityId(analysis));
+    setAnalyses((previous) => [analysis, ...previous.filter((item) => item.id !== analysis.id)]);
+    setVersionOwners((previous) => ({ ...previous, [versionId]: datasetId }));
+    setSelectedDatasetId(datasetId);
+    setFocusedAnalysisId(analysis.id);
+    setEntityFocus(details.dimension ? { dimension: details.dimension, key: analysis.id } : null);
+    setActiveTab(details.destination);
+    setModal(null);
+    setMessage("");
+  };
+
+  useEffect(() => {
+    if (!focusedAnalysisId || !resultSectionRef.current) return;
+    const frame = requestAnimationFrame(() => {
+      resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultSectionRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusedAnalysisId, activeTab]);
+
   // Run an analysis with authoritative validation before submission
   const runAnalysis = async () => {
     if (!selectedCapability) {
@@ -237,10 +286,7 @@ export default function App() {
 
       const valAnalysis = validateAnalysisRunResponse(newAnalysis);
       if (valAnalysis.success && valAnalysis.data) {
-        setAnalyses((prev) => [valAnalysis.data, ...prev]);
-        setSelectedAnalysis(valAnalysis.data);
-        setModal(null);
-        setMessage(`Analysis "${valAnalysis.data.name || selectedCapability}" executed successfully!`);
+        showAnalysisInStudio(valAnalysis.data, selectedDatasetId, selectedVersionId);
       } else {
         setMessage(valAnalysis.error || "Analysis response structure was malformed.");
       }
@@ -291,9 +337,7 @@ export default function App() {
 
       const valAnalysis = validateAnalysisRunResponse(newAnalysis);
       if (valAnalysis.success && valAnalysis.data) {
-        setAnalyses((prev) => [valAnalysis.data, ...prev.filter((a) => a.id !== valAnalysis.data.id)]);
-        setSelectedAnalysis(valAnalysis.data);
-        setMessage(`Executed ${capabilityId.replace(/[._]/g, " ")}`);
+        showAnalysisInStudio(valAnalysis.data, targetDataset.id, version.id);
       } else {
         setMessage(valAnalysis.error || "Execution returned invalid analysis structure.");
       }
@@ -312,6 +356,11 @@ export default function App() {
 
   // Total documents across datasets
   const totalDocs = (datasets || []).reduce((sum, d) => sum + (d.record_count || 0), 0);
+  const resultStudio: NavTab = ["authors", "sources", "keywords"].includes(activeTab)
+    ? "entities"
+    : activeTab === "analyses" ? "descriptive" : activeTab;
+  const studioRuns = getStudioRuns(analyses, resultStudio, selectedDataset?.id || "", versionOwners);
+  const focusedStudioAnalysis = studioRuns.find((analysis) => analysis.id === focusedAnalysisId);
 
   // Tab switching helper for capabilities
   const renderCapabilityView = (
@@ -406,20 +455,20 @@ export default function App() {
                 analyses={analyses}
                 capabilities={capabilities}
                 loading={loading}
-                onSelectAnalysis={(a) => setSelectedAnalysis(a)}
                 onQuickRun={quickRunCapability}
                 onOpenRunAnalysis={() => openAnalysisModal()}
-                onNavigateTab={(tab) => setActiveTab(tab)}
+                onNavigateTab={(tab) => {
+                  setActiveTab(tab);
+                  if (tab === "openalex") {
+                    setMessage("OpenAlex Explorer launched inside Dataset & Corpus Pipeline.");
+                  } else if (tab === "merge") {
+                    setMessage("Smart Merge Studio launched inside Dataset & Corpus Pipeline.");
+                  } else {
+                    setMessage("");
+                  }
+                }}
                 onOpenUpload={() => setModal("upload")}
               />
-
-              {/* Active Selected Analysis Result Panel */}
-              {selectedAnalysis && (
-                <AnalysisResultPanel
-                  analysis={selectedAnalysis}
-                  onRefresh={loadDashboard}
-                />
-              )}
             </div>
           )}
 
@@ -460,9 +509,6 @@ export default function App() {
               selectedDatasetId={selectedDataset?.id}
               onSelectDataset={setSelectedDatasetId}
               analyses={analyses}
-              onSelectAnalysis={(a) => {
-                setSelectedAnalysis(a);
-              }}
               onQuickRun={quickRunCapability}
             />
           )}
@@ -476,6 +522,8 @@ export default function App() {
               datasets={datasets}
               selectedDatasetId={selectedDataset?.id}
               onSelectDataset={setSelectedDatasetId}
+              focusDimension={entityFocus?.dimension || (activeTab === "sources" ? "sources" : "authors")}
+              focusKey={entityFocus?.key || activeTab}
             />
           )}
 
@@ -559,6 +607,70 @@ export default function App() {
           {/* VIEW: AI INTELLIGENCE */}
           {activeTab === "ai" && (
             <AiIntelligenceView datasets={datasets} analyses={analyses} />
+          )}
+
+          {(["descriptive", "analyses", "entities", "authors", "sources", "keywords", "collaboration", "thematic", "historical", "ml"] as NavTab[]).includes(activeTab) && (
+            <section ref={resultSectionRef} tabIndex={-1} aria-label="Studio analysis results" className="mt-8 scroll-mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 outline-none sm:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Analysis runs in this studio</h2>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Saved runs for {selectedDataset?.name || "the selected dataset"}; results below belong to a specific dataset version.
+                  </p>
+                </div>
+                {resultStudio === "descriptive" && (
+                  <button type="button" onClick={() => setActiveTab("thematic")} className="text-xs font-semibold text-blue-700 hover:underline">
+                    Explore thematic evolution
+                  </button>
+                )}
+              </div>
+              {studioRuns.length > 0 ? (
+                <>
+                  <label htmlFor="studio-analysis-run" className="block text-xs font-semibold text-slate-700">Open a saved run</label>
+                  <select
+                    id="studio-analysis-run"
+                    value={focusedStudioAnalysis?.id || ""}
+                    onChange={(event) => {
+                      const run = studioRuns.find((analysis) => analysis.id === event.target.value);
+                      if (!run) return;
+                      const owner = getAnalysisDatasetId(run, versionOwners);
+                      if (owner) setSelectedDatasetId(owner);
+                      const details = getCapabilityPresentation(getAnalysisCapabilityId(run));
+                      setEntityFocus(details.dimension ? { dimension: details.dimension, key: run.id } : null);
+                      setFocusedAnalysisId(run.id);
+                      resultSectionRef.current?.scrollIntoView({ block: "start" });
+                    }}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-600"
+                  >
+                    <option value="">Select a run...</option>
+                    {studioRuns.map((analysis) => {
+                      const owner = getAnalysisDatasetId(analysis, versionOwners);
+                      const datasetName = owner ? datasets.find((dataset) => dataset.id === owner)?.name || owner : "Dataset unresolved";
+                      return (
+                        <option key={analysis.id} value={analysis.id}>
+                          {getCapabilityPresentation(getAnalysisCapabilityId(analysis)).title} — {datasetName} — {analysis.dataset_version_id || "Version unknown"} — {analysis.created_at ? new Date(analysis.created_at).toLocaleString() : analysis.id}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">No saved runs for this studio and dataset yet. Use Analyze Dataset to start one.</p>
+              )}
+              {focusedStudioAnalysis && (
+                <div>
+                  <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                    Dataset: {getAnalysisDatasetId(focusedStudioAnalysis, versionOwners)
+                      ? datasets.find((dataset) => dataset.id === getAnalysisDatasetId(focusedStudioAnalysis, versionOwners))?.name || getAnalysisDatasetId(focusedStudioAnalysis, versionOwners)
+                      : "Unresolved — the dataset for this historical version could not be verified"}
+                    {" · "}Version ID: {focusedStudioAnalysis.dataset_version_id || "Unknown"}
+                  </p>
+                  <div key={focusedStudioAnalysis.id}>
+                    <AnalysisResultPanel analysis={focusedStudioAnalysis} onRefresh={loadDashboard} />
+                  </div>
+                </div>
+              )}
+            </section>
           )}
         </main>
       </div>

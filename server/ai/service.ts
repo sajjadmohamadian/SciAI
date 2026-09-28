@@ -64,6 +64,55 @@ const available = <T>(content: T, provenance: AiProvenance, warnings: string[] =
   warnings,
 });
 
+const summarizeValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "unavailable";
+  if (Array.isArray(value)) return value.length > 0 ? value.map(String).slice(0, 8).join(", ") : "unavailable";
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "unavailable";
+  return String(value);
+};
+
+const buildDeterministicScientometricInsight = (
+  analysisType: string,
+  records: Array<Record<string, unknown>>,
+  metadata: Record<string, unknown>
+): string => {
+  const datasetName = summarizeValue(metadata.dataset_name || metadata.dataset || metadata.name || "Active research corpus");
+  const totalDocuments = summarizeValue(metadata.total_documents || metadata.documents || metadata.records_processed || records.length);
+  const yearsSpan = summarizeValue(metadata.years_span || metadata.timespan || metadata.year_range);
+  const totalCitations = summarizeValue(metadata.total_citations || metadata.citations);
+  const topKeywords = summarizeValue(metadata.top_keywords || metadata.keywords);
+
+  const annualRecords = records
+    .map((r) => ({
+      year: Number(r.year || r.name),
+      documents: Number(r.documents || r.count || 0),
+    }))
+    .filter((r) => r.year > 1900 && r.documents > 0)
+    .sort((a, b) => a.year - b.year);
+
+  const peak = annualRecords.reduce(
+    (best, item) => (item.documents > best.documents ? item : best),
+    { year: 0, documents: 0 }
+  );
+  const computedSpan = annualRecords.length > 0
+    ? `${annualRecords[0].year}-${annualRecords[annualRecords.length - 1].year}`
+    : yearsSpan;
+  const peakSentence = peak.year
+    ? `The strongest supplied annual point is ${peak.year} with ${peak.documents.toLocaleString()} publications.`
+    : "A peak publication year is unavailable from the supplied annual records.";
+
+  return [
+    "Executive Research Summary",
+    `SciAI analyzed the supplied deterministic ${analysisType} context for ${datasetName}. The available corpus context contains ${totalDocuments} indexed publications across ${computedSpan}. Total citations are ${totalCitations}. Key supplied terms include ${topKeywords}.`,
+    "",
+    "Scientometric Significance",
+    `${peakSentence} This synthesis is grounded only in the records and metadata already computed by SciAI; unavailable metrics are not inferred or estimated.`,
+    "",
+    "Strategic Implications",
+    "Use this brief as a deterministic overview of the current evidence scope. For richer narrative interpretation, configure or select an available AI provider; until then, SciAI preserves computed values and marks unsupported interpretation as unavailable rather than inventing findings.",
+  ].join("\n");
+};
+
 export async function generateScientometricInsight(
   analysisType: string,
   records: Array<Record<string, unknown>>,
@@ -83,7 +132,12 @@ Structure the response with: Executive Research Summary, Scientometric Significa
 
   const result = await callAiText({ task: "interpretation", prompt, responseFormat: "text", temperature: 0.2, ...parseOptions(options) });
   if (result.status === "available" && result.content) return available(result.content, result.provenance, result.warnings);
-  return unavailable("unavailable", result.provenance, result.warnings);
+
+  const deterministicInsight = buildDeterministicScientometricInsight(analysisType, records, metadata);
+  return unavailable(deterministicInsight, result.provenance, [
+    ...result.warnings,
+    "AI provider output was unavailable; returned deterministic SciAI synthesis from supplied metrics.",
+  ]);
 }
 
 export async function generateSemanticClusterLabels(

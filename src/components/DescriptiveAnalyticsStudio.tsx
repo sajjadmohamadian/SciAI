@@ -62,7 +62,7 @@ export function DescriptiveAnalyticsStudio({
   );
   const [activeSubTab, setActiveSubTab] = useState<
     "overview" | "trends" | "citations" | "grants" | "affiliations" | "lotka" | "bradford" | "analyses"
-  >("overview");
+  >("trends");
 
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -777,10 +777,10 @@ export function DescriptiveAnalyticsStudio({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Annual Scientific Production & Citation Velocity
+                  Publication Trajectory
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Publication volume (bars) alongside mean citation rate per paper over time (line).
+                  Annual publication distribution and citation velocity for the active corpus.
                 </p>
               </div>
             </div>
