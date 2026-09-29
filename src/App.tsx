@@ -112,9 +112,11 @@ export default function App() {
         setProject(valDash.data.project);
         setDatasets(valDash.data.datasets);
         setAnalyses(valDash.data.analyses);
-        if (!selectedDatasetId && valDash.data.datasets.length > 0) {
-          setSelectedDatasetId(valDash.data.datasets[0].id);
-        }
+        setSelectedDatasetId((current) =>
+          valDash.data.datasets.some((dataset) => dataset.id === current)
+            ? current
+            : valDash.data.datasets[0]?.id || ""
+        );
       } else {
         setMessage(valDash.error || "Dashboard payload is malformed.");
       }
@@ -485,9 +487,12 @@ export default function App() {
               onOpenUpload={() => setModal("upload")}
               onRefreshData={loadDashboard}
               onRunAnalysisForDataset={(datasetId) => openAnalysisModal(undefined, datasetId)}
-              onDatasetDeleted={(deletedId) => {
-                setDatasets((prev) => prev.filter((d) => d.id !== deletedId));
-                setMessage("Dataset successfully deleted.");
+              onDatasetDeleted={(deletedIds) => {
+                setDatasets((current) => current.filter((dataset) => !deletedIds.includes(dataset.id)));
+                setSelectedDatasetId((current) => deletedIds.includes(current)
+                  ? datasets.find((dataset) => !deletedIds.includes(dataset.id))?.id || ""
+                  : current);
+                setMessage(`${deletedIds.length} dataset${deletedIds.length === 1 ? "" : "s"} successfully deleted.`);
                 loadDashboard();
               }}
               initialStep={

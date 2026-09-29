@@ -588,53 +588,48 @@ export function persistAnalysisTransaction(analysis: Analysis): void {
  *
  * Returns deleted version IDs and analysis IDs for memory cache synchronization.
  */
-export function deleteDatasetCascadeTransaction(datasetId: string): {
+type DatasetDeletionResult = {
   deletedDatasetId: string;
   deletedVersionIds: string[];
   deletedAnalysisIds: string[];
-} {
+};
+
+function deleteDatasetCascade(db: DatabaseSync, datasetId: string): DatasetDeletionResult {
+  const versionRows = db
+    .prepare("SELECT id FROM dataset_versions WHERE json_extract(data, '$.dataset_id') = ?")
+    .all(datasetId) as Array<{ id: string }>;
+  const versionIds = versionRows.map((r) => r.id);
+  const deletedAnalysisIds: string[] = [];
+
+  for (const vId of versionIds) {
+    const anaRows = db
+      .prepare("SELECT id FROM analyses WHERE json_extract(data, '$.dataset_version_id') = ?")
+      .all(vId) as Array<{ id: string }>;
+    deletedAnalysisIds.push(...anaRows.map((row) => row.id));
+    db.prepare("DELETE FROM version_documents WHERE version_id = ?").run(vId);
+  }
+
+  for (const aId of deletedAnalysisIds) {
+    db.prepare("DELETE FROM analyses WHERE id = ?").run(aId);
+  }
+  db.prepare("DELETE FROM dataset_versions WHERE json_extract(data, '$.dataset_id') = ?").run(datasetId);
+  db.prepare("DELETE FROM datasets WHERE id = ?").run(datasetId);
+
+  return { deletedDatasetId: datasetId, deletedVersionIds: versionIds, deletedAnalysisIds };
+}
+
+export function deleteDatasetsCascadeTransaction(datasetIds: string[]): DatasetDeletionResult[] {
   const db = getDb();
   return runTransaction(db, () => {
-    // 1. Locate all version IDs for this dataset from SQLite
-    const versionRows = db
-      .prepare("SELECT id FROM dataset_versions WHERE json_extract(data, '$.dataset_id') = ?")
-      .all(datasetId) as Array<{ id: string }>;
-    const versionIds = versionRows.map((r) => r.id);
-
-    // 2. Locate all analyses associated with any of these versions
-    const deletedAnalysisIds: string[] = [];
-    if (versionIds.length > 0) {
-      for (const vId of versionIds) {
-        const anaRows = db
-          .prepare("SELECT id FROM analyses WHERE json_extract(data, '$.dataset_version_id') = ?")
-          .all(vId) as Array<{ id: string }>;
-        for (const a of anaRows) {
-          deletedAnalysisIds.push(a.id);
-        }
-      }
+    if (datasetIds.length === 0 || new Set(datasetIds).size !== datasetIds.length ||
+        datasetIds.some((id) => !id || !db.prepare("SELECT 1 FROM datasets WHERE id = ?").get(id))) {
+      throw new Error("All dataset IDs must be distinct and exist before deletion");
     }
-
-    // 3. Delete version documents
-    for (const vId of versionIds) {
-      db.prepare("DELETE FROM version_documents WHERE version_id = ?").run(vId);
-    }
-
-    // 4. Delete dependent analyses
-    for (const aId of deletedAnalysisIds) {
-      db.prepare("DELETE FROM analyses WHERE id = ?").run(aId);
-    }
-
-    // 5. Delete dataset versions
-    db.prepare("DELETE FROM dataset_versions WHERE json_extract(data, '$.dataset_id') = ?").run(datasetId);
-
-    // 6. Delete the dataset itself
-    db.prepare("DELETE FROM datasets WHERE id = ?").run(datasetId);
-
-    return {
-      deletedDatasetId: datasetId,
-      deletedVersionIds: versionIds,
-      deletedAnalysisIds,
-    };
+    return datasetIds.map((id) => deleteDatasetCascade(db, id));
   });
+}
+
+export function deleteDatasetCascadeTransaction(datasetId: string): DatasetDeletionResult {
+  return deleteDatasetsCascadeTransaction([datasetId])[0];
 }
 

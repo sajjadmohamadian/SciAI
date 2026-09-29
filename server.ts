@@ -135,6 +135,7 @@ import {
   persistMergeTransaction,
   persistAnalysisTransaction,
   deleteDatasetCascadeTransaction,
+  deleteDatasetsCascadeTransaction,
   IngestionBatchItem,
   getDatasetById,
   getDatasetVersionById,
@@ -2592,6 +2593,49 @@ app.get(["/api/datasets/:dataset_id/versions", "/datasets/:dataset_id/versions"]
   res.json(versions);
 });
 
+function evictDeletedDatasets(results: ReturnType<typeof deleteDatasetsCascadeTransaction>) {
+  for (const { deletedDatasetId, deletedVersionIds, deletedAnalysisIds } of results) {
+    for (const vId of deletedVersionIds) {
+      versionDocuments.delete(vId);
+      datasetVersions.delete(vId);
+    }
+    for (const aId of deletedAnalysisIds) {
+      analyses.delete(aId);
+    }
+    datasets.delete(deletedDatasetId);
+    delete initialSeeds[deletedDatasetId];
+  }
+}
+
+app.post(["/api/datasets/bulk-delete", "/datasets/bulk-delete"], requireApiToken, (req, res) => {
+  const ids: unknown = req.body?.dataset_ids;
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100 ||
+      ids.some((id) => typeof id !== "string" || !id.trim() || id.length > 256) ||
+      new Set(ids).size !== ids.length) {
+    return res.status(400).json({ error: "Provide 1 to 100 distinct, nonempty dataset IDs" });
+  }
+
+  const datasetIds = ids as string[];
+  const missingIds = datasetIds.filter((id) => !getAuthoritativeDataset(id));
+  if (missingIds.length > 0) {
+    return res.status(404).json({ error: "Dataset not found", dataset_ids: missingIds });
+  }
+
+  try {
+    const results = deleteDatasetsCascadeTransaction(datasetIds);
+    evictDeletedDatasets(results);
+    res.json({
+      success: true,
+      deleted_dataset_ids: results.map((result) => result.deletedDatasetId),
+      deleted_versions_count: results.reduce((sum, result) => sum + result.deletedVersionIds.length, 0),
+      deleted_analyses_count: results.reduce((sum, result) => sum + result.deletedAnalysisIds.length, 0),
+    });
+  } catch (err: unknown) {
+    console.error("[SQLite Error] Failed to delete selected datasets:", err);
+    res.status(500).json({ error: "Failed to delete datasets safely; none were deleted" });
+  }
+});
+
 // Delete dataset and all associated versions, documents, and references atomically
 app.delete(["/api/datasets/:dataset_id", "/datasets/:dataset_id"], requireApiToken, (req, res) => {
   const datasetId = req.params.dataset_id;
@@ -2602,25 +2646,17 @@ app.delete(["/api/datasets/:dataset_id", "/datasets/:dataset_id"], requireApiTok
 
   try {
     // Execute atomic cascade deletion in SQLite first
-    const { deletedVersionIds, deletedAnalysisIds } = deleteDatasetCascadeTransaction(datasetId);
+    const result = deleteDatasetCascadeTransaction(datasetId);
 
     // Only update memory cache after SQLite commit has succeeded
-    for (const vId of deletedVersionIds) {
-      versionDocuments.delete(vId);
-      datasetVersions.delete(vId);
-    }
-    for (const aId of deletedAnalysisIds) {
-      analyses.delete(aId);
-    }
-    datasets.delete(datasetId);
-    delete initialSeeds[datasetId];
+    evictDeletedDatasets([result]);
 
     res.json({
       success: true,
-      message: `Dataset "${ds.name}" and ${deletedVersionIds.length} version(s) successfully deleted.`,
+      message: `Dataset "${ds.name}" and ${result.deletedVersionIds.length} version(s) successfully deleted.`,
       deleted_dataset_id: datasetId,
-      deleted_versions_count: deletedVersionIds.length,
-      deleted_analyses_count: deletedAnalysisIds.length,
+      deleted_versions_count: result.deletedVersionIds.length,
+      deleted_analyses_count: result.deletedAnalysisIds.length,
     });
   } catch (err: unknown) {
     console.error(`[SQLite Error] Failed to cascade delete dataset ${datasetId}:`, err);

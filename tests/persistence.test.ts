@@ -28,6 +28,7 @@ import {
   upsertMergeSummary,
   loadLatestMergeSummary,
   deleteDatasetCascadeTransaction,
+  deleteDatasetsCascadeTransaction,
   persistIngestionTransaction,
 } from "../server/db.js";
 import {
@@ -294,6 +295,45 @@ describe("Persistence & SQLite Integrity Suite", () => {
 
     const orphanAnas = db.prepare("SELECT * FROM analyses WHERE id IN (?, ?)").all(anaId1, anaId2);
     assert.equal(orphanAnas.length, 0, "No orphaned analyses");
+  });
+
+  test("Bulk deletion cascades for selected datasets and preserves other datasets", () => {
+    initDb(tempDbPath);
+    for (const id of ["bulk-a", "bulk-b", "bulk-keep"]) {
+      upsertDataset({ id, name: id, source: "Test", record_count: 1 });
+      upsertDatasetVersion({ id: `version-${id}`, dataset_id: id, version: 1, record_count: 1 });
+      upsertVersionDocuments(`version-${id}`, [
+        { id: `document-${id}`, title: id, authors: [], year: 2024, source: "Test", citations: 0, keywords: [] },
+      ]);
+      upsertAnalysis({ id: `analysis-${id}`, dataset_version_id: `version-${id}`, capability_id: "citation.average", status: "completed", parameters: {}, created_at: new Date().toISOString() });
+    }
+
+    const result = deleteDatasetsCascadeTransaction(["bulk-a", "bulk-b"]);
+    assert.deepEqual(result.map((item) => item.deletedDatasetId), ["bulk-a", "bulk-b"]);
+    for (const id of ["bulk-a", "bulk-b"]) {
+      assert.equal(getDatasetById(id), null);
+      assert.equal(getDatasetVersionById(`version-${id}`), null);
+      assert.equal(getVersionDocumentsById(`version-${id}`), null);
+      assert.equal(getAnalysisById(`analysis-${id}`), null);
+    }
+    assert.equal(getDatasetById("bulk-keep")?.id, "bulk-keep");
+    assert.equal(getVersionDocumentsById("version-bulk-keep")?.length, 1);
+    assert(getAnalysisById("analysis-bulk-keep"));
+  });
+
+  test("Bulk deletion rolls back every dataset when a later cascade fails", () => {
+    const db = initDb(tempDbPath);
+    for (const id of ["bulk-first", "bulk-failing"]) {
+      upsertDataset({ id, name: id, source: "Test", record_count: 1 });
+    }
+    db.exec(`CREATE TRIGGER reject_bulk_delete BEFORE DELETE ON datasets
+      WHEN OLD.id = 'bulk-failing' BEGIN SELECT RAISE(ABORT, 'simulated failure'); END`);
+
+    assert.throws(() => deleteDatasetsCascadeTransaction(["bulk-first", "bulk-failing"]), /simulated failure/);
+    assert(getDatasetById("bulk-first"));
+    assert(getDatasetById("bulk-failing"));
+    assert.throws(() => deleteDatasetsCascadeTransaction(["bulk-first", "missing"]), /distinct and exist/);
+    assert(getDatasetById("bulk-first"));
   });
 
   test("Transaction rollback after induced failure leaves prior writes absent", () => {

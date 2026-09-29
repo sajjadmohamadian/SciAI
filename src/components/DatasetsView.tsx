@@ -26,7 +26,7 @@ interface Props {
   datasets: Dataset[];
   onOpenUpload: () => void;
   onRunAnalysisForDataset: (datasetId: string) => void;
-  onDatasetDeleted?: (deletedDatasetId: string) => void;
+  onDatasetDeleted?: (deletedDatasetIds: string[]) => void;
 }
 
 export function DatasetsView({
@@ -52,6 +52,7 @@ export function DatasetsView({
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [datasetSearch, setDatasetSearch] = useState("");
+  const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>([]);
 
   // Filter datasets by name or source in real-time
   const filteredDatasets = useMemo(() => {
@@ -66,15 +67,34 @@ export function DatasetsView({
 
   // Deletion modal state
   const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
+  const [bulkDatasetsToDelete, setBulkDatasetsToDelete] = useState<Dataset[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const visibleIds = filteredDatasets.map((dataset) => dataset.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedDatasetIds.includes(id));
 
-  // Sync selected dataset when list changes
   useEffect(() => {
-    if (!selectedDataset && datasets && datasets.length > 0) {
-      setSelectedDataset(datasets[0]);
-    }
-  }, [datasets, selectedDataset]);
+    const availableIds = new Set(datasets.map((dataset) => dataset.id));
+    setSelectedDatasetIds((current) => current.filter((id) => availableIds.has(id)));
+    setSelectedDataset((current) => {
+      if (current && availableIds.has(current.id)) {
+        return datasets.find((dataset) => dataset.id === current.id) || current;
+      }
+      return datasets[0] || null;
+    });
+  }, [datasets]);
+
+  const toggleDatasetForDeletion = (id: string) => {
+    setSelectedDatasetIds((current) => current.includes(id)
+      ? current.filter((selectedId) => selectedId !== id)
+      : [...current, id]);
+  };
+
+  const toggleMatchingDatasets = () => {
+    setSelectedDatasetIds((current) => allVisibleSelected
+      ? current.filter((id) => !visibleIds.includes(id))
+      : [...new Set([...current, ...visibleIds])]);
+  };
 
   useEffect(() => {
     if (!selectedDataset) {
@@ -198,30 +218,32 @@ export function DatasetsView({
   };
 
   const handleConfirmDelete = async () => {
-    if (!datasetToDelete) return;
+    const targets = bulkDatasetsToDelete || (datasetToDelete ? [datasetToDelete] : []);
+    if (targets.length === 0 || isDeleting) return;
     setIsDeleting(true);
     setDeleteError(null);
 
     try {
-      await apiRequest(`/api/datasets/${datasetToDelete.id}`, {
-        method: "DELETE",
-      });
+      const deletedIds = targets.map((dataset) => dataset.id);
+      if (bulkDatasetsToDelete) {
+        await apiRequest("/api/datasets/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataset_ids: deletedIds }),
+        });
+      } else {
+        await apiRequest(`/api/datasets/${encodeURIComponent(deletedIds[0])}`, { method: "DELETE" });
+      }
 
-      const deletedId = datasetToDelete.id;
       setDatasetToDelete(null);
-
-      // Notify parent to refresh dashboard/datasets list
-      if (onDatasetDeleted) {
-        onDatasetDeleted(deletedId);
+      setBulkDatasetsToDelete(null);
+      setSelectedDatasetIds((current) => current.filter((id) => !deletedIds.includes(id)));
+      if (selectedDataset && deletedIds.includes(selectedDataset.id)) {
+        setSelectedDataset(datasets.find((dataset) => !deletedIds.includes(dataset.id)) || null);
       }
-
-      // If the deleted dataset was currently selected, select another one
-      if (selectedDataset?.id === deletedId) {
-        const remaining = datasets.filter((d) => d.id !== deletedId);
-        setSelectedDataset(remaining.length > 0 ? remaining[0] : null);
-      }
+      onDatasetDeleted?.(deletedIds);
     } catch (err: unknown) {
-      setDeleteError(getApiErrorMessage(err, "Error deleting dataset"));
+      setDeleteError(getApiErrorMessage(err, "Error deleting datasets"));
     } finally {
       setIsDeleting(false);
     }
@@ -281,6 +303,29 @@ export function DatasetsView({
             )}
           </div>
 
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={toggleMatchingDatasets}
+              disabled={filteredDatasets.length === 0 || isDeleting}
+              className="text-[11px] font-bold text-slate-700 hover:text-slate-950 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            >
+              {allVisibleSelected ? "Deselect matching" : "Select all matching"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteError(null);
+                setBulkDatasetsToDelete(datasets.filter((dataset) => selectedDatasetIds.includes(dataset.id)));
+              }}
+              disabled={selectedDatasetIds.length === 0 || isDeleting}
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete selected ({selectedDatasetIds.length})
+            </button>
+          </div>
+
           {filteredDatasets.length === 0 ? (
             <div
               id="dataset-search-empty-state"
@@ -316,10 +361,22 @@ export function DatasetsView({
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 leading-snug pr-6">
+                      <h3 className="text-sm font-bold text-slate-900 leading-snug">
                         {d.name || "Untitled Dataset"}
                       </h3>
-                      <StatusBadge status={d.status || "available"} />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <StatusBadge status={d.status || "available"} />
+                        <label onClick={(event) => event.stopPropagation()} className="cursor-pointer rounded p-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedDatasetIds.includes(d.id)}
+                            onChange={() => toggleDatasetForDeletion(d.id)}
+                            aria-label={`Select ${d.name || "Untitled Dataset"} for deletion`}
+                            disabled={isDeleting}
+                            className="h-4 w-4 cursor-pointer accent-rose-600"
+                          />
+                        </label>
+                      </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                       <div className="flex items-center gap-3">
@@ -676,24 +733,33 @@ export function DatasetsView({
       </div>
 
       {/* Delete Confirmation Modal */}
-      {datasetToDelete && (
+      {(datasetToDelete || bulkDatasetsToDelete) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="dataset-delete-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <h3 className="text-base font-bold text-slate-900">
-                  Delete Dataset
+                <h3 id="dataset-delete-title" className="text-base font-bold text-slate-900">
+                  {bulkDatasetsToDelete ? `Delete ${bulkDatasetsToDelete.length} Datasets` : "Delete Dataset"}
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                  Are you sure you want to permanently delete{" "}
-                  <strong className="text-slate-800">
-                    "{datasetToDelete.name}"
-                  </strong>
-                  ? This will delete all associated versions and indexed documents ({datasetToDelete.record_count || 0} records).
-                </p>
+                {bulkDatasetsToDelete ? (
+                  <div className="mt-1 text-xs text-slate-500 leading-relaxed">
+                    <p>These datasets, their versions, and indexed documents will be permanently deleted:</p>
+                    <ul className="mt-2 max-h-36 list-disc space-y-1 overflow-y-auto pl-5 text-slate-800">
+                      {bulkDatasetsToDelete.map((dataset) => (
+                        <li key={dataset.id}>{dataset.name || "Untitled Dataset"} ({dataset.record_count || 0} records)</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                    Are you sure you want to permanently delete{" "}
+                    <strong className="text-slate-800">"{datasetToDelete?.name}"</strong>
+                    ? This will delete all associated versions and indexed documents ({datasetToDelete?.record_count || 0} records).
+                  </p>
+                )}
               </div>
             </div>
 
@@ -710,6 +776,7 @@ export function DatasetsView({
                 onClick={() => {
                   if (!isDeleting) {
                     setDatasetToDelete(null);
+                    setBulkDatasetsToDelete(null);
                     setDeleteError(null);
                   }
                 }}
@@ -731,7 +798,7 @@ export function DatasetsView({
                 ) : (
                   <>
                     <Trash2 className="h-3.5 w-3.5" />
-                    <span>Confirm Delete</span>
+                    <span>{bulkDatasetsToDelete ? `Delete ${bulkDatasetsToDelete.length} Datasets` : "Confirm Delete"}</span>
                   </>
                 )}
               </button>

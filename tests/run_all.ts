@@ -23,6 +23,7 @@ const testFiles = [
   path.resolve("tests/citation_window.test.ts"),
   path.resolve("tests/security.test.ts"),
   path.resolve("tests/persistence.test.ts"),
+  path.resolve("tests/bulk_delete_api.test.ts"),
   path.resolve("tests/api_contracts.test.ts"),
   path.resolve("tests/parsers_scientific.test.ts"),
   path.resolve("tests/side_effects.test.ts"),

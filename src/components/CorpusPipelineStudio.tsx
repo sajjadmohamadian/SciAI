@@ -28,7 +28,7 @@ interface Props {
   onOpenUpload: () => void;
   onRefreshData: () => void;
   onRunAnalysisForDataset: (datasetId: string) => void;
-  onDatasetDeleted?: (deletedDatasetId: string) => void;
+  onDatasetDeleted?: (deletedDatasetIds: string[]) => void;
   initialStep?: PipelineStep;
   onStepChange?: (step: PipelineStep) => void;
 }
