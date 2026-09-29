@@ -32,6 +32,69 @@ export interface DatasetVersion {
   metadata?: Record<string, unknown>;
 }
 
+export type PrismaCountSource = "measured" | "user_entered" | "derived" | "not_recorded";
+
+export interface PrismaCount {
+  value: number | null;
+  source: PrismaCountSource;
+  basis?: string;
+}
+
+export interface PrismaExclusionReason {
+  reason: string;
+  count: PrismaCount;
+}
+
+export interface PrismaConsistency {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface PrismaFlow {
+  dataset_id: string;
+  dataset_version_id: string;
+  method_version: string;
+  computed_at: string;
+  identified_databases: PrismaCount;
+  identified_registers: PrismaCount;
+  removed_duplicates: PrismaCount;
+  removed_automation: PrismaCount;
+  removed_other: PrismaCount;
+  screened: PrismaCount;
+  excluded_screening: PrismaCount;
+  sought_retrieval: PrismaCount;
+  not_retrieved: PrismaCount;
+  assessed_eligibility: PrismaCount;
+  excluded_eligibility: PrismaExclusionReason[];
+  included_studies: PrismaCount;
+  consistency: PrismaConsistency;
+}
+
+export interface PrismaManualCounts {
+  identified_registers?: number;
+  removed_automation?: number;
+  removed_other?: number;
+  excluded_screening?: number;
+  not_retrieved?: number;
+  exclusion_reasons?: Array<{ reason: string; count: number }>;
+  included_studies?: number;
+  updated_at: string;
+}
+
+export interface PrismaIngestionProvenance {
+  method_version?: string;
+  raw_input_count?: number;
+  source_counts?: Record<string, number>;
+  parent_version_id?: string;
+  operation?: string;
+  duplicates_removed?: number;
+  final_unique_count?: number;
+  removed_document_ids?: string[];
+  cluster_summary?: Array<{ retained_id: string; removed_count: number }>;
+  updated_at?: string;
+}
+
 export interface CapabilityProvider {
   name?: string;
   package?: string;
@@ -842,17 +905,20 @@ export interface ExtractionOutcomeMetrics {
 
 export interface PrismaReportInput {
   datasetName: string;
-  identifiedDatabases: number;
-  removedDuplicates: number;
-  screened: number;
-  excludedScreening: number;
-  soughtRetrieval: number;
-  notRetrieved: number;
-  assessedEligibility: number;
+  datasetId?: string;
+  datasetVersionId?: string;
+  identifiedDatabases: number | null;
+  removedDuplicates: number | null;
+  screened: number | null;
+  excludedScreening: number | null;
+  soughtRetrieval: number | null;
+  notRetrieved: number | null;
+  assessedEligibility: number | null;
   excludedEligibilityReasons: Array<{ reason: string; count: number }>;
-  includedStudies: number;
+  includedStudies: number | null;
   databases?: string[];
   extractionOutcomes?: ExtractionOutcomeMetrics;
+  flow?: PrismaFlow;
 }
 
 export interface PrismaAIReport {
@@ -868,7 +934,7 @@ export interface PrismaAIReport {
     recommendedCleaningActions: string[];
   };
   yieldMetrics: {
-    totalIdentified: number;
+    totalIdentified: number | null;
     duplicateAttritionRate: string;
     screeningAttritionRate: string;
     retrievalSuccessRate: string;

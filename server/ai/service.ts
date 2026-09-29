@@ -384,35 +384,48 @@ export async function generatePrismaSynthesisReport(
   input: PrismaReportInput,
   options?: AiRequestOptions
 ): Promise<AiServiceResult<PrismaAIReport>> {
-  const totalIdentified = Math.max(1, input.identifiedDatabases);
-  const dupRate = ((input.removedDuplicates / totalIdentified) * 100).toFixed(1);
-  const screenedCount = Math.max(1, input.screened);
-  const screenAttrition = ((input.excludedScreening / screenedCount) * 100).toFixed(1);
-  const soughtCount = Math.max(1, input.soughtRetrieval);
-  const retrievalSuccess = (((soughtCount - input.notRetrieved) / soughtCount) * 100).toFixed(1);
-  const assessedCount = Math.max(1, input.assessedEligibility);
-  const eligibilityRetention = ((input.includedStudies / assessedCount) * 100).toFixed(1);
-  const finalYield = ((input.includedStudies / totalIdentified) * 100).toFixed(1);
+  const flow = input.flow;
+  const value = (value: number | null): number | null => value !== null && Number.isFinite(value) ? value : null;
+  const databaseIdentified = value(flow ? flow.identified_databases.value : input.identifiedDatabases);
+  const registerIdentified = flow ? value(flow.identified_registers.value) : null;
+  const identified = flow
+    ? databaseIdentified !== null && registerIdentified !== null && Number.isSafeInteger(databaseIdentified + registerIdentified)
+      ? databaseIdentified + registerIdentified : null
+    : databaseIdentified;
+  const duplicates = value(flow ? flow.removed_duplicates.value : input.removedDuplicates);
+  const screened = value(flow ? flow.screened.value : input.screened);
+  const excluded = value(flow ? flow.excluded_screening.value : input.excludedScreening);
+  const sought = value(flow ? flow.sought_retrieval.value : input.soughtRetrieval);
+  const notRetrieved = value(flow ? flow.not_retrieved.value : input.notRetrieved);
+  const percent = (numerator: number | null, denominator: number | null): string =>
+    numerator === null || denominator === null || denominator === 0
+      ? "Not recorded" : `${((numerator / denominator) * 100).toFixed(1)}%`;
+  const yieldMetrics: PrismaAIReport["yieldMetrics"] = {
+    totalIdentified: identified,
+    duplicateAttritionRate: percent(duplicates, identified),
+    screeningAttritionRate: percent(excluded, screened),
+    retrievalSuccessRate: percent(sought !== null && notRetrieved !== null ? sought - notRetrieved : null, sought),
+    // Studies and reports/records are different units; no linkage is recorded here.
+    eligibilityRetentionRate: "Not recorded",
+    finalInclusionYield: "Not recorded",
+  };
+  const missing = flow?.consistency.warnings || [];
   const fallback: PrismaAIReport = {
     datasetName: input.datasetName || "Bibliometric Dataset",
     generatedAt: new Date().toISOString(),
-    executiveSummary: "unavailable",
-    methodologyNarrative: "unavailable",
-    yieldMetrics: { totalIdentified: input.identifiedDatabases, duplicateAttritionRate: `${dupRate}%`, screeningAttritionRate: `${screenAttrition}%`, retrievalSuccessRate: `${retrievalSuccess}%`, eligibilityRetentionRate: `${eligibilityRetention}%`, finalInclusionYield: `${finalYield}%` },
-    exclusionReasonsSynthesis: input.excludedEligibilityReasons.map((r) => ({ reason: r.reason, count: r.count, impactAssessment: "unavailable" })),
+    executiveSummary: "This version-scoped PRISMA workflow is incomplete. Unrecorded selection decisions are not estimates or zero counts.",
+    methodologyNarrative: `The PRISMA flow for this dataset version uses persisted ingestion and deduplication provenance plus explicitly entered review decisions. ${missing.join(" ")}`,
+    yieldMetrics,
+    exclusionReasonsSynthesis: input.excludedEligibilityReasons.map((r) => ({ reason: r.reason, count: r.count, impactAssessment: "Not assessed" })),
     prismaComplianceChecklist: [],
     methodologicalStrengths: [],
-    limitationsAndBiases: [],
+    limitationsAndBiases: missing,
     recommendationsForAuthors: [],
   };
 
-  const prompt = withGroundingPolicy(`Synthesize a PRISMA 2020 methodology narrative from the supplied deterministic PRISMA metrics.
-
-${JSON.stringify(input, null, 2)}
-
-Return JSON matching PrismaAIReport. Use supplied counts only.`, "PRISMA report must use supplied numbers only; missing values become unavailable.");
+  const prompt = withGroundingPolicy(`Synthesize a cautious PRISMA 2020 methodology narrative from this version-scoped workflow.\n\n${JSON.stringify(input, null, 2)}\n\nReturn JSON matching PrismaAIReport. Preserve null as "Not recorded"; never infer missing counts, decisions, or studies from records/reports. Do not claim PRISMA verification or compliance merely because counts exist. Explain provenance and incomplete steps.`, "PRISMA report must use persisted counts only; missing values remain not recorded.");
   const result = await callAiJson<unknown>({ task: "prisma_report", prompt, responseFormat: "json", temperature: 0.2, ...parseOptions(options) });
   const parsed = result.status === "available" ? validatePrismaReport(result.content, fallback) : null;
-  if (parsed) return available(parsed, result.provenance, result.warnings);
-  return unavailable(fallback, result.provenance, result.warnings);
+  if (parsed) return available({ ...parsed, yieldMetrics, limitationsAndBiases: [...missing, ...(parsed.limitationsAndBiases || [])] }, result.provenance, [...missing, ...result.warnings]);
+  return unavailable(fallback, result.provenance, [...missing, ...result.warnings]);
 }

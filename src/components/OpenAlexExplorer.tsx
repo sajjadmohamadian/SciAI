@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function OpenAlexExplorer({ onDatasetCreated }: Props) {
-  const [query, setQuery] = useState("scientometrics artificial intelligence");
+  const [query, setQuery] = useState("Data Science");
   const [perPage, setPerPage] = useState<number>(50);
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState(false);
@@ -422,7 +422,7 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
               className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 cursor-pointer inline-flex items-center gap-1.5"
             >
               <Search className="h-3.5 w-3.5" />
-              <span>Try "scientometrics artificial intelligence"</span>
+              <span>Search Data Science</span>
             </button>
           </div>
         )}

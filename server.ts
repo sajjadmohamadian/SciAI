@@ -34,6 +34,7 @@ import {
   ensureCanonical,
 } from "./server/parsers/canonical.js";
 import { SmartMergeEngine } from "./server/merge/deduplicator.js";
+import { deduplicatePrismaRecords } from "./server/prisma_dedup.js";
 import {
   MachineLearningEngine,
   CitationImpactPredictor,
@@ -101,7 +102,14 @@ import {
   CitationWindowMode,
   CitationMetricCategory,
   CitationWindowResult,
+  PrismaManualCounts,
 } from "./src/types.js";
+import {
+  applyPrismaManualCounts,
+  buildPrismaFlow,
+  PRISMA_METHOD_VERSION,
+  validatePrismaManualCounts,
+} from "./server/prisma_flow.js";
 import {
   initDb,
   hasAnyData,
@@ -133,6 +141,7 @@ import {
   getVersionDocumentsById,
   getAnalysisById,
   getProjectById,
+  getDb,
 } from "./server/db.js";
 
 const app = express();
@@ -1670,6 +1679,32 @@ function getAuthoritativeDatasetVersion(id: string): DatasetVersion | null {
   return null;
 }
 
+function getLatestDatasetVersion(datasetId: string): DatasetVersion | null {
+  const versions = Array.from(datasetVersions.values())
+    .filter((version) => version.dataset_id === datasetId)
+    .sort((a, b) => {
+      const versionA = a.version_number ?? a.version ?? 0;
+      const versionB = b.version_number ?? b.version ?? 0;
+      if (versionA !== versionB) return versionB - versionA;
+      const createdA = Date.parse(a.created_at || "") || 0;
+      const createdB = Date.parse(b.created_at || "") || 0;
+      if (createdA !== createdB) return createdB - createdA;
+      return b.id.localeCompare(a.id);
+    });
+  return versions[0] || null;
+}
+
+/**
+ * Returns the selected version only when it belongs to the requested dataset.
+ */
+function getDatasetVersionForDataset(datasetId: string, versionId?: string): DatasetVersion | null {
+  if (versionId) {
+    const version = getAuthoritativeDatasetVersion(versionId);
+    return version?.dataset_id === datasetId ? version : null;
+  }
+  return getLatestDatasetVersion(datasetId);
+}
+
 /**
  * Returns analysis by ID with SQLite as authoritative source of truth.
  */
@@ -2693,6 +2728,14 @@ app.post(["/api/datasets/upload", "/datasets/upload"], requireUploadPermission, 
           detected_format: detected.format,
           confidence: detected.confidence,
           matched_rule: detected.matchedRule,
+          ingestion: {
+            raw_input_count: documents.length,
+            source_counts: { [resolvedSource]: documents.length },
+            operation: "ingestion",
+            duplicates_removed: 0,
+            final_unique_count: documents.length,
+            updated_at: newDataset.created_at,
+          },
         },
       };
 
@@ -2736,12 +2779,22 @@ app.post(["/api/datasets/upload", "/datasets/upload"], requireUploadPermission, 
         record_count: mergeResult.final_unique_count,
         status: "ready",
         created_at: combinedDataset.created_at,
+        metadata: {
+          ingestion: {
+            raw_input_count: mergeResult.total_raw_inputs,
+            source_counts: mergeResult.sources_breakdown,
+            operation: "upload_merge",
+            duplicates_removed: mergeResult.duplicates_resolved,
+            final_unique_count: mergeResult.final_unique_count,
+            updated_at: combinedDataset.created_at,
+          },
+        },
       };
 
       mergedDatasetItem = {
         dataset: combinedDataset,
         version: combinedVersion,
-        documents: allParsedCanonical.map(toBibliometricDocument),
+        documents: (mergeResult.merged_documents || allParsedCanonical).map(toBibliometricDocument),
       };
       createdDatasets.unshift(combinedDataset);
     }
@@ -2829,6 +2882,14 @@ app.post(["/api/datasets/load-sample-cohort", "/datasets/load-sample-cohort"], r
         metadata: {
           detected_format: detected.format,
           matched_rule: detected.matchedRule,
+          ingestion: {
+            raw_input_count: documents.length,
+            source_counts: { [sample.src]: documents.length },
+            operation: "sample_ingestion",
+            duplicates_removed: 0,
+            final_unique_count: documents.length,
+            updated_at: ds.created_at,
+          },
         },
       };
 
@@ -2871,8 +2932,20 @@ app.post(["/api/datasets/load-sample-cohort", "/datasets/load-sample-cohort"], r
 
     const masterItem: IngestionBatchItem = {
       dataset: unifiedDataset,
-      version: unifiedVersion,
-      documents: allCanonical.slice(0, mergeSummary.final_unique_count).map(toBibliometricDocument),
+      version: {
+        ...unifiedVersion,
+        metadata: {
+          ingestion: {
+            raw_input_count: allCanonical.length,
+            source_counts: mergeSummary.sources_breakdown,
+            operation: "sample_cohort_merge",
+            duplicates_removed: mergeSummary.duplicates_resolved,
+            final_unique_count: mergeSummary.final_unique_count,
+            updated_at: unifiedDataset.created_at,
+          },
+        },
+      },
+      documents: (mergeSummary.merged_documents || allCanonical.slice(0, mergeSummary.final_unique_count)).map(toBibliometricDocument),
     };
 
     createdList.unshift(unifiedDataset);
@@ -2935,8 +3008,7 @@ app.post(["/api/datasets/smart-merge", "/datasets/smart-merge"], requireApiToken
     // Collect all documents
     const rawDocs: any[] = [];
     for (const ds of targetDatasets) {
-      const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === ds.id);
-      const latestVer = versions[versions.length - 1];
+      const latestVer = getLatestDatasetVersion(ds.id);
       if (latestVer && versionDocuments.has(latestVer.id)) {
         const docs = versionDocuments.get(latestVer.id) || [];
         rawDocs.push(...docs);
@@ -2982,6 +3054,16 @@ app.post(["/api/datasets/smart-merge", "/datasets/smart-merge"], requireApiToken
       record_count: summary.final_unique_count,
       status: "ready",
       created_at: newMergedDataset.created_at,
+      metadata: {
+        ingestion: {
+          raw_input_count: summary.total_raw_inputs,
+          source_counts: summary.sources_breakdown,
+          operation: "smart_merge",
+          duplicates_removed: summary.duplicates_resolved,
+          final_unique_count: summary.final_unique_count,
+          updated_at: newMergedDataset.created_at,
+        },
+      },
     };
 
     const finalMergedDocs = summary.merged_documents && summary.merged_documents.length > 0
@@ -3025,13 +3107,147 @@ app.get(["/api/datasets/merge/latest", "/datasets/merge/latest"], (req, res) => 
   res.json(latestMergeSummary);
 });
 
-// 3-Tier Data Health Score for a Dataset (Phase 3)
+// Canonical PRISMA flow and version-scoped deduplication
+app.get(["/api/datasets/:dataset_id/prisma", "/datasets/:dataset_id/prisma"], (req, res) => {
+  const datasetId = req.params.dataset_id;
+  const dataset = getAuthoritativeDataset(datasetId);
+  if (!dataset) return res.status(404).json({ error: "Dataset not found" });
+
+  const versionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+  const version = getDatasetVersionForDataset(datasetId, versionId);
+  if (versionId && !version) return res.status(404).json({ error: "Dataset version not found" });
+  if (!version) return res.status(404).json({ error: "No dataset version found" });
+
+  const documents = versionDocuments.get(version.id) || getVersionDocumentsById(version.id) || [];
+  const flow = buildPrismaFlow(version, documents.length);
+  res.json({
+    dataset,
+    version,
+    document_count: documents.length,
+    flow,
+    provenance: version.metadata || {},
+    consistency: flow.consistency,
+  });
+});
+
+app.put(["/api/datasets/:dataset_id/versions/:version_id/prisma", "/datasets/:dataset_id/versions/:version_id/prisma"], requireApiToken, (req, res) => {
+  const datasetId = req.params.dataset_id;
+  const version = getDatasetVersionForDataset(datasetId, req.params.version_id);
+  if (!version) return res.status(404).json({ error: "Dataset version not found" });
+
+  const input = (req.body || {}) as Partial<PrismaManualCounts>;
+  const validationErrors = validatePrismaManualCounts(input);
+  if (validationErrors.length > 0) {
+    return res.status(400).json({ error: "Invalid PRISMA workflow values", details: validationErrors });
+  }
+
+  try {
+    const nextVersion = applyPrismaManualCounts(version, input);
+    const documents = versionDocuments.get(version.id) || getVersionDocumentsById(version.id) || [];
+    const flow = buildPrismaFlow(nextVersion, documents.length);
+    if (!flow.consistency.valid) {
+      return res.status(400).json({ error: "PRISMA workflow values are contradictory", details: flow.consistency.errors });
+    }
+
+    runTransaction(getDb(), () => upsertDatasetVersion(nextVersion));
+    datasetVersions.set(nextVersion.id, nextVersion);
+    res.json({ version: nextVersion, flow, consistency: flow.consistency });
+  } catch (err) {
+    console.error("PRISMA workflow persistence error:", err);
+    res.status(500).json({ error: "Failed to persist PRISMA workflow values" });
+  }
+});
+
+app.post(["/api/datasets/:dataset_id/dedup", "/datasets/:dataset_id/dedup"], requireApiToken, (req, res) => {
+  const datasetId = req.params.dataset_id;
+  const dataset = getAuthoritativeDataset(datasetId);
+  if (!dataset) return res.status(404).json({ error: "Dataset not found" });
+
+  const versionId = typeof req.body?.version_id === "string"
+    ? req.body.version_id
+    : typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+  const sourceVersion = getDatasetVersionForDataset(datasetId, versionId);
+  if (!sourceVersion) return res.status(404).json({ error: "Dataset version not found" });
+  const rawDocs = versionDocuments.get(sourceVersion.id) || getVersionDocumentsById(sourceVersion.id) || [];
+  if (rawDocs.length === 0) return res.status(400).json({ error: "Selected dataset version contains no records" });
+
+  try {
+    const { documents: dedupedDocs, removed } = deduplicatePrismaRecords(rawDocs);
+    const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === datasetId);
+    const nextNumber = Math.max(0, ...versions.map((v) => v.version_number ?? v.version ?? 0)) + 1;
+    const now = new Date().toISOString();
+    const parentIngestion = (sourceVersion.metadata?.ingestion || {}) as Record<string, unknown>;
+    const parentRawCount = typeof parentIngestion.raw_input_count === "number" ? parentIngestion.raw_input_count : rawDocs.length;
+    const parentDuplicateCount = typeof parentIngestion.duplicates_removed === "number" ? parentIngestion.duplicates_removed : 0;
+    const sourceCounts = parentIngestion.source_counts && typeof parentIngestion.source_counts === "object"
+      ? parentIngestion.source_counts as Record<string, number>
+      : rawDocs.reduce<Record<string, number>>((counts, doc) => {
+          const source = String((doc as any).source_database || (doc as any).DB || dataset.source || "unknown");
+          counts[source] = (counts[source] || 0) + 1;
+          return counts;
+        }, {});
+    const priorIds = Array.isArray(parentIngestion.removed_document_ids)
+      ? parentIngestion.removed_document_ids as string[] : [];
+    const clusters = new Map<string, number>();
+    for (const item of removed) clusters.set(item.retained_id, (clusters.get(item.retained_id) || 0) + 1);
+    const { prisma: _previousReview, ...retainedMetadata } = sourceVersion.metadata || {};
+    const nextVersion: DatasetVersion = {
+      ...sourceVersion,
+      id: `version-${crypto.randomUUID()}`,
+      version: nextNumber,
+      version_number: nextNumber,
+      record_count: dedupedDocs.length,
+      document_count: dedupedDocs.length,
+      created_at: now,
+      status: "ready",
+      metadata: {
+        ...retainedMetadata,
+        ingestion: {
+          ...parentIngestion,
+          method_version: PRISMA_METHOD_VERSION,
+          raw_input_count: parentRawCount,
+          source_counts: sourceCounts,
+          parent_version_id: sourceVersion.id,
+          operation: "exact_doi_title_deduplication",
+          duplicates_removed: parentDuplicateCount + removed.length,
+          final_unique_count: dedupedDocs.length,
+          removed_document_ids: [...priorIds, ...removed.map((item) => item.document_id)],
+          cluster_summary: [...clusters].map(([retained_id, removed_count]) => ({ retained_id, removed_count })),
+          dedup_audit: removed,
+          updated_at: now,
+        },
+      },
+    };
+    const updatedDataset = { ...dataset, record_count: dedupedDocs.length };
+    runTransaction(getDb(), () => {
+      upsertDatasetVersion(nextVersion);
+      upsertVersionDocuments(nextVersion.id, dedupedDocs);
+      upsertDataset(updatedDataset);
+    });
+    datasetVersions.set(nextVersion.id, nextVersion);
+    versionDocuments.set(nextVersion.id, dedupedDocs);
+    datasets.set(dataset.id, updatedDataset);
+
+    const flow = buildPrismaFlow(nextVersion, dedupedDocs.length);
+    res.json({
+      success: true,
+      dataset: updatedDataset,
+      source_version: sourceVersion,
+      version: nextVersion,
+      flow,
+      summary: { total_raw_inputs: rawDocs.length, duplicates_resolved: removed.length, final_unique_count: dedupedDocs.length, audit_log: removed },
+    });
+  } catch (err) {
+    console.error("Server deduplication error:", err);
+    res.status(500).json({ error: "Failed to deduplicate dataset version safely" });
+  }
+});
+
 app.get(["/api/datasets/:dataset_id/health", "/datasets/:dataset_id/health"], (req, res) => {
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
-  const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === ds.id);
-  const latestVer = versions[versions.length - 1];
+  const latestVer = getLatestDatasetVersion(ds.id);
   const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
 
   const health = calculateDataHealth(docs);
@@ -3047,8 +3263,7 @@ app.get(["/api/datasets/:dataset_id/methodology", "/datasets/:dataset_id/methodo
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
-  const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === ds.id);
-  const latestVer = versions[versions.length - 1];
+  const latestVer = getLatestDatasetVersion(ds.id);
   const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
 
   const health = calculateDataHealth(docs);
@@ -3069,14 +3284,21 @@ app.get(["/api/datasets/:dataset_id/documents", "/datasets/:dataset_id/documents
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
-  const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === ds.id);
-  const latestVer = versions[versions.length - 1];
-  const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
+  const selectedVersionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+  const selectedVersion = getDatasetVersionForDataset(req.params.dataset_id, selectedVersionId);
+  if (selectedVersionId && !selectedVersion) return res.status(404).json({ error: "Dataset version not found" });
+  const docs = selectedVersion
+    ? (versionDocuments.get(selectedVersion.id) || getVersionDocumentsById(selectedVersion.id) || [])
+    : [];
 
-  const limit = parseInt(req.query.limit as string, 10) || 50;
-  const offset = parseInt(req.query.offset as string, 10) || 0;
+  const parsedLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
+  const parsedOffset = Number.parseInt(String(req.query.offset ?? "0"), 10);
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 1000) : 50;
+  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0 ? parsedOffset : 0;
 
   res.json({
+    dataset_id: req.params.dataset_id,
+    version_id: selectedVersion?.id || null,
     total: docs.length,
     offset,
     limit,
@@ -3089,8 +3311,7 @@ app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], re
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
-  const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === ds.id);
-  const latestVer = versions[versions.length - 1];
+  const latestVer = getLatestDatasetVersion(ds.id);
   const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
   const format = String(req.query.format || "json").toLowerCase();
 
@@ -4011,43 +4232,42 @@ app.post("/api/ai/rag-chat", requireApiToken, async (req, res) => {
 // AI Feature 7: PRISMA 2020 Methodology Narrative & Synthesis Report
 app.post(["/api/ai/prisma-report", "/ai/prisma-report"], requireApiToken, async (req, res) => {
   try {
-    const {
-      dataset_id,
-      dataset_name,
-      identifiedDatabases = 0,
-      removedDuplicates = 0,
-      screened = 0,
-      excludedScreening = 0,
-      soughtRetrieval = 0,
-      notRetrieved = 0,
-      assessedEligibility = 0,
-      excludedEligibilityReasons = [],
-      includedStudies = 0,
-      databases = [],
-      extractionOutcomes,
-    } = req.body;
-
-    let targetName = dataset_name || "Active Bibliometric Corpus";
-    if (dataset_id && datasets.has(dataset_id)) {
-      targetName = datasets.get(dataset_id)!.name;
+    const datasetId = req.body?.dataset_id;
+    const requestedVersionId = req.body?.dataset_version_id || req.body?.version_id;
+    if (typeof datasetId !== "string" || !getAuthoritativeDataset(datasetId)) {
+      return res.status(404).json({ error: "Dataset not found" });
     }
-
+    if (requestedVersionId !== undefined && typeof requestedVersionId !== "string") {
+      return res.status(400).json({ error: "dataset_version_id must be a string" });
+    }
+    const version = getDatasetVersionForDataset(datasetId, requestedVersionId);
+    if (!version) return res.status(404).json({ error: "Dataset version not found" });
+    const documents = versionDocuments.get(version.id) || getVersionDocumentsById(version.id) || [];
+    const flow = buildPrismaFlow(version, documents.length);
+    if (!flow.consistency.valid) {
+      return res.status(409).json({ error: "PRISMA workflow contains contradictory counts", details: flow.consistency.errors });
+    }
+    const sourceCounts = (version.metadata?.ingestion as Record<string, unknown> | undefined)?.source_counts;
     const report = await generatePrismaSynthesisReport({
-      datasetName: targetName,
-      identifiedDatabases: Number(identifiedDatabases) || 0,
-      removedDuplicates: Number(removedDuplicates) || 0,
-      screened: Number(screened) || 0,
-      excludedScreening: Number(excludedScreening) || 0,
-      soughtRetrieval: Number(soughtRetrieval) || 0,
-      notRetrieved: Number(notRetrieved) || 0,
-      assessedEligibility: Number(assessedEligibility) || 0,
-      excludedEligibilityReasons: Array.isArray(excludedEligibilityReasons) ? excludedEligibilityReasons : [],
-      includedStudies: Number(includedStudies) || 0,
-      databases: Array.isArray(databases) ? databases : [],
-      extractionOutcomes: extractionOutcomes || undefined,
+      datasetName: getAuthoritativeDataset(datasetId)?.name || "Bibliometric Corpus",
+      datasetId,
+      datasetVersionId: version.id,
+      identifiedDatabases: flow.identified_databases.value,
+      removedDuplicates: flow.removed_duplicates.value,
+      screened: flow.screened.value,
+      excludedScreening: flow.excluded_screening.value,
+      soughtRetrieval: flow.sought_retrieval.value,
+      notRetrieved: flow.not_retrieved.value,
+      assessedEligibility: flow.assessed_eligibility.value,
+      excludedEligibilityReasons: flow.excluded_eligibility
+        .filter((item) => item.count.value !== null)
+        .map((item) => ({ reason: item.reason, count: item.count.value! })),
+      includedStudies: flow.included_studies.value,
+      databases: sourceCounts && typeof sourceCounts === "object" ? Object.keys(sourceCounts) : [],
+      flow,
     }, getAiRequestOptions(req.body));
 
-    res.json({ success: true, status: report.status, report: report.content, ai_provenance: report.ai_provenance, warnings: report.warnings });
+    res.json({ success: true, status: report.status, report: report.content, flow, ai_provenance: report.ai_provenance, warnings: [...flow.consistency.warnings, ...report.warnings] });
   } catch (err) {
     return handleAiEndpointError(res, err, "Failed to generate PRISMA methodology report safely");
   }

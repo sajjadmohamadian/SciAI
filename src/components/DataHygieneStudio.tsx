@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Dataset, BibliometricDocument, DataHealthMetrics, PrismaAIReport, ExtractionOutcomeMetrics } from "../types.js";
+import { Dataset, BibliometricDocument, DataHealthMetrics, PrismaAIReport, PrismaFlow, DatasetVersion } from "../types.js";
 import {
   ShieldCheck,
   Filter,
   Layers,
-  Database,
   CheckCircle2,
   AlertTriangle,
   FileText,
   Download,
-  Upload,
   RefreshCw,
   GitMerge,
   Search,
@@ -29,43 +27,32 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAiProvider } from "../context/AiProviderContext.js";
+import { apiJson, getApiErrorMessage } from "../utils/apiClient.js";
+import { hasRecordedExclusions, usePrismaFlow, useVersionDocuments } from "../hooks/usePrismaFlow.js";
+import { PrismaFlowDiagram, PrismaManualEditor } from "./PrismaFlowDiagram.js";
+
+interface PrismaDedupSummary {
+  total_raw_inputs: number;
+  duplicates_resolved: number;
+  final_unique_count: number;
+  audit_log: Array<{ document_id: string; retained_id: string; rule: "exact_doi" | "exact_title" }>;
+}
 
 interface Props {
   datasets: Dataset[];
   selectedDatasetId?: string;
-  onSelectDataset?: (id: string) => void;
-  onOpenUpload: () => void;
   onRefreshData: () => void;
   initialSubTab?: "health" | "dedup" | "prisma" | "records";
-}
-
-interface DeduplicationRule {
-  id: "doi" | "title_author" | "accession";
-  name: string;
-  description: string;
-  enabled: boolean;
-}
-
-interface DuplicateCluster {
-  id: string;
-  primary: BibliometricDocument;
-  duplicates: BibliometricDocument[];
-  reason: string;
-  matchScore: number;
 }
 
 export function DataHygieneStudio({
   datasets = [],
   selectedDatasetId,
-  onSelectDataset,
-  onOpenUpload,
   onRefreshData,
   initialSubTab,
 }: Props) {
   const { getAiRequestOptions } = useAiProvider();
-  const [activeDatasetId, setActiveDatasetId] = useState<string>(
-    selectedDatasetId || datasets[0]?.id || ""
-  );
+  const activeDatasetId = selectedDatasetId || datasets[0]?.id || "";
   const [activeSubTab, setActiveSubTab] = useState<
     "health" | "dedup" | "prisma" | "records"
   >(initialSubTab || "health");
@@ -76,39 +63,13 @@ export function DataHygieneStudio({
     }
   }, [initialSubTab]);
 
-  // Document state
-  const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
-  const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
+  const prisma = usePrismaFlow(activeDatasetId);
+  const { documents, total: documentTotal, loading: isLoadingDocs, error: documentsError } = useVersionDocuments(activeDatasetId, prisma.version?.id);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Deduplication state
-  const [similarityThreshold, setSimilarityThreshold] = useState<number>(0.90);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
-  const [duplicateClusters, setDuplicateClusters] = useState<DuplicateCluster[]>([]);
-  const [removedCount, setRemovedCount] = useState(0);
-  const [dedupExecuted, setDedupExecuted] = useState(false);
-
-  // PRISMA Flow state
-  const [prismaState, setPrismaState] = useState({
-    identifiedDatabases: 0,
-    identifiedRegisters: 0,
-    removedDuplicates: 0,
-    removedIneligibleAutomation: 0,
-    removedOtherReasons: 0,
-    screened: 0,
-    excludedScreening: 0,
-    soughtRetrieval: 0,
-    notRetrieved: 0,
-    assessedEligibility: 0,
-    excludedEligibilityReasons: [
-      { reason: "Wrong intervention or focus", count: 0 },
-      { reason: "Non-scholarly or abstract only", count: 0 },
-      { reason: "Foreign language untranslated", count: 0 },
-    ],
-    includedStudies: 0,
-  });
-
+  const [dedupSummary, setDedupSummary] = useState<PrismaDedupSummary | null>(null);
   const prismaSvgRef = useRef<SVGSVGElement | null>(null);
+  const [showPrismaEditor, setShowPrismaEditor] = useState(false);
 
   // PRISMA 2020 AI Narrative & Methodology Report State
   const [isGeneratingPrismaAi, setIsGeneratingPrismaAi] = useState(false);
@@ -116,38 +77,36 @@ export function DataHygieneStudio({
   const [prismaAiError, setPrismaAiError] = useState<string | null>(null);
   const [copiedMethodology, setCopiedMethodology] = useState(false);
   const [showChecklistDetails, setShowChecklistDetails] = useState(true);
-
-  // Sync active dataset
-  useEffect(() => {
-    if (selectedDatasetId && selectedDatasetId !== activeDatasetId) {
-      setActiveDatasetId(selectedDatasetId);
-    }
-  }, [selectedDatasetId]);
+  const reportRequestId = useRef(0);
+  const currentDatasetId = useRef(activeDatasetId);
+  currentDatasetId.current = activeDatasetId;
 
   const currentDataset = datasets.find((d) => d.id === activeDatasetId) || datasets[0];
+  const ingestion = prisma.version?.metadata?.ingestion as Record<string, unknown> | undefined;
+  const recordedNumber = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  const persistedDedupSummary: PrismaDedupSummary | null = ingestion?.operation === "exact_doi_title_deduplication" &&
+    recordedNumber(ingestion.raw_input_count) && recordedNumber(ingestion.duplicates_removed) && recordedNumber(ingestion.final_unique_count)
+    ? {
+        total_raw_inputs: ingestion.raw_input_count as number,
+        duplicates_resolved: ingestion.duplicates_removed as number,
+        final_unique_count: ingestion.final_unique_count as number,
+        audit_log: Array.isArray(ingestion.dedup_audit) ? ingestion.dedup_audit as PrismaDedupSummary["audit_log"] : [],
+      }
+    : null;
+  const displayedDedup = dedupSummary || persistedDedupSummary;
 
-  // Fetch real records
   useEffect(() => {
-    if (!activeDatasetId) return;
-    setIsLoadingDocs(true);
-    fetch(`/api/datasets/${activeDatasetId}/documents?limit=5000`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch documents");
-        return res.json();
-      })
-      .then((data) => {
-        const docs = Array.isArray(data) ? data : data.documents || data.records || [];
-        setDocuments(docs);
-        setRemovedCount(0);
-        setDedupExecuted(false);
-      })
-      .catch((err) => {
-        console.warn("Error fetching documents:", err);
-      })
-      .finally(() => {
-        setIsLoadingDocs(false);
-      });
+    setDedupSummary(null);
+    setIsDeduplicating(false);
+    setSearchQuery("");
   }, [activeDatasetId]);
+
+  useEffect(() => {
+    reportRequestId.current++;
+    setIsGeneratingPrismaAi(false);
+    setPrismaAiReport(null);
+    setPrismaAiError(null);
+  }, [activeDatasetId, prisma.version?.id, prisma.flow?.computed_at]);
 
   // Compute Data Health Metrics
   const healthMetrics = useMemo<DataHealthMetrics>(() => {
@@ -250,146 +209,24 @@ export function DataHygieneStudio({
     };
   }, [documents, currentDataset]);
 
-  // Compute PRISMA Numbers whenever documents change
-  useEffect(() => {
-    const total = documents.length;
-    if (total === 0) return;
-
-    const duplicatesEst = removedCount > 0 ? removedCount : Math.round(total * 0.08);
-    const identified = total + duplicatesEst;
-    const screened = total;
-    const excludedScreen = Math.max(0, Math.round(screened * 0.05));
-    const sought = screened - excludedScreen;
-    const notRetrieved = Math.max(0, Math.round(sought * 0.02));
-    const assessed = sought - notRetrieved;
-    const ex1 = Math.round(assessed * 0.03);
-    const ex2 = Math.round(assessed * 0.02);
-    const ex3 = Math.round(assessed * 0.01);
-    const included = assessed - (ex1 + ex2 + ex3);
-
-    setPrismaState({
-      identifiedDatabases: identified,
-      identifiedRegisters: 0,
-      removedDuplicates: duplicatesEst,
-      removedIneligibleAutomation: 0,
-      removedOtherReasons: 0,
-      screened,
-      excludedScreening: excludedScreen,
-      soughtRetrieval: sought,
-      notRetrieved,
-      assessedEligibility: assessed,
-      excludedEligibilityReasons: [
-        { reason: "Outside domain criteria / scope", count: ex1 },
-        { reason: "Insufficient metadata or short abstract", count: ex2 },
-        { reason: "Secondary non-peer reviewed report", count: ex3 },
-      ],
-      includedStudies: included,
-    });
-  }, [documents, removedCount]);
-
-  // Compute live extraction outcome metrics
-  const extractionOutcomes: ExtractionOutcomeMetrics = useMemo(() => {
-    const total = documents.length || currentDataset?.record_count || 1;
-    let withDoi = 0;
-    let withAbstract = 0;
-    let withKeywords = 0;
-    let withAuthors = 0;
-    const years: number[] = [];
-    const sourceDist: Record<string, number> = {};
-
-    if (documents.length > 0) {
-      for (const d of documents) {
-        if (d.doi && d.doi.trim().length > 3) withDoi++;
-        if (d.abstract && d.abstract.trim().length > 20) withAbstract++;
-        if (
-          (d.keywords && d.keywords.length > 0) ||
-          (d.author_keywords && d.author_keywords.length > 0)
-        ) {
-          withKeywords++;
-        }
-        if (d.authors && d.authors.length > 0) withAuthors++;
-        if (d.year && d.year > 1800 && d.year < 2100) years.push(d.year);
-        const src = d.source_database || currentDataset?.source || "Indexed Repository";
-        sourceDist[src] = (sourceDist[src] || 0) + 1;
-      }
-    } else {
-      withDoi = Math.round(total * 0.94);
-      withAbstract = Math.round(total * 0.88);
-      withKeywords = Math.round(total * 0.85);
-      withAuthors = Math.round(total * 0.98);
-      sourceDist[currentDataset?.source || "Standard"] = total;
-    }
-
-    const doiCoveragePct = Math.min(100, Math.round((withDoi / total) * 100));
-    const abstractCoveragePct = Math.min(100, Math.round((withAbstract / total) * 100));
-    const keywordsCoveragePct = Math.min(100, Math.round((withKeywords / total) * 100));
-    const authorsCoveragePct = Math.min(100, Math.round((withAuthors / total) * 100));
-    const minYear = years.length > 0 ? Math.min(...years) : 2012;
-    const maxYear = years.length > 0 ? Math.max(...years) : 2026;
-    const compositeScore = Math.round(
-      doiCoveragePct * 0.35 +
-        abstractCoveragePct * 0.3 +
-        authorsCoveragePct * 0.2 +
-        keywordsCoveragePct * 0.15
-    );
-    let grade: "Optimal" | "Good" | "Acceptable" | "Incomplete" = "Incomplete";
-    if (compositeScore >= 90) grade = "Optimal";
-    else if (compositeScore >= 75) grade = "Good";
-    else if (compositeScore >= 60) grade = "Acceptable";
-
-    return {
-      totalRecordsExtracted: total,
-      recordsWithDoi: withDoi,
-      recordsWithAbstract: withAbstract,
-      recordsWithKeywords: withKeywords,
-      recordsWithAuthors: withAuthors,
-      doiCoveragePct,
-      abstractCoveragePct,
-      keywordsCoveragePct,
-      authorsCoveragePct,
-      yearSpan: `${minYear} - ${maxYear}`,
-      sourceDistribution: sourceDist,
-      extractionFidelityGrade: grade,
-      compositeScore,
-    };
-  }, [documents, currentDataset]);
-
-  // AI PRISMA Methodology Narrative & Synthesis Report Generator
+  // Server owns the flow, yield, and extraction evidence; the browser supplies identity only.
   const handleGeneratePrismaAi = async () => {
+    if (!activeDatasetId || !prisma.version?.id || !prisma.flow?.consistency.valid) return;
+    const requestId = ++reportRequestId.current;
     setIsGeneratingPrismaAi(true);
     setPrismaAiError(null);
     try {
-      const res = await fetch("/api/ai/prisma-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_id: activeDatasetId,
-          dataset_name: currentDataset?.name || "Active Bibliometric Corpus",
-          identifiedDatabases: prismaState.identifiedDatabases,
-          removedDuplicates: prismaState.removedDuplicates,
-          screened: prismaState.screened,
-          excludedScreening: prismaState.excludedScreening,
-          soughtRetrieval: prismaState.soughtRetrieval,
-          notRetrieved: prismaState.notRetrieved,
-          assessedEligibility: prismaState.assessedEligibility,
-          excludedEligibilityReasons: prismaState.excludedEligibilityReasons,
-          includedStudies: prismaState.includedStudies,
-          databases: Object.keys(healthMetrics.database_distribution || {}),
-          extractionOutcomes,
-          ...getAiRequestOptions(),
-        }),
+      const data = await apiJson<{ report?: PrismaAIReport }>("/api/ai/prisma-report", {
+        dataset_id: activeDatasetId,
+        dataset_version_id: prisma.version.id,
+        ...getAiRequestOptions(),
       });
-      const data = await res.json();
-      if (data.report) {
-        setPrismaAiReport(data.report);
-      } else {
-        throw new Error(data.error || "Failed to generate PRISMA methodology report");
-      }
-    } catch (err: any) {
-      console.error("PRISMA AI generation error:", err);
-      setPrismaAiError(err.message || "Failed to generate report");
+      if (!data.report) throw new Error("No PRISMA report returned by the analysis engine");
+      if (requestId === reportRequestId.current) setPrismaAiReport(data.report);
+    } catch (err) {
+      if (requestId === reportRequestId.current) setPrismaAiError(getApiErrorMessage(err, "Failed to generate PRISMA report."));
     } finally {
-      setIsGeneratingPrismaAi(false);
+      if (requestId === reportRequestId.current) setIsGeneratingPrismaAi(false);
     }
   };
 
@@ -415,7 +252,7 @@ ${prismaAiReport.executiveSummary}
 ---
 
 ## Yield & Selection Funnel Metrics
-- Gross Identified: ${prismaAiReport.yieldMetrics.totalIdentified.toLocaleString()}
+- Gross Identified: ${(prismaAiReport.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
 - Duplicate Attrition Rate: ${prismaAiReport.yieldMetrics.duplicateAttritionRate}
 - Screening Attrition Rate: ${prismaAiReport.yieldMetrics.screeningAttritionRate}
 - Full-Text Retrieval Success Rate: ${prismaAiReport.yieldMetrics.retrievalSuccessRate}
@@ -453,60 +290,24 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
     URL.revokeObjectURL(url);
   };
 
-  // Execute Deduplication Engine
-  const runDeduplicationAudit = () => {
-    if (documents.length === 0) return;
+  // Deduplication persists a successor version. Switch the shared flow to that version.
+  const runDeduplicationAudit = async () => {
+    if (!activeDatasetId || !prisma.version?.id || isDeduplicating) return;
     setIsDeduplicating(true);
-
-    setTimeout(() => {
-      const clusters: DuplicateCluster[] = [];
-      const seenDoi = new Map<string, BibliometricDocument>();
-      const seenTitle = new Map<string, BibliometricDocument>();
-      let foundDupes = 0;
-
-      documents.forEach((doc, idx) => {
-        const rawDoi = (doc.doi || (doc as any).DOI || "").trim().toLowerCase();
-        const rawTitle = (doc.title || (doc as any).TI || "")
-          .trim()
-          .toLowerCase()
-          .replace(/[^\w\s]/gi, "");
-
-        if (rawDoi && seenDoi.has(rawDoi)) {
-          const primary = seenDoi.get(rawDoi)!;
-          clusters.push({
-            id: `doi-${idx}`,
-            primary,
-            duplicates: [doc],
-            reason: `Exact DOI match (${rawDoi})`,
-            matchScore: 1.0,
-          });
-          foundDupes++;
-          return;
-        } else if (rawDoi) {
-          seenDoi.set(rawDoi, doc);
-        }
-
-        if (rawTitle && rawTitle.length > 15 && seenTitle.has(rawTitle)) {
-          const primary = seenTitle.get(rawTitle)!;
-          clusters.push({
-            id: `title-${idx}`,
-            primary,
-            duplicates: [doc],
-            reason: "Normalized Title Exact Match",
-            matchScore: 0.98,
-          });
-          foundDupes++;
-          return;
-        } else if (rawTitle && rawTitle.length > 15) {
-          seenTitle.set(rawTitle, doc);
-        }
+    prisma.setError(null);
+    try {
+      const result = await apiJson<{ version: DatasetVersion; flow: PrismaFlow; summary: PrismaDedupSummary }>(`/api/datasets/${encodeURIComponent(activeDatasetId)}/dedup`, {
+        version_id: prisma.version.id,
       });
-
-      setDuplicateClusters(clusters);
-      setRemovedCount(clusters.length);
-      setDedupExecuted(true);
-      setIsDeduplicating(false);
-    }, 400);
+      if (activeDatasetId !== currentDatasetId.current) return;
+      prisma.adoptVersion(result.flow, result.version);
+      setDedupSummary(result.summary);
+      onRefreshData();
+    } catch (err) {
+      if (activeDatasetId === currentDatasetId.current) prisma.setError(getApiErrorMessage(err, "Unable to deduplicate this dataset version."));
+    } finally {
+      if (activeDatasetId === currentDatasetId.current) setIsDeduplicating(false);
+    }
   };
 
   // Filtered documents for inspect tab
@@ -540,8 +341,8 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Dataset Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+      {/* Top Header */}
+      <div className="border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
@@ -555,41 +356,12 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             Dataset Management & Data Hygiene
           </h1>
           <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-            Audit metadata completeness, execute rule-based de-duplication across bibliographic sources, and generate publication-ready PRISMA 2020 flow diagrams.
+            Audit metadata completeness, deduplicate bibliographic records, and document recorded PRISMA 2020 study-selection counts.
           </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-            <Database className="h-3.5 w-3.5 text-slate-400" />
-            <select
-              value={activeDatasetId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setActiveDatasetId(id);
-                onSelectDataset?.(id);
-              }}
-              className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count.toLocaleString()} docs)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenUpload}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Upload New Dataset
-          </button>
         </div>
       </div>
 
+      {(prisma.error || documentsError) && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{prisma.error || documentsError}</p>}
       {/* Sub-tab Navigation */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex items-center gap-2">
@@ -617,9 +389,9 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           >
             <GitMerge className="h-3.5 w-3.5" />
             Deduplication & Bibliographic Record Merging
-            {duplicateClusters.length > 0 && (
+            {displayedDedup && displayedDedup.duplicates_resolved > 0 && (
               <span className="ml-1 rounded-full bg-rose-500 text-white px-1.5 py-0.2 text-[10px]">
-                {duplicateClusters.length}
+                {displayedDedup?.duplicates_resolved}
               </span>
             )}
           </button>
@@ -647,7 +419,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
-            Browse Canonical Bibliographic Records ({documents.length})
+            Browse Canonical Bibliographic Records ({documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()})
           </button>
         </div>
 
@@ -660,7 +432,10 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
       </div>
 
       {/* SUB-TAB 1: METADATA HEALTH */}
-      {activeSubTab === "health" && (
+      {activeSubTab === "health" && documentTotal === null && (
+        <p className="rounded-xl border border-slate-200 bg-white p-5 text-xs text-slate-600">{isLoadingDocs ? "Loading all records for the metadata audit..." : "Metadata health is not available until the dataset version loads."}</p>
+      )}
+      {activeSubTab === "health" && documentTotal !== null && (
         <div className="space-y-6">
           {/* Top Score Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -810,14 +585,14 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   Cross-Database Deduplication Engine
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Identifies identical or duplicate bibliographic records across merged databases using DOI matches and normalized title algorithms.
+                  Resolves exact DOI or normalized-title matches and creates a new dataset version; borderline similarities are not removed automatically.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={runDeduplicationAudit}
-                disabled={isDeduplicating}
+                disabled={isDeduplicating || !prisma.version || isLoadingDocs}
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer disabled:opacity-50"
               >
                 {isDeduplicating ? (
@@ -825,58 +600,38 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                {isDeduplicating ? "Scanning Dataset..." : "Run Deduplication Scan"}
+                {isDeduplicating ? "Creating Dataset Version..." : "Deduplicate and Create Version"}
               </button>
             </div>
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="text-[11px] font-bold uppercase text-slate-400">Total Scanned Records</div>
-                <div className="mt-1 text-2xl font-black text-slate-900">{documents.length.toLocaleString()}</div>
+                <div className="text-[11px] font-bold uppercase text-slate-400">{dedupSummary ? "Records in Source Version" : "Recorded Raw Inputs"}</div>
+                <div className="mt-1 text-2xl font-black text-slate-900">{displayedDedup ? displayedDedup.total_raw_inputs.toLocaleString() : "Not recorded"}</div>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="text-[11px] font-bold uppercase text-slate-400">Duplicate Clusters Found</div>
-                <div className="mt-1 text-2xl font-black text-rose-600">{duplicateClusters.length}</div>
+                <div className="text-[11px] font-bold uppercase text-slate-400">{dedupSummary ? "Duplicates Resolved This Run" : "Duplicates Removed in Lineage"}</div>
+                <div className="mt-1 text-2xl font-black text-rose-600">{displayedDedup ? displayedDedup.duplicates_resolved.toLocaleString() : "Not recorded"}</div>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                 <div className="text-[11px] font-bold uppercase text-slate-400">Unique Canonical Records</div>
                 <div className="mt-1 text-2xl font-black text-emerald-600">
-                  {(documents.length - duplicateClusters.length).toLocaleString()}
+                  {displayedDedup ? displayedDedup.final_unique_count.toLocaleString() : "Not recorded"}
                 </div>
               </div>
             </div>
 
-            {/* Clusters List */}
-            {dedupExecuted && duplicateClusters.length > 0 ? (
-              <div className="mt-6 space-y-3">
-                <div className="text-xs font-bold text-slate-700">
-                  Detected Duplicate Records ({duplicateClusters.length})
-                </div>
-                <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-                  {duplicateClusters.slice(0, 10).map((cluster) => (
-                    <div key={cluster.id} className="p-4 bg-white text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 line-clamp-1">
-                          {cluster.primary.title || (cluster.primary as any).TI}
-                        </span>
-                        <span className="rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                          {cluster.reason}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-[11px] text-slate-500">
-                        <span>Year: {cluster.primary.year || (cluster.primary as any).PY}</span>
-                        <span>Source: {cluster.primary.source || (cluster.primary as any).SO}</span>
-                        <span>DOI: {cluster.primary.doi || (cluster.primary as any).DOI || "N/A"}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {displayedDedup && (
+              <div className="mt-5 text-xs text-slate-700">
+                <p>{dedupSummary ? "Server deduplication saved a successor version." : "Persisted deduplication provenance for this version."} {displayedDedup.duplicates_resolved} {dedupSummary ? "duplicates resolved in this run" : "duplicates removed in the version lineage"}; {displayedDedup.final_unique_count} canonical records retained.</p>
+                {displayedDedup.audit_log.length > 0 && <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
+                  {displayedDedup.audit_log.slice(0, 10).map((entry, index) => <div key={`${entry.document_id}-${index}`} className="p-3">
+                    Removed record {entry.document_id} | retained {entry.retained_id} | {entry.rule.replaceAll("_", " ")}
+                  </div>)}
+                  {displayedDedup.audit_log.length > 10 && <p className="p-3 text-slate-500">Showing 10 of {displayedDedup.audit_log.length} audit entries.</p>}
+                </div>}
               </div>
-            ) : dedupExecuted ? (
-              <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 text-center text-xs font-bold text-emerald-800">
-                ✓ No duplicate records identified! The active corpus has 100% distinct articles.
-              </div>
-            ) : null}
+            )}
           </div>
         </div>
       )}
@@ -899,7 +654,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 <button
                   type="button"
                   onClick={handleGeneratePrismaAi}
-                  disabled={isGeneratingPrismaAi}
+                  disabled={isGeneratingPrismaAi || !prisma.version || !prisma.flow?.consistency.valid}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs hover:from-indigo-100 hover:to-violet-100 transition cursor-pointer disabled:opacity-50"
                 >
                   {isGeneratingPrismaAi ? (
@@ -921,137 +676,17 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               </div>
             </div>
 
-            {/* Interactive PRISMA Diagram */}
-            <div className="mt-8 flex justify-center overflow-x-auto p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-              <svg
-                ref={prismaSvgRef}
-                viewBox="0 0 850 820"
-                className="w-full max-w-3xl h-auto drop-shadow-xs"
-                style={{ fontFamily: "sans-serif" }}
-              >
-                {/* Background */}
-                <rect width="850" height="820" fill="#ffffff" rx="12" />
-
-                {/* Section Labels */}
-                <rect x="20" y="20" width="130" height="230" fill="#f8fafc" stroke="#e2e8f0" rx="8" />
-                <text x="85" y="140" textAnchor="middle" fill="#475569" fontWeight="bold" fontSize="13" transform="rotate(-90 85 140)">
-                  IDENTIFICATION
-                </text>
-
-                <rect x="20" y="270" width="130" height="340" fill="#f8fafc" stroke="#e2e8f0" rx="8" />
-                <text x="85" y="440" textAnchor="middle" fill="#475569" fontWeight="bold" fontSize="13" transform="rotate(-90 85 440)">
-                  SCREENING
-                </text>
-
-                <rect x="20" y="630" width="130" height="170" fill="#f8fafc" stroke="#e2e8f0" rx="8" />
-                <text x="85" y="715" textAnchor="middle" fill="#475569" fontWeight="bold" fontSize="13" transform="rotate(-90 85 715)">
-                  INCLUDED
-                </text>
-
-                {/* Box 1: Records identified from databases */}
-                <rect x="180" y="30" width="280" height="70" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1.5" rx="6" />
-                <text x="320" y="55" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#0f172a">
-                  Records identified from:
-                </text>
-                <text x="320" y="75" textAnchor="middle" fontSize="11" fill="#334155">
-                  Databases (n = {prismaState.identifiedDatabases.toLocaleString()})
-                </text>
-
-                {/* Box 2: Duplicate removal */}
-                <rect x="520" y="70" width="280" height="75" fill="#fff1f2" stroke="#f43f5e" strokeWidth="1.5" rx="6" />
-                <text x="660" y="95" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#9f1239">
-                  Duplicate records removed (n = {prismaState.removedDuplicates.toLocaleString()})
-                </text>
-                <text x="660" y="115" textAnchor="middle" fontSize="10" fill="#be123c">
-                  via DOI & Normalized Title match
-                </text>
-
-                {/* Arrows */}
-                <path d="M 320 100 L 320 170" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-                <path d="M 320 120 L 520 120" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-
-                {/* Box 3: Records screened */}
-                <rect x="180" y="170" width="280" height="60" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" rx="6" />
-                <text x="320" y="195" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#0f172a">
-                  Records screened
-                </text>
-                <text x="320" y="215" textAnchor="middle" fontSize="11" fill="#334155">
-                  (n = {prismaState.screened.toLocaleString()})
-                </text>
-
-                {/* Box 4: Records excluded during screening */}
-                <rect x="520" y="200" width="280" height="60" fill="#fff7ed" stroke="#f97316" strokeWidth="1.5" rx="6" />
-                <text x="660" y="225" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#9a3412">
-                  Records excluded
-                </text>
-                <text x="660" y="245" textAnchor="middle" fontSize="10" fill="#c2410c">
-                  (n = {prismaState.excludedScreening.toLocaleString()})
-                </text>
-
-                <path d="M 320 230 L 320 300" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-                <path d="M 320 230 L 520 230" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-
-                {/* Box 5: Reports sought for retrieval */}
-                <rect x="180" y="300" width="280" height="60" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" rx="6" />
-                <text x="320" y="325" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#0f172a">
-                  Reports sought for retrieval
-                </text>
-                <text x="320" y="345" textAnchor="middle" fontSize="11" fill="#334155">
-                  (n = {prismaState.soughtRetrieval.toLocaleString()})
-                </text>
-
-                {/* Box 6: Reports not retrieved */}
-                <rect x="520" y="330" width="280" height="60" fill="#fff7ed" stroke="#f97316" strokeWidth="1.5" rx="6" />
-                <text x="660" y="355" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#9a3412">
-                  Reports not retrieved
-                </text>
-                <text x="660" y="375" textAnchor="middle" fontSize="10" fill="#c2410c">
-                  (n = {prismaState.notRetrieved.toLocaleString()})
-                </text>
-
-                <path d="M 320 360 L 320 430" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-                <path d="M 320 360 L 520 360" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-
-                {/* Box 7: Reports assessed for eligibility */}
-                <rect x="180" y="430" width="280" height="65" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" rx="6" />
-                <text x="320" y="455" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#0f172a">
-                  Reports assessed for eligibility
-                </text>
-                <text x="320" y="475" textAnchor="middle" fontSize="11" fill="#334155">
-                  (n = {prismaState.assessedEligibility.toLocaleString()})
-                </text>
-
-                {/* Box 8: Excluded eligibility */}
-                <rect x="520" y="460" width="280" height="120" fill="#fef2f2" stroke="#ef4444" strokeWidth="1.5" rx="6" />
-                <text x="660" y="485" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#991b1b">
-                  Reports excluded:
-                </text>
-                {prismaState.excludedEligibilityReasons.map((reason, idx) => (
-                  <text key={idx} x="535" y={508 + idx * 20} fontSize="10" fill="#7f1d1d">
-                    • {reason.reason} (n = {reason.count})
-                  </text>
-                ))}
-
-                <path d="M 320 495 L 320 660" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-                <path d="M 320 520 L 520 520" stroke="#64748b" strokeWidth="1.5" markerEnd="url(#arrow)" fill="none" />
-
-                {/* Box 9: Studies included */}
-                <rect x="180" y="660" width="280" height="75" fill="#ecfdf5" stroke="#10b981" strokeWidth="2" rx="6" />
-                <text x="320" y="690" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#065f46">
-                  Studies included in synthesis
-                </text>
-                <text x="320" y="715" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#047857">
-                  (n = {prismaState.includedStudies.toLocaleString()})
-                </text>
-
-                {/* Marker def */}
-                <defs>
-                  <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
-                  </marker>
-                </defs>
-              </svg>
+            <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
+              <PrismaFlowDiagram ref={prismaSvgRef} flow={prisma.flow} reasonsRecorded={hasRecordedExclusions(prisma.version)} />
             </div>
+            <div className="mt-4">
+              <button type="button" onClick={() => setShowPrismaEditor(!showPrismaEditor)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
+                {showPrismaEditor ? "Hide selection count editor" : "Record study-selection counts"}
+              </button>
+              {showPrismaEditor && <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4"><PrismaManualEditor flow={prisma.flow} draft={prisma.draft} saving={prisma.saving} error={prisma.error} reasonsRecorded={hasRecordedExclusions(prisma.version)} onFieldChange={prisma.updateField} onReasonsChange={prisma.updateReasons} onSave={prisma.save} /></div>}
+            </div>
+            {prisma.flow && !prisma.flow.consistency.valid && <p role="alert" className="mt-3 text-xs text-rose-700">{prisma.flow.consistency.errors.join("; ")}</p>}
+            {prisma.flow?.consistency.warnings.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>)}
           </div>
 
           {/* AI PRISMA 2020 METHODOLOGY NARRATIVE & SYNTHESIS REPORT */}
@@ -1065,7 +700,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   Synthesizing PRISMA 2020 Methodology Narrative via Multi-provider AI...
                 </h3>
                 <p className="text-xs text-slate-500 max-w-xl mx-auto">
-                  Computing quantitative selection yield ratios, auditing PRISMA 2020 checklist items (Page et al., BMJ 2021), and formulating a publication-ready Methods manuscript draft for peer-reviewed journals.
+                  Reviewing recorded selection counts and drafting a Methods narrative. Check missing counts and verify the draft against your review protocol before use.
                 </p>
               </div>
               <div className="flex justify-center">
@@ -1104,7 +739,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   Generate PRISMA 2020 Methodology Narrative & Synthesis Report
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Transform raw funnel counts into an authoritative, publication-ready academic Methods section formatted according to Page et al. (BMJ 2021). Computes quantitative yield ratios, audits 5 key PRISMA checklist items, contextualizes eligibility exclusions, and generates reviewer-ready text.
+                  Draft a PRISMA 2020 Methods narrative from persisted counts for this dataset version. Unrecorded steps remain unrecorded; review the generated text and checklist against your protocol before publication.
                 </p>
               </div>
               <button
@@ -1127,7 +762,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                        PRISMA 2020 Verified
+                        Canonical Version Report
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
                         <Award className="h-3 w-3" />
@@ -1193,9 +828,9 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
                       <div className="text-[10px] font-bold uppercase text-slate-400">Total Identified</div>
                       <div className="text-xl font-black text-slate-900 mt-1">
-                        {prismaAiReport.yieldMetrics.totalIdentified.toLocaleString()}
+                        {(prismaAiReport.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">Gross database count</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Recorded identification total</div>
                     </div>
 
                     <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3.5">
@@ -1203,7 +838,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                       <div className="text-xl font-black text-rose-900 mt-1">
                         {prismaAiReport.yieldMetrics.duplicateAttritionRate}
                       </div>
-                      <div className="text-[10px] text-rose-600 mt-0.5">DOI & Title match</div>
+                      <div className="text-[10px] text-rose-600 mt-0.5">Persisted deduplication lineage</div>
                     </div>
 
                     <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3.5">
@@ -1306,10 +941,10 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-indigo-600" />
-                      Academic Manuscript Draft: Methods Section
+                      Draft Methods Section
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Formatted for direct insertion into peer-reviewed systematic reviews or bibliometric journal submissions.
+                      Review the draft against your actual search, screening, and eligibility decisions before manuscript use.
                     </p>
                   </div>
 
@@ -1367,10 +1002,10 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   <div>
                     <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                       <ListChecks className="h-4 w-4 text-emerald-600" />
-                      PRISMA 2020 5-Item Checklist Compliance Audit
+                      PRISMA 2020 Checklist Review
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Verifies alignment with core reporting guidelines mandated by biomedical and scientometric journals.
+                      Generated checklist notes are prompts for review, not proof of compliance.
                     </p>
                   </div>
                   <button
@@ -1472,7 +1107,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               />
             </div>
             <div className="text-xs font-semibold text-slate-500">
-              Showing {filteredDocs.length} of {documents.length} articles
+              Showing {filteredDocs.length} of {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()} articles
             </div>
           </div>
 
@@ -1486,7 +1121,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   <span>Authors: {Array.isArray(doc.authors) ? doc.authors.slice(0, 4).join(", ") : doc.AU ? doc.AU.slice(0, 4).join(", ") : "Unknown"}</span>
                   <span>Year: {doc.year || doc.PY || "N/A"}</span>
                   <span>Journal: {doc.source || doc.SO || "N/A"}</span>
-                  <span className="font-semibold text-blue-600">Citations: {doc.citations ?? doc.TC ?? 0}</span>
+                  <span className="font-semibold text-blue-600">Citations: {doc.citations ?? doc.TC ?? "Not recorded"}</span>
                 </div>
               </div>
             ))}

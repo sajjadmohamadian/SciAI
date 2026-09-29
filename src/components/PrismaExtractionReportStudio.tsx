@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Dataset,
   BibliometricDocument,
@@ -27,6 +27,9 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAiProvider } from "../context/AiProviderContext.js";
+import { apiJson, getApiErrorMessage } from "../utils/apiClient.js";
+import { hasRecordedExclusions, usePrismaFlow, useVersionDocuments } from "../hooks/usePrismaFlow.js";
+import { PrismaFlowDiagram, PrismaManualEditor } from "./PrismaFlowDiagram.js";
 
 interface Props {
   dataset: Dataset;
@@ -44,27 +47,8 @@ export function PrismaExtractionReportStudio({
   onRefreshData,
 }: Props) {
   const { getAiRequestOptions } = useAiProvider();
-  // Document state for extraction outcomes
-  const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
-  const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
-
-  // PRISMA Funnel State
-  const [funnel, setFunnel] = useState({
-    identifiedDatabases: 0,
-    removedDuplicates: 0,
-    screened: 0,
-    excludedScreening: 0,
-    soughtRetrieval: 0,
-    notRetrieved: 0,
-    assessedEligibility: 0,
-    excludedEligibilityReasons: [
-      { reason: "Wrong intervention or non-scholarly focus", count: 0 },
-      { reason: "Conference abstract or monograph only", count: 0 },
-      { reason: "Non-English without translation", count: 0 },
-    ],
-    includedStudies: 0,
-  });
-
+  const prisma = usePrismaFlow(dataset?.id || "");
+  const { documents, loading: isLoadingDocs, error: documentsError, total: documentTotal } = useVersionDocuments(dataset?.id || "", prisma.version?.id);
   const [showFunnelEditor, setShowFunnelEditor] = useState(false);
   const [activeNarrativeTab, setActiveNarrativeTab] = useState<"methods" | "outcomes" | "checklist" | "recommendations">("methods");
 
@@ -74,33 +58,21 @@ export function PrismaExtractionReportStudio({
   const [reportError, setReportError] = useState<string | null>(null);
   const [copiedMethods, setCopiedMethods] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const reportRequestId = useRef(0);
 
-  // Fetch documents for the active corpus
   useEffect(() => {
-    if (!dataset?.id) return;
-    setIsLoadingDocs(true);
-    fetch(`/api/datasets/${dataset.id}/documents?limit=5000`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch documents");
-        return res.json();
-      })
-      .then((data) => {
-        const docs = Array.isArray(data) ? data : data.documents || data.records || [];
-        setDocuments(docs);
-      })
-      .catch((err) => {
-        console.warn("Could not fetch documents for dataset:", err);
-      })
-      .finally(() => {
-        setIsLoadingDocs(false);
-      });
-  }, [dataset?.id]);
+    reportRequestId.current++;
+    setIsGenerating(false);
+    setReport(null);
+    setReportError(null);
+  }, [dataset?.id, prisma.version?.id, prisma.flow?.computed_at]);
+
+  useEffect(() => setShowFunnelEditor(false), [dataset?.id]);
 
   // Compute live data extraction outcomes & field completeness
   const extractionOutcomes: ExtractionOutcomeMetrics = useMemo(() => {
     const docCount = documents.length;
-    const fallbackCount = dataset?.record_count || 100;
-    const total = docCount > 0 ? docCount : fallbackCount;
+    const total = docCount;
 
     let withDoi = 0;
     let withAbstract = 0;
@@ -109,39 +81,22 @@ export function PrismaExtractionReportStudio({
     const years: number[] = [];
     const sourceDist: Record<string, number> = {};
 
-    if (docCount > 0) {
-      for (const d of documents) {
-        if (d.doi && d.doi.trim().length > 3) withDoi++;
-        if (d.abstract && d.abstract.trim().length > 20) withAbstract++;
-        if (
-          (d.keywords && d.keywords.length > 0) ||
-          (d.author_keywords && d.author_keywords.length > 0)
-        ) {
-          withKeywords++;
-        }
-        if (d.authors && d.authors.length > 0) withAuthors++;
-        if (d.year && d.year > 1800 && d.year < 2100) years.push(d.year);
-
-        const src = d.source_database || dataset?.source || "Indexed Repository";
-        sourceDist[src] = (sourceDist[src] || 0) + 1;
-      }
-    } else {
-      // High-fidelity proxy estimation from dataset record metadata
-      withDoi = Math.round(total * 0.94);
-      withAbstract = Math.round(total * 0.88);
-      withKeywords = Math.round(total * 0.85);
-      withAuthors = Math.round(total * 0.98);
-      sourceDist[dataset?.source || "Multi-Database Corpus"] = total;
+    for (const d of documents) {
+      if (d.doi && d.doi.trim().length > 3) withDoi++;
+      if (d.abstract && d.abstract.trim().length > 20) withAbstract++;
+      if ((d.keywords && d.keywords.length > 0) || (d.author_keywords && d.author_keywords.length > 0)) withKeywords++;
+      if (d.authors && d.authors.length > 0) withAuthors++;
+      if (d.year && d.year > 1800 && d.year < 2100) years.push(d.year);
+      const src = d.source_database || dataset?.source || "Unspecified source";
+      sourceDist[src] = (sourceDist[src] || 0) + 1;
     }
 
-    const doiCoveragePct = Math.min(100, Math.round((withDoi / total) * 100));
-    const abstractCoveragePct = Math.min(100, Math.round((withAbstract / total) * 100));
-    const keywordsCoveragePct = Math.min(100, Math.round((withKeywords / total) * 100));
-    const authorsCoveragePct = Math.min(100, Math.round((withAuthors / total) * 100));
+    const doiCoveragePct = Math.min(100, total ? Math.round((withDoi / total) * 100) : 0);
+    const abstractCoveragePct = Math.min(100, total ? Math.round((withAbstract / total) * 100) : 0);
+    const keywordsCoveragePct = Math.min(100, total ? Math.round((withKeywords / total) * 100) : 0);
+    const authorsCoveragePct = Math.min(100, total ? Math.round((withAuthors / total) * 100) : 0);
 
-    const minYear = years.length > 0 ? Math.min(...years) : 2012;
-    const maxYear = years.length > 0 ? Math.max(...years) : 2026;
-    const yearSpan = `${minYear} - ${maxYear}`;
+    const yearSpan = years.length ? `${Math.min(...years)} - ${Math.max(...years)}` : "Not recorded";
 
     // Composite Score: 35% DOI, 30% Abstract, 20% Authors, 15% Keywords
     const compositeScore = Math.round(
@@ -173,79 +128,23 @@ export function PrismaExtractionReportStudio({
     };
   }, [documents, dataset]);
 
-  // Synchronize PRISMA Funnel numbers with extraction outcomes
-  useEffect(() => {
-    const gross = extractionOutcomes.totalRecordsExtracted || dataset?.record_count || 100;
-    const removedDup = Math.max(0, Math.round(gross * 0.08));
-    const screened = Math.max(0, gross - removedDup);
-    const excludedScreen = Math.max(0, Math.round(screened * 0.16));
-    const sought = Math.max(0, screened - excludedScreen);
-    const notRetrieved = Math.max(0, Math.round(sought * 0.02));
-    const assessed = Math.max(0, sought - notRetrieved);
-    const ex1 = Math.max(0, Math.round(assessed * 0.07));
-    const ex2 = Math.max(0, Math.round(assessed * 0.04));
-    const ex3 = Math.max(0, Math.round(assessed * 0.02));
-    const included = Math.max(0, assessed - (ex1 + ex2 + ex3));
-
-    setFunnel({
-      identifiedDatabases: gross,
-      removedDuplicates: removedDup,
-      screened,
-      excludedScreening: excludedScreen,
-      soughtRetrieval: sought,
-      notRetrieved,
-      assessedEligibility: assessed,
-      excludedEligibilityReasons: [
-        { reason: "Wrong intervention or focus", count: ex1 },
-        { reason: "Non-scholarly or abstract only", count: ex2 },
-        { reason: "Foreign language untranslated", count: ex3 },
-      ],
-      includedStudies: included,
-    });
-  }, [extractionOutcomes, dataset?.record_count]);
-
-  // Trigger AI PRISMA Report Generation
   const handleGenerateReport = async () => {
+    if (!dataset?.id || !prisma.version?.id || !prisma.flow?.consistency.valid) return;
+    const requestId = ++reportRequestId.current;
     setIsGenerating(true);
     setReportError(null);
-
     try {
-      const res = await fetch("/api/ai/prisma-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataset_id: dataset.id,
-          dataset_name: dataset.name,
-          identifiedDatabases: funnel.identifiedDatabases,
-          removedDuplicates: funnel.removedDuplicates,
-          screened: funnel.screened,
-          excludedScreening: funnel.excludedScreening,
-          soughtRetrieval: funnel.soughtRetrieval,
-          notRetrieved: funnel.notRetrieved,
-          assessedEligibility: funnel.assessedEligibility,
-          excludedEligibilityReasons: funnel.excludedEligibilityReasons,
-          includedStudies: funnel.includedStudies,
-          databases: Object.keys(extractionOutcomes.sourceDistribution),
-          extractionOutcomes,
-          ...getAiRequestOptions(),
-        }),
+      const data = await apiJson<{ report?: PrismaAIReport }>("/api/ai/prisma-report", {
+        dataset_id: dataset.id,
+        dataset_version_id: prisma.version.id,
+        ...getAiRequestOptions(),
       });
-
-      if (!res.ok) {
-        throw new Error(`Failed to generate PRISMA report (HTTP ${res.status})`);
-      }
-
-      const data = await res.json();
-      if (data.report) {
-        setReport(data.report);
-      } else {
-        throw new Error("No report returned by analysis engine");
-      }
+      if (!data.report) throw new Error("No report returned by analysis engine");
+      if (requestId === reportRequestId.current) setReport(data.report);
     } catch (err: unknown) {
-      console.error("AI PRISMA report error:", err);
-      setReportError(err instanceof Error ? err.message : "Failed to synthesize PRISMA descriptive report");
+      if (requestId === reportRequestId.current) setReportError(getApiErrorMessage(err, "Failed to generate PRISMA report."));
     } finally {
-      setIsGenerating(false);
+      if (requestId === reportRequestId.current) setIsGenerating(false);
     }
   };
 
@@ -285,20 +184,20 @@ ${report.extractionOutcomesAssessment.potentialExtractionBiases.map((b) => `- ${
 ${report.extractionOutcomesAssessment.recommendedCleaningActions.map((a) => `- ${a}`).join("\n")}
 ` : `
 - Total Extracted: ${extractionOutcomes.totalRecordsExtracted}
-- DOI Coverage: ${extractionOutcomes.doiCoveragePct}%
-- Abstract Completeness: ${extractionOutcomes.abstractCoveragePct}%
-- Author Coverage: ${extractionOutcomes.authorsCoveragePct}%
+- DOI Coverage: ${documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.doiCoveragePct}%`}
+- Abstract Completeness: ${documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.abstractCoveragePct}%`}
+- Author Coverage: ${documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.authorsCoveragePct}%`}
 `}
 
 ---
 
-## 3. Publication-Ready Methods Section
+## 3. Draft Methods Section
 ${report.methodologyNarrative}
 
 ---
 
 ## 4. Quantitative Yield & Attrition Metrics
-- Total Identified: ${report.yieldMetrics.totalIdentified.toLocaleString()}
+- Total Identified: ${(report.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
 - Duplicate Attrition Rate: ${report.yieldMetrics.duplicateAttritionRate}
 - Screening Attrition Rate: ${report.yieldMetrics.screeningAttritionRate}
 - Retrieval Success Rate: ${report.yieldMetrics.retrievalSuccessRate}
@@ -379,7 +278,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   extractionOutcomes.extractionFidelityGrade
                 )}`}
               >
-                Extraction Quality: {extractionOutcomes.extractionFidelityGrade} ({extractionOutcomes.compositeScore}/100)
+                Extraction Quality: {documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.extractionFidelityGrade} (${extractionOutcomes.compositeScore}/100)`}
               </span>
               <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700 flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
@@ -390,7 +289,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               PRISMA Workflow & AI Extraction Outcomes Synthesizer
             </h2>
             <p className="text-xs text-slate-500 max-w-2xl">
-              Analyzes multi-database bibliographic extraction fidelity across DOIs, abstracts, and authors. Generates publication-ready PRISMA 2020 methodology narratives conforming to Page et al. (BMJ 2021).
+              Reviews observed metadata completeness and the canonical PRISMA 2020 selection flow for this dataset version. AI output is a draft; verify unrecorded steps and all claims against your review protocol.
             </p>
           </div>
 
@@ -413,7 +312,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               type="button"
               id="generate-prisma-ai-report-btn"
               onClick={handleGenerateReport}
-              disabled={isGenerating}
+              disabled={isGenerating || !prisma.flow?.consistency.valid || !prisma.version}
               className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition disabled:opacity-60 cursor-pointer"
             >
               {isGenerating ? (
@@ -438,7 +337,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               Total Extracted
             </div>
             <div className="mt-1 text-base font-black text-slate-900">
-              {extractionOutcomes.totalRecordsExtracted.toLocaleString()}
+              {documentTotal === null ? "Not recorded" : extractionOutcomes.totalRecordsExtracted.toLocaleString()}
             </div>
             <div className="text-[10px] text-slate-500 truncate">
               {Object.keys(extractionOutcomes.sourceDistribution).join(", ") || "Raw records"}
@@ -448,64 +347,64 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>DOI Resolution</span>
-              <span className="text-slate-900 font-mono">{extractionOutcomes.doiCoveragePct}%</span>
+              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.doiCoveragePct}%`}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full bg-emerald-600 rounded-full"
-                style={{ width: `${extractionOutcomes.doiCoveragePct}%` }}
+                style={{ width: `${documentTotal ? extractionOutcomes.doiCoveragePct : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500">
-              {extractionOutcomes.recordsWithDoi.toLocaleString()} with valid DOI
+              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithDoi.toLocaleString()} with valid DOI
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Abstract Capture</span>
-              <span className="text-slate-900 font-mono">{extractionOutcomes.abstractCoveragePct}%</span>
+              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.abstractCoveragePct}%`}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full bg-blue-600 rounded-full"
-                style={{ width: `${extractionOutcomes.abstractCoveragePct}%` }}
+                style={{ width: `${documentTotal ? extractionOutcomes.abstractCoveragePct : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500">
-              {extractionOutcomes.recordsWithAbstract.toLocaleString()} text abstracts
+              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithAbstract.toLocaleString()} text abstracts
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Keywords Indexed</span>
-              <span className="text-slate-900 font-mono">{extractionOutcomes.keywordsCoveragePct}%</span>
+              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.keywordsCoveragePct}%`}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full bg-indigo-600 rounded-full"
-                style={{ width: `${extractionOutcomes.keywordsCoveragePct}%` }}
+                style={{ width: `${documentTotal ? extractionOutcomes.keywordsCoveragePct : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500">
-              {extractionOutcomes.recordsWithKeywords.toLocaleString()} parsed terms
+              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithKeywords.toLocaleString()} parsed terms
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Author Entities</span>
-              <span className="text-slate-900 font-mono">{extractionOutcomes.authorsCoveragePct}%</span>
+              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.authorsCoveragePct}%`}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className="h-full bg-violet-600 rounded-full"
-                style={{ width: `${extractionOutcomes.authorsCoveragePct}%` }}
+                style={{ width: `${documentTotal ? extractionOutcomes.authorsCoveragePct : 0}%` }}
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-500">
-              {extractionOutcomes.recordsWithAuthors.toLocaleString()} attributed
+              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithAuthors.toLocaleString()} attributed
             </div>
           </div>
 
@@ -523,105 +422,16 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           </div>
         </div>
 
-        {/* Collapsible Funnel Calibration Drawer */}
         {showFunnelEditor && (
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 transition">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                PRISMA 2020 Funnel Calibration (Study Selection Steps)
-              </h3>
-              <span className="text-[11px] text-slate-500">
-                Numbers are auto-synchronized with active extraction outcomes.
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  1. Identified Gross
-                </label>
-                <input
-                  type="number"
-                  value={funnel.identifiedDatabases}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, identifiedDatabases: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  2. Duplicates Removed
-                </label>
-                <input
-                  type="number"
-                  value={funnel.removedDuplicates}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, removedDuplicates: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  3. Screened (Ti/Ab)
-                </label>
-                <input
-                  type="number"
-                  value={funnel.screened}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, screened: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  4. Screening Excluded
-                </label>
-                <input
-                  type="number"
-                  value={funnel.excludedScreening}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, excludedScreening: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  5. Assessed Eligibility
-                </label>
-                <input
-                  type="number"
-                  value={funnel.assessedEligibility}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, assessedEligibility: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 block mb-1">
-                  6. Net Included Studies
-                </label>
-                <input
-                  type="number"
-                  value={funnel.includedStudies}
-                  onChange={(e) =>
-                    setFunnel({ ...funnel, includedStudies: Number(e.target.value) || 0 })
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50/50"
-                />
-              </div>
-            </div>
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">Recorded study-selection counts</h3>
+            <PrismaManualEditor flow={prisma.flow} draft={prisma.draft} saving={prisma.saving} error={prisma.error} reasonsRecorded={hasRecordedExclusions(prisma.version)} onFieldChange={prisma.updateField} onReasonsChange={prisma.updateReasons} onSave={prisma.save} />
           </div>
         )}
       </div>
+
+      {(prisma.error || documentsError) && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{prisma.error || documentsError}</p>}
+      {isLoadingDocs && <p className="text-xs text-slate-500">Loading all records for extraction metrics...</p>}
 
       {/* Error alert if AI generation fails */}
       {reportError && (
@@ -657,143 +467,11 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               </button>
             </div>
 
-            {/* Interactive Vector PRISMA SVG Flowchart */}
-            <div className="mt-4 overflow-x-auto">
-              <svg
-                ref={svgRef}
-                viewBox="0 0 460 520"
-                className="w-full h-auto text-slate-800 font-sans select-none"
-                style={{ minWidth: "340px" }}
-              >
-                {/* Background */}
-                <rect width="460" height="520" fill="#ffffff" rx="12" />
-
-                {/* Phase 1: Identification */}
-                <g id="prisma-identification-phase">
-                  <rect x="20" y="20" width="420" height="90" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
-                  <text x="35" y="42" fontSize="11" fontWeight="bold" fill="#0f172a">
-                    IDENTIFICATION OF STUDIES VIA DATABASES
-                  </text>
-                  <text x="35" y="62" fontSize="10" fill="#475569">
-                    Records identified from databases ({extractionOutcomes.totalRecordsExtracted.toLocaleString()}):
-                  </text>
-                  <text x="35" y="80" fontSize="9" fill="#64748b">
-                    • Ingested repositories: {Object.keys(extractionOutcomes.sourceDistribution).slice(0, 3).join(", ") || "Standard"}
-                  </text>
-                  <text x="35" y="96" fontSize="9" fill="#64748b">
-                    • DOI coverage: {extractionOutcomes.doiCoveragePct}% | Abstracts: {extractionOutcomes.abstractCoveragePct}%
-                  </text>
-                </g>
-
-                {/* Arrow to Screening */}
-                <line x1="230" y1="110" x2="230" y2="135" stroke="#94a3b8" strokeWidth="1.5" markerEnd="url(#arrow)" />
-
-                {/* Duplicate Removal Side Box */}
-                <g id="prisma-duplicates-box">
-                  <rect x="260" y="125" width="180" height="48" rx="6" fill="#fef2f2" stroke="#fca5a5" strokeWidth="1.2" />
-                  <text x="270" y="143" fontSize="9.5" fontWeight="bold" fill="#991b1b">
-                    Duplicate records removed:
-                  </text>
-                  <text x="270" y="159" fontSize="9" fill="#b91c1c">
-                    n = {funnel.removedDuplicates.toLocaleString()} (DOI & Title match)
-                  </text>
-                </g>
-
-                {/* Phase 2: Screening */}
-                <g id="prisma-screening-phase">
-                  <rect x="20" y="175" width="220" height="55" rx="8" fill="#f0fdf4" stroke="#86efac" strokeWidth="1.5" />
-                  <text x="30" y="196" fontSize="10.5" fontWeight="bold" fill="#166534">
-                    Records screened (Title/Ab):
-                  </text>
-                  <text x="30" y="214" fontSize="10" fill="#15803d">
-                    n = {funnel.screened.toLocaleString()} unique records
-                  </text>
-
-                  {/* Excluded screening side box */}
-                  <rect x="260" y="180" width="180" height="48" rx="6" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
-                  <text x="270" y="198" fontSize="9.5" fontWeight="bold" fill="#334155">
-                    Records excluded:
-                  </text>
-                  <text x="270" y="214" fontSize="9" fill="#64748b">
-                    n = {funnel.excludedScreening.toLocaleString()} (out of scope)
-                  </text>
-                </g>
-
-                {/* Arrow to Retrieval */}
-                <line x1="130" y1="230" x2="130" y2="260" stroke="#94a3b8" strokeWidth="1.5" markerEnd="url(#arrow)" />
-
-                {/* Phase 3: Retrieval & Eligibility */}
-                <g id="prisma-retrieval-phase">
-                  <rect x="20" y="260" width="220" height="55" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
-                  <text x="30" y="281" fontSize="10" fontWeight="bold" fill="#0f172a">
-                    Reports sought for retrieval:
-                  </text>
-                  <text x="30" y="299" fontSize="9.5" fill="#475569">
-                    n = {funnel.soughtRetrieval.toLocaleString()}
-                  </text>
-
-                  {/* Not retrieved side box */}
-                  <rect x="260" y="265" width="180" height="45" rx="6" fill="#fef2f2" stroke="#fca5a5" strokeWidth="1.2" />
-                  <text x="270" y="283" fontSize="9" fontWeight="bold" fill="#991b1b">
-                    Reports not retrieved:
-                  </text>
-                  <text x="270" y="297" fontSize="8.5" fill="#b91c1c">
-                    n = {funnel.notRetrieved.toLocaleString()} (paywall/unavailable)
-                  </text>
-                </g>
-
-                {/* Arrow to Full-text Eligibility */}
-                <line x1="130" y1="315" x2="130" y2="345" stroke="#94a3b8" strokeWidth="1.5" markerEnd="url(#arrow)" />
-
-                <g id="prisma-eligibility-phase">
-                  <rect x="20" y="345" width="220" height="60" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
-                  <text x="30" y="366" fontSize="10" fontWeight="bold" fill="#0f172a">
-                    Reports assessed for eligibility:
-                  </text>
-                  <text x="30" y="384" fontSize="9.5" fill="#475569">
-                    n = {funnel.assessedEligibility.toLocaleString()}
-                  </text>
-
-                  {/* Excluded eligibility reasons side box */}
-                  <rect x="260" y="345" width="180" height="75" rx="6" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
-                  <text x="270" y="362" fontSize="9" fontWeight="bold" fill="#334155">
-                    Reports excluded:
-                  </text>
-                  {funnel.excludedEligibilityReasons.slice(0, 3).map((r, i) => (
-                    <text key={i} x="270" y={377 + i * 14} fontSize="8" fill="#64748b">
-                      • {r.reason.slice(0, 22)}... (n={r.count})
-                    </text>
-                  ))}
-                </g>
-
-                {/* Arrow to Included */}
-                <line x1="130" y1="405" x2="130" y2="435" stroke="#16a34a" strokeWidth="2" markerEnd="url(#arrowGreen)" />
-
-                {/* Phase 4: Included Studies */}
-                <g id="prisma-included-phase">
-                  <rect x="20" y="435" width="420" height="65" rx="8" fill="#f0fdf4" stroke="#22c55e" strokeWidth="2" />
-                  <text x="35" y="458" fontSize="11" fontWeight="bold" fill="#15803d">
-                    STUDIES INCLUDED IN SYSTEMATIC & SCIENTOMETRIC SYNTHESIS
-                  </text>
-                  <text x="35" y="476" fontSize="10.5" fontWeight="bold" fill="#166534">
-                    New studies included in qualitative and quantitative mapping: n = {funnel.includedStudies.toLocaleString()}
-                  </text>
-                  <text x="35" y="491" fontSize="9" fill="#15803d">
-                    Net Inclusion Yield: {((funnel.includedStudies / Math.max(1, funnel.identifiedDatabases)) * 100).toFixed(1)}% of gross retrieval
-                  </text>
-                </g>
-
-                {/* Markers */}
-                <defs>
-                  <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
-                  </marker>
-                  <marker id="arrowGreen" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
-                  </marker>
-                </defs>
-              </svg>
+            <div className="mt-4">
+              <PrismaFlowDiagram ref={svgRef} flow={prisma.flow} reasonsRecorded={hasRecordedExclusions(prisma.version)} />
             </div>
+            {prisma.flow && !prisma.flow.consistency.valid && <p role="alert" className="mt-3 text-xs text-rose-700">{prisma.flow.consistency.errors.join("; ")}</p>}
+            {prisma.flow?.consistency.warnings.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>)}
           </div>
 
           {/* Quick Actions Card */}
@@ -843,7 +521,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   <div className="rounded-lg bg-slate-50 p-2">
                     <div className="text-[9px] uppercase font-bold text-slate-400">Identified</div>
                     <div className="text-xs font-black text-slate-900 mt-0.5">
-                      {report.yieldMetrics.totalIdentified.toLocaleString()}
+                      {(report.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
                     </div>
                   </div>
                   <div className="rounded-lg bg-slate-50 p-2">
@@ -993,8 +671,8 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Conforms to Page MJ et al., BMJ 2021;372:n71</span>
-                      <span className="font-mono">Ready for Peer-Reviewed Submission</span>
+                      <span>PRISMA 2020 reference: Page MJ et al., BMJ 2021;372:n71</span>
+                      <span className="font-mono">Verify before submission</span>
                     </div>
                   </div>
                 )}
@@ -1074,12 +752,12 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 Generate AI PRISMA 2020 Descriptive Report
               </h3>
               <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-                Synthesizes current data extraction outcomes ({extractionOutcomes.totalRecordsExtracted.toLocaleString()} documents) into an academic manuscript methodology section, PRISMA 2020 checklist audit, and yield KPIs.
+                Synthesizes current data extraction outcomes ({documentTotal === null ? "Not recorded" : extractionOutcomes.totalRecordsExtracted.toLocaleString()} documents) into an academic manuscript methodology section, PRISMA 2020 checklist audit, and yield KPIs.
               </p>
               <button
                 type="button"
                 onClick={handleGenerateReport}
-                disabled={isGenerating}
+                disabled={isGenerating || !prisma.flow?.consistency.valid || !prisma.version}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
               >
                 {isGenerating ? (

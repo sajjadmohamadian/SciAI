@@ -491,13 +491,13 @@ export default function App() {
                 loadDashboard();
               }}
               initialStep={
-                activeTab === "datasets"
-                  ? "repository"
-                  : activeTab === "openalex"
+                activeTab === "openalex"
                   ? "openalex"
                   : activeTab === "merge"
                   ? "merge"
-                  : "hygiene"
+                  : activeTab === "data-hygiene"
+                  ? "hygiene"
+                  : "repository"
               }
             />
           )}

@@ -7,10 +7,8 @@ import {
   FileText,
   Copy,
   Check,
-  Upload,
   Sparkles,
   AlertTriangle,
-  Database,
   ArrowRight,
   TrendingDown,
   Activity,
@@ -18,15 +16,14 @@ import {
   CheckCircle2,
   HelpCircle,
 } from "lucide-react";
-import { apiJson, apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
+import { apiJson, getApiErrorMessage } from "../utils/apiClient.js";
 
 interface Props {
   datasets: Dataset[];
   onRefreshData: () => void;
-  onOpenUpload: () => void;
 }
 
-export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }: Props) {
+export function SmartMergeStudio({ datasets = [], onRefreshData }: Props) {
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<string[]>(
     (datasets || []).map((d) => d.id)
   );
@@ -34,7 +31,6 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
   const [allowYearTolerance, setAllowYearTolerance] = useState<boolean>(true);
   const [customName, setCustomName] = useState<string>("");
   const [merging, setMerging] = useState<boolean>(false);
-  const [loadingSample, setLoadingSample] = useState<boolean>(false);
   const [summary, setSummary] = useState<SmartMergeSummary | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "audit" | "borderline" | "health" | "methodology">("overview");
   const [copiedMethodology, setCopiedMethodology] = useState<boolean>(false);
@@ -105,26 +101,6 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
     }
   };
 
-  const handleLoadSampleCohort = async () => {
-    setLoadingSample(true);
-    setErrorMsg("");
-    try {
-      const data: any = await apiRequest("/api/datasets/load-sample-cohort", {
-        method: "POST",
-      });
-      if (data.merge_summary) {
-        setSummary(data.merge_summary);
-        onRefreshData();
-      } else {
-        setErrorMsg("Failed to load sample cohort.");
-      }
-    } catch (err: unknown) {
-      setErrorMsg(getApiErrorMessage(err, "Error communicating with server."));
-    } finally {
-      setLoadingSample(false);
-    }
-  };
-
   const handleCopyMethodology = () => {
     if (!summary?.methodology_narrative) return;
     navigator.clipboard.writeText(summary.methodology_narrative);
@@ -158,26 +134,6 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
           <p className="mt-1 text-xs text-slate-500 max-w-3xl leading-relaxed">
             Ingest, normalize, and deduplicate scientific literature across 6 canonical citation databases: Web of Science, Scopus, PubMed, OpenAlex, Dimensions, and Lens.org. Features protective DOI conflict shielding, block-based Jaro-Winkler fuzzy matching, audit logs, and automated academic methodology narrative generation.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleLoadSampleCohort}
-            disabled={loadingSample}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition shadow-2xs cursor-pointer disabled:opacity-50"
-          >
-            <Database className="h-3.5 w-3.5 text-indigo-600" />
-            {loadingSample ? "Ingesting 6 DBs..." : "Load 6-Database Sample Cohort"}
-          </button>
-          <button
-            type="button"
-            onClick={onOpenUpload}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Upload Sources
-          </button>
         </div>
       </div>
 
@@ -692,7 +648,7 @@ export function SmartMergeStudio({ datasets = [], onRefreshData, onOpenUpload }:
               </div>
               <h3 className="text-sm font-bold text-slate-900">Ready to Harmonize Corpora</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Select your source datasets and click <strong>"Execute Smart Merge"</strong>, or click <strong>"Load 6-Database Sample Cohort"</strong> to inspect multi-source deduplication instantly.
+                Select your source datasets and click <strong>"Execute Smart Merge"</strong> to inspect multi-source deduplication.
               </p>
             </div>
           )}

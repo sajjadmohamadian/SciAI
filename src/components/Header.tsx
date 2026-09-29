@@ -20,8 +20,8 @@ export function Header({
 }: Props) {
   const titles: Record<NavTab, { label: string; subtitle: string }> = {
     overview: { label: "Research Overview", subtitle: "Scientometric Metrics & Visual Trends" },
-    "corpus-pipeline": { label: "Dataset & Research Corpus Pipeline (Phase 1)", subtitle: "Integrated Acquisition, Ingestion, Harmonization & PRISMA Quality Assurance" },
-    "data-hygiene": { label: "Data & Hygiene (Phase 1)", subtitle: "Dataset Management, Deduplication & PRISMA Flow Diagram" },
+    "corpus-pipeline": { label: "Dataset & Research Corpus Pipeline", subtitle: "Integrated Acquisition, Ingestion, Harmonization & PRISMA Quality Assurance" },
+    "data-hygiene": { label: "Data & Hygiene", subtitle: "Dataset Management, Deduplication & PRISMA Flow Diagram" },
     datasets: { label: "Datasets & Versions", subtitle: "Bibliographic Dataset Repository & Parsers" },
     openalex: { label: "OpenAlex Explorer", subtitle: "Live Global Knowledge Graph & Citation Net" },
     merge: { label: "Smart Merge Studio", subtitle: "Multi-Source Harmonization & Deduplication" },

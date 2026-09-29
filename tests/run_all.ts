@@ -32,6 +32,9 @@ const testFiles = [
   path.resolve("tests/ai_provider_routing.test.ts"),
   path.resolve("tests/ai_provider_ui.test.ts"),
   path.resolve("tests/response_validation.test.ts"),
+  path.resolve("tests/prisma_flow.test.ts"),
+  path.resolve("tests/prisma_dedup.test.ts"),
+  path.resolve("tests/prisma_api.test.ts"),
 ];
 
 console.log(`Starting SciAI Test Runner (${testFiles.length} test files)...`);
