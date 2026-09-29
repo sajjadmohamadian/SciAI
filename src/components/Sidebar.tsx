@@ -54,8 +54,6 @@ export interface NavItem {
   id: NavTab;
   label: string;
   icon: React.ReactNode;
-  badge?: string;
-  badgeColor?: string;
   description?: string;
 }
 
@@ -96,8 +94,6 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "corpus-pipeline",
         label: "Dataset & Corpus Pipeline",
         icon: <Layers className="h-4 w-4 text-emerald-600" />,
-        badge: "Pipeline",
-        badgeColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
         description: "Unified 4-Step Dataset Studio",
       },
     ],
@@ -110,16 +106,12 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "descriptive",
         label: "Descriptive Analytics",
         icon: <LineChart className="h-4 w-4 text-blue-600" />,
-        badge: "Metrics",
-        badgeColor: "text-blue-700 bg-blue-50 border-blue-200",
         description: "Macro Trends, Grants, Lotka & Bradford",
       },
       {
         id: "entities",
         label: "Entity Explorer",
         icon: <Compass className="h-4 w-4 text-purple-600" />,
-        badge: "Explorer",
-        badgeColor: "text-purple-700 bg-purple-50 border-purple-200",
         description: "Authors, Sources, Affiliations & Grants",
       },
     ],
@@ -174,8 +166,6 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "ai",
         label: "AI Research Assistance",
         icon: <Sparkles className="h-4 w-4 text-indigo-500" />,
-        badge: "AI",
-        badgeColor: "text-indigo-700 bg-indigo-50 border-indigo-200",
         description: "AI-Assisted Synthesis",
       },
     ],
@@ -188,8 +178,6 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "powerbi",
         label: "Power BI Connector",
         icon: <BarChart3 className="h-4 w-4 text-amber-500" />,
-        badge: "Live Sync",
-        badgeColor: "text-amber-700 bg-amber-50 border-amber-200",
         description: "Streaming Direct Feeds",
       },
       {
@@ -247,8 +235,7 @@ export function Sidebar({
         return (
           item.label.toLowerCase().includes(query) ||
           item.id.toLowerCase().includes(query) ||
-          (item.description && item.description.toLowerCase().includes(query)) ||
-          (item.badge && item.badge.toLowerCase().includes(query))
+          (item.description && item.description.toLowerCase().includes(query))
         );
       });
 
@@ -395,18 +382,6 @@ export function Sidebar({
                             </span>
                             <span className="truncate">{item.label}</span>
                           </div>
-
-                          {item.badge && (
-                            <span
-                              className={`ml-1.5 shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold border whitespace-nowrap ${
-                                isActive
-                                  ? "bg-white/20 text-white border-white/30"
-                                  : item.badgeColor || "text-slate-600 bg-slate-100 border-slate-200"
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
                         </button>
                       );
                     })}

@@ -1,13 +1,12 @@
 import React from "react";
 import { BRAND } from "../brand.js";
 import { NavTab } from "./Sidebar.js";
-import { RefreshCw, Upload, Play, Menu } from "lucide-react";
+import { RefreshCw, Upload, Menu } from "lucide-react";
 
 interface Props {
   activeTab: NavTab;
   onRefresh: () => void;
   onOpenUpload: () => void;
-  onOpenRunAnalysis: () => void;
   onToggleMobileNav?: () => void;
 }
 
@@ -15,7 +14,6 @@ export function Header({
   activeTab,
   onRefresh,
   onOpenUpload,
-  onOpenRunAnalysis,
   onToggleMobileNav,
 }: Props) {
   const titles: Record<NavTab, { label: string; subtitle: string }> = {
@@ -25,9 +23,9 @@ export function Header({
     datasets: { label: "Datasets & Versions", subtitle: "Bibliographic Dataset Repository & Parsers" },
     openalex: { label: "OpenAlex Explorer", subtitle: "Live Global Knowledge Graph & Citation Net" },
     merge: { label: "Smart Merge Studio", subtitle: "Multi-Source Harmonization & Deduplication" },
-    descriptive: { label: "Descriptive Analytics (Phase 2)", subtitle: "Macro Trends, Lotka's Law & Bradford's Law" },
-    entities: { label: "Entity Explorer (Phase 3)", subtitle: "5-Dimensional Micro Analysis with H-Index & G-Index" },
-    analyses: { label: "Analysis Runs", subtitle: "Scientometric Analysis Method Executions" },
+    descriptive: { label: "Descriptive Analytics", subtitle: "Macro Trends, Lotka's Law & Bradford's Law" },
+    entities: { label: "Entity Explorer", subtitle: "Entity-Level Research Metrics & Profiles" },
+    analyses: { label: "Corpus Analyses", subtitle: "Corpus-Level Scientometric Methods" },
     authors: { label: "Author Productivity", subtitle: "Lotka's Law & H-Index Metrics" },
     sources: { label: "Source Productivity", subtitle: "Bradford's Law of Scattering" },
     keywords: { label: "Keyword Dynamics", subtitle: "Frequency & Co-occurrence Networks" },

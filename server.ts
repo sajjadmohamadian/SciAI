@@ -3951,7 +3951,7 @@ app.post(["/api/analyses/run", "/api/analysis/run", "/analyses/run", "/analysis/
     const docs = versionDocuments.get(versionId) || initialSeeds["dataset-bio-1"];
     const compResult = runCapabilityComputation(cap, docs, mergedParameters);
 
-    const newAnalysisId = `analysis-${Date.now()}`;
+    const newAnalysisId = `analysis-${crypto.randomUUID()}`;
     const analysisName = name || `${cap.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Analysis`;
 
     const newAnalysis: Analysis = {
@@ -3978,7 +3978,8 @@ app.post(["/api/analyses/run", "/api/analysis/run", "/analyses/run", "/analysis/
       },
     };
 
-    setAnalysis(newAnalysisId, newAnalysis);
+    // Executed results remain available only in the running server; do not save new runs to SQLite.
+    analyses.set(newAnalysisId, newAnalysis);
 
     res.json(newAnalysis);
   } catch (err: unknown) {

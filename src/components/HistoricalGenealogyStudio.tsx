@@ -518,32 +518,32 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     <div id="historical-genealogy-studio" className="space-y-6">
       {/* Header Banner */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                <History className="h-3.5 w-3.5" />
+        <div className="flex flex-col gap-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 whitespace-nowrap">
+                <History className="h-3.5 w-3.5 shrink-0" />
                 Historical Epistemology & Origins
               </span>
-              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 whitespace-nowrap">
                 HistCite™ & RPYS
               </span>
             </div>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
-              Historical Citation Genealogy & Spectroscopy
+              Historical Citation Genealogy &amp; Spectroscopy
             </h1>
-            <p className="mt-1 text-sm text-slate-500 max-w-3xl">
-              Algorithmic historiography tracking direct citation paths (Garfield / HistCite) and reference publication year spectroscopy (Marx & Bornmann) to uncover foundational intellectual roots.
+            <p className="mt-2 max-w-3xl text-sm text-slate-500">
+              Algorithmic historiography tracking direct citation paths (Garfield / HistCite) and reference publication year spectroscopy (Marx &amp; Bornmann) to uncover foundational intellectual roots.
             </p>
           </div>
 
           {/* Dataset Selector */}
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex min-w-0 flex-col">
               <label className="text-xs font-medium text-slate-500">Target Dataset</label>
               <select
                 id="historical-dataset-select"
-                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 sm:w-80"
                 value={activeDataset}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -568,7 +568,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                   fetchRPYS(activeDataset);
                 }
               }}
-              className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer transition"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Recalculate
@@ -577,7 +577,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         </div>
 
         {/* Subtab navigation */}
-        <div className="mt-6 flex items-center gap-2 border-b border-slate-100 pb-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
           <button
             id="tab-histcite"
             onClick={() => setSubTab("histcite")}

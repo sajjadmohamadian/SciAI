@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Dataset, BibliometricDocument } from "../types.js";
+import { Dataset, BibliometricDocument, Analysis } from "../types.js";
 import {
   Users,
   BookOpen,
@@ -17,6 +17,8 @@ import {
   Calendar,
   Hash,
   Landmark,
+  Play,
+  Loader2,
 } from "lucide-react";
 import {
   BarChart,
@@ -27,6 +29,32 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { SCIENTOMETRIC_MODELS, ENTITY_ANALYSIS_IDS } from "./AnalysesListView.js";
+import { AnalysisResultPanel } from "./AnalysisResultPanel.js";
+
+const ENTITY_MODELS = SCIENTOMETRIC_MODELS.filter((model) => ENTITY_ANALYSIS_IDS.has(model.id));
+
+const ENTITY_CATEGORY_ORDER = [
+  "Entity & Author Metrics",
+  "Scientometric Laws",
+  "Sources & Institutions",
+  "Knowledge Structures",
+  "Group Comparison",
+];
+
+const LOCAL_ENTITY_ANALYSES = [
+  { id: "authors", name: "Authors & Scholars", category: "Entity & Author Metrics", desc: "Author output, citation impact, h-index and g-index rankings.", icon: Users },
+  { id: "sources", name: "Sources & Journals", category: "Sources & Institutions", desc: "Publication venues ranked by output, citations and core zones.", icon: BookOpen },
+  { id: "institutions", name: "Affiliations / Institutions", category: "Sources & Institutions", desc: "Institutional affiliations aggregated by output and impact.", icon: Building2 },
+  { id: "grants", name: "Research Grants & Funding", category: "Sources & Institutions", desc: "Funding agencies and grant identifiers observed in the corpus.", icon: Landmark },
+  { id: "keywords", name: "Keywords & Concepts", category: "Knowledge Structures", desc: "Author keywords and indexed descriptors across the corpus.", icon: Hash },
+  { id: "countries", name: "Countries & Territories", category: "Knowledge Structures", desc: "Geographic distribution of scholarly output.", icon: Globe2 },
+  { id: "documents", name: "Core Documents", category: "Knowledge Structures", desc: "Core publication records with citations and sources.", icon: FileText },
+] as const;
+
+type LocalEntityId = typeof LOCAL_ENTITY_ANALYSES[number]["id"];
+
+const SELECTABLE_ENTITY_DIMENSIONS = new Set<string>(LOCAL_ENTITY_ANALYSES.map((item) => item.id));
 
 interface Props {
   datasets: Dataset[];
@@ -34,6 +62,7 @@ interface Props {
   onSelectDataset?: (id: string) => void;
   focusDimension?: "authors" | "sources" | "institutions";
   focusKey?: string;
+  onQuickRun: (capId: string, dsId: string) => Promise<Analysis | null>;
 }
 
 type EntityDimension = "authors" | "sources" | "keywords" | "institutions" | "grants" | "countries" | "documents";
@@ -58,6 +87,7 @@ export function EntityExplorerStudio({
   onSelectDataset,
   focusDimension,
   focusKey,
+  onQuickRun,
 }: Props) {
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
@@ -68,14 +98,29 @@ export function EntityExplorerStudio({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedEntity, setSelectedEntity] = useState<EntityMetric | null>(null);
 
+  // Analysis workspace: which entity view or capability model is active
+  const [activeViewId, setActiveViewId] = useState<LocalEntityId | null>(
+    SELECTABLE_ENTITY_DIMENSIONS.has(String(focusDimension)) ? (focusDimension as LocalEntityId) : "authors"
+  );
+  const [activeModelId, setActiveModelId] = useState<string | null>(null);
+  const [completedView, setCompletedView] = useState<LocalEntityId | null>(null);
+  const [focusedAnalysis, setFocusedAnalysis] = useState<Analysis | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
+
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (focusDimension) {
+    if (focusDimension && SELECTABLE_ENTITY_DIMENSIONS.has(focusDimension)) {
       setDimension(focusDimension);
-      setSelectedEntity(null);
+      setActiveViewId(focusDimension as LocalEntityId);
+      setActiveModelId(null);
     }
+    setSelectedEntity(null);
+    setCompletedView(null);
+    setFocusedAnalysis(null);
+    setRunError("");
   }, [focusDimension, focusKey]);
 
   useEffect(() => {
@@ -311,6 +356,60 @@ export function EntityExplorerStudio({
       .filter(Boolean);
   }, [selectedEntity, documents]);
 
+  // --- Analysis workspace selection ---
+  const selectedLocal = LOCAL_ENTITY_ANALYSES.find((item) => item.id === activeViewId);
+  const selectedModel = activeModelId ? ENTITY_MODELS.find((item) => item.id === activeModelId) : undefined;
+  const selectedItem = selectedLocal || selectedModel;
+
+  const selectEntityDataset = (id: string) => {
+    setActiveDatasetId(id);
+    setSelectedEntity(null);
+    setCompletedView(null);
+    setFocusedAnalysis(null);
+    setRunError("");
+    onSelectDataset?.(id);
+  };
+
+  const selectAnalysis = (id: string, local: boolean) => {
+    if (running) return;
+    setSelectedEntity(null);
+    setCompletedView(null);
+    setFocusedAnalysis(null);
+    setRunError("");
+    if (local) {
+      setActiveViewId(id as LocalEntityId);
+      setActiveModelId(null);
+      setDimension(id as EntityDimension);
+    } else {
+      setActiveViewId(null);
+      setActiveModelId(id);
+    }
+  };
+
+  const runAnalysis = async () => {
+    if (running || isLoading) return;
+    setRunError("");
+    setFocusedAnalysis(null);
+
+    if (activeViewId) {
+      setCompletedView(activeViewId);
+      return;
+    }
+    if (!activeModelId || !activeDatasetId) return;
+
+    setRunning(true);
+    try {
+      const result = await onQuickRun(activeModelId, activeDatasetId);
+      if (result) setFocusedAnalysis(result);
+      else setRunError("The analysis could not be completed. Check the notification banner for details.");
+    } catch (error) {
+      console.error("Entity analysis failed:", error);
+      setRunError("The analysis could not be completed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   // Export CSV
   const exportCsv = () => {
     const headers = ["Name", "Documents", "Total Citations", "Avg Citations", "H-Index", "G-Index", "First Year", "Last Year"];
@@ -337,9 +436,9 @@ export function EntityExplorerStudio({
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="space-y-5 border-b border-slate-200 pb-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
               Phase 3
             </span>
@@ -347,25 +446,23 @@ export function EntityExplorerStudio({
               Entities & Micro Performance
             </span>
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+          <h1 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
             Scientometric Entity Explorer
           </h1>
-          <p className="mt-1 text-xs text-slate-500 max-w-2xl">
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
             Deep drill-down across authors, publication venues, conceptual keywords, institutional affiliations, research grants (WoS & Scopus), and global countries.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-            <Database className="h-3.5 w-3.5 text-slate-400" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs sm:w-80">
+            <Database className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             <select
+              aria-label="Target Dataset"
               value={activeDatasetId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setActiveDatasetId(id);
-                onSelectDataset?.(id);
-              }}
-              className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden"
+              onChange={(e) => selectEntityDataset(e.target.value)}
+              disabled={running || !datasets.length}
+              className="min-w-0 flex-1 truncate bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden disabled:text-slate-400"
             >
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -386,262 +483,372 @@ export function EntityExplorerStudio({
         </div>
       </div>
 
-      {/* Multi-Dimension Pill Selector */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 pb-2">
-        {[
-          { id: "authors", label: "Authors & Scholars", icon: Users },
-          { id: "sources", label: "Sources & Journals", icon: BookOpen },
-          { id: "keywords", label: "Keywords & Concepts", icon: Hash },
-          { id: "institutions", label: "Affiliations / Institutions", icon: Building2 },
-          { id: "grants", label: "Research Grants & Funding", icon: Landmark },
-          { id: "countries", label: "Countries & Territories", icon: Globe2 },
-          { id: "documents", label: "Core Documents", icon: FileText },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = dimension === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setDimension(item.id as EntityDimension);
-                setSelectedEntity(null);
-              }}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
-                isActive
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Search & Sort Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <Search className="h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder={`Search ${dimension}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs text-slate-800 bg-transparent focus:outline-hidden"
-          />
-        </div>
-        <div className="text-xs text-slate-500 font-semibold">
-          Found <strong>{filteredEntities.length.toLocaleString()}</strong> {dimension}
-        </div>
-      </div>
-
-      {/* Main Grid: Entity Table & Drill-down */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Table View (2 Cols) */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto max-h-[640px] overflow-y-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 z-10">
-                <tr>
-                  <th className="p-3.5">Name / Label</th>
-                  <th
-                    className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                    onClick={() => handleSort("docCount")}
-                  >
-                    <div className="inline-flex items-center gap-1">
-                      Articles
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </th>
-                  <th
-                    className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                    onClick={() => handleSort("totalCitations")}
-                  >
-                    <div className="inline-flex items-center gap-1">
-                      Citations
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </th>
-                  <th
-                    className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                    onClick={() => handleSort("hIndex")}
-                  >
-                    <div className="inline-flex items-center gap-1">
-                      H-Index
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </th>
-                  <th
-                    className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                    onClick={() => handleSort("gIndex")}
-                  >
-                    <div className="inline-flex items-center gap-1">
-                      G-Index
-                      <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredEntities.slice(0, 50).map((entity) => {
-                  const isSelected = selectedEntity?.id === entity.id;
-                  return (
-                    <tr
-                      key={entity.id}
-                      onClick={() => setSelectedEntity(entity)}
-                      className={`hover:bg-slate-50/80 transition cursor-pointer ${
-                        isSelected ? "bg-blue-50/60 font-semibold" : ""
-                      }`}
-                    >
-                      <td className="p-3.5 font-bold text-slate-800 line-clamp-1 max-w-[220px]">
-                        {entity.name}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-slate-900">
-                        {entity.docCount.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-emerald-600 font-bold">
-                        {entity.totalCitations.toLocaleString()}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-purple-600 font-bold">
-                        {entity.hIndex}
-                      </td>
-                      <td className="p-3.5 text-right font-mono text-blue-600">
-                        {entity.gIndex}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* Analysis workspace: categorized left sidebar + inline results */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(215px,250px)_minmax(0,1fr)]">
+        <aside
+          aria-label="Entity and author analysis methods"
+          className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+        >
+          <div className="px-2 pb-2 pt-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Analysis methods
+            </div>
           </div>
-        </div>
 
-        {/* Drill-down Detail Inspector */}
-        <div className="space-y-6">
-          {selectedEntity ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
-              <div className="border-b border-slate-100 pb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Selected Entity
-                </span>
-                <h3 className="text-base font-black text-slate-900 line-clamp-2 mt-1">
-                  {selectedEntity.name}
-                </h3>
-                <div className="mt-1 text-xs text-slate-500">
-                  Active Years: {selectedEntity.firstYear} - {selectedEntity.lastYear}
-                </div>
-              </div>
+          <nav className="space-y-3.5">
+            {ENTITY_CATEGORY_ORDER.map((category) => {
+              const locals = LOCAL_ENTITY_ANALYSES.filter((item) => item.category === category);
+              const models = ENTITY_MODELS.filter((model) => {
+                if (model.id === "citation.author_h_index" || model.id === "citation.advanced_hirsch") {
+                  return category === "Entity & Author Metrics";
+                }
+                if (model.id === "author.productivity") {
+                  return category === "Scientometric Laws";
+                }
+                if (model.id === "source.productivity" || model.id === "institution.productivity") {
+                  return category === "Sources & Institutions";
+                }
+                if (model.id === "keyword.frequency" || model.id === "group.analysis") {
+                  return category === "Knowledge Structures";
+                }
+                if (model.id === "group.comparative_significance") {
+                  return category === "Group Comparison";
+                }
+                return false;
+              });
 
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Publications</div>
-                  <div className="text-xl font-black text-slate-900">{selectedEntity.docCount}</div>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Citations</div>
-                  <div className="text-xl font-black text-emerald-600">{selectedEntity.totalCitations}</div>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Hirsch (H-Index)</div>
-                  <div className="text-xl font-black text-purple-600">{selectedEntity.hIndex}</div>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Egghe (G-Index)</div>
-                  <div className="text-xl font-black text-blue-600">{selectedEntity.gIndex}</div>
-                </div>
-              </div>
+              if (!locals.length && !models.length) return null;
 
-              {/* Longitudinal Production Chart */}
-              <div className="space-y-2 pt-2">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
-                  Annual Production Curve
-                </div>
-                <div className="h-40 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={annualChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="year" stroke="#94a3b8" fontSize={10} />
-                      <YAxis stroke="#94a3b8" fontSize={10} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderRadius: "8px",
-                          border: "none",
-                          fontSize: "11px",
-                          color: "#fff",
-                        }}
-                      />
-                      <Bar dataKey="articles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Related Documents with Funding & Affiliation Badges */}
-              {matchedDocs.length > 0 && (
-                <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                  <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                    <span>Sample Publications ({matchedDocs.length})</span>
+              return (
+                <div key={category} className="space-y-0.5">
+                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {category}
                   </div>
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {matchedDocs.map((doc: any, i) => (
-                      <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs space-y-1">
-                        <div className="font-bold text-slate-900 line-clamp-1">{doc.title}</div>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                          <span>{doc.year || doc.PY}</span>
-                          <span>•</span>
-                          <span className="font-semibold text-emerald-700">{doc.citations ?? doc.TC ?? 0} citations</span>
-                          {doc.source && (
-                            <>
-                              <span>•</span>
-                              <span className="line-clamp-1 text-slate-600">{doc.source}</span>
-                            </>
-                          )}
-                        </div>
-                        {/* Grant & Funding Info */}
-                        {(doc.funding_agencies?.length > 0 || doc.grant_numbers?.length > 0) && (
-                          <div className="flex flex-wrap items-center gap-1 pt-1">
-                            {doc.funding_agencies?.slice(0, 2).map((fa: string, fai: number) => (
-                              <span key={fai} className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
-                                <Landmark className="h-2.5 w-2.5" />
-                                {fa}
-                              </span>
-                            ))}
-                            {doc.grant_numbers?.slice(0, 2).map((gn: string, gni: number) => (
-                              <span key={gni} className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-700">
-                                #{gn}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {/* Affiliation Info */}
-                        {(doc.institutions?.length > 0 || doc.affiliations?.length > 0) && (
-                          <div className="text-[10px] text-slate-500 line-clamp-1 pt-0.5">
-                            🏛️ {(doc.institutions?.[0] || doc.affiliations?.[0] || "").slice(0, 45)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+
+                  {locals.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeViewId === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectAnalysis(item.id, true)}
+                        disabled={running}
+                        className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
+                          isActive
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
+                        <span className="truncate">{item.name}</span>
+                      </button>
+                    );
+                  })}
+
+                  {models.map((model) => {
+                    const Icon = model.icon;
+                    const isActive = activeModelId === model.id;
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => selectAnalysis(model.id, false)}
+                        disabled={running}
+                        className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
+                          isActive
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
+                        <span className="truncate">{model.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <section className="min-w-0 space-y-5" aria-live="polite">
+          {selectedItem ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {selectedItem.category}
+                  </div>
+                  <h2 className="mt-0.5 text-lg font-black tracking-tight text-slate-900">
+                    {selectedItem.name}
+                  </h2>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">{selectedItem.desc}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={runAnalysis}
+                  disabled={running || isLoading || !activeDatasetId}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                >
+                  {running ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  {running ? "Running..." : isLoading ? "Loading dataset..." : "Run analysis"}
+                </button>
+              </div>
+
+              {runError && (
+                <p role="alert" className="mt-3 text-xs font-semibold text-rose-700">
+                  {runError}
+                </p>
               )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center space-y-3">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                <BarChart2 className="h-5 w-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-800">No Entity Selected</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Click any row in the table to inspect longitudinal citation impact, annual production curves, and affiliated publications.
-              </p>
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-600">
+              Select an analysis method from the list to view its details and run it.
             </div>
           )}
-        </div>
+
+          {/* Legacy entity dimension results */}
+          {activeViewId && completedView === activeViewId && (
+            <div className="space-y-5">
+              {/* Search & Sort Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder={`Search ${dimension}...`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full text-xs text-slate-800 bg-transparent focus:outline-hidden"
+                  />
+                </div>
+                <div className="text-xs text-slate-500 font-semibold">
+                  Found <strong>{filteredEntities.length.toLocaleString()}</strong> {dimension}
+                </div>
+              </div>
+
+              {/* Main Grid: Entity Table & Drill-down */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Table View (2 Cols) */}
+                <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+                  <div className="overflow-x-auto max-h-[640px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 z-10">
+                        <tr>
+                          <th className="p-3.5">Name / Label</th>
+                          <th
+                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                            onClick={() => handleSort("docCount")}
+                          >
+                            <div className="inline-flex items-center gap-1">
+                              Articles
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </th>
+                          <th
+                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                            onClick={() => handleSort("totalCitations")}
+                          >
+                            <div className="inline-flex items-center gap-1">
+                              Citations
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </th>
+                          <th
+                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                            onClick={() => handleSort("hIndex")}
+                          >
+                            <div className="inline-flex items-center gap-1">
+                              H-Index
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </th>
+                          <th
+                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                            onClick={() => handleSort("gIndex")}
+                          >
+                            <div className="inline-flex items-center gap-1">
+                              G-Index
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredEntities.slice(0, 50).map((entity) => {
+                          const isSelected = selectedEntity?.id === entity.id;
+                          return (
+                            <tr
+                              key={entity.id}
+                              onClick={() => setSelectedEntity(entity)}
+                              className={`hover:bg-slate-50/80 transition cursor-pointer ${
+                                isSelected ? "bg-blue-50/60 font-semibold" : ""
+                              }`}
+                            >
+                              <td className="p-3.5 font-bold text-slate-800 line-clamp-1 max-w-[220px]">
+                                {entity.name}
+                              </td>
+                              <td className="p-3.5 text-right font-mono text-slate-900">
+                                {entity.docCount.toLocaleString()}
+                              </td>
+                              <td className="p-3.5 text-right font-mono text-emerald-600 font-bold">
+                                {entity.totalCitations.toLocaleString()}
+                              </td>
+                              <td className="p-3.5 text-right font-mono text-purple-600 font-bold">
+                                {entity.hIndex}
+                              </td>
+                              <td className="p-3.5 text-right font-mono text-blue-600">
+                                {entity.gIndex}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Drill-down Detail Inspector */}
+                <div className="space-y-6">
+                  {selectedEntity ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
+                      <div className="border-b border-slate-100 pb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Selected Entity
+                        </span>
+                        <h3 className="text-base font-black text-slate-900 line-clamp-2 mt-1">
+                          {selectedEntity.name}
+                        </h3>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Active Years: {selectedEntity.firstYear} - {selectedEntity.lastYear}
+                        </div>
+                      </div>
+
+                      {/* Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <div className="text-[10px] font-bold uppercase text-slate-400">Publications</div>
+                          <div className="text-xl font-black text-slate-900">{selectedEntity.docCount}</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <div className="text-[10px] font-bold uppercase text-slate-400">Citations</div>
+                          <div className="text-xl font-black text-emerald-600">{selectedEntity.totalCitations}</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <div className="text-[10px] font-bold uppercase text-slate-400">Hirsch (H-Index)</div>
+                          <div className="text-xl font-black text-purple-600">{selectedEntity.hIndex}</div>
+                        </div>
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                          <div className="text-[10px] font-bold uppercase text-slate-400">Egghe (G-Index)</div>
+                          <div className="text-xl font-black text-blue-600">{selectedEntity.gIndex}</div>
+                        </div>
+                      </div>
+
+                      {/* Longitudinal Production Chart */}
+                      <div className="space-y-2 pt-2">
+                        <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
+                          Annual Production Curve
+                        </div>
+                        <div className="h-40 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={annualChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                              <XAxis dataKey="year" stroke="#94a3b8" fontSize={10} />
+                              <YAxis stroke="#94a3b8" fontSize={10} />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "#0f172a",
+                                  borderRadius: "8px",
+                                  border: "none",
+                                  fontSize: "11px",
+                                  color: "#fff",
+                                }}
+                              />
+                              <Bar dataKey="articles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* Related Documents with Funding & Affiliation Badges */}
+                      {matchedDocs.length > 0 && (
+                        <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                          <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                            <span>Sample Publications ({matchedDocs.length})</span>
+                          </div>
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {matchedDocs.map((doc: any, i) => (
+                              <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs space-y-1">
+                                <div className="font-bold text-slate-900 line-clamp-1">{doc.title}</div>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                  <span>{doc.year || doc.PY}</span>
+                                  <span>•</span>
+                                  <span className="font-semibold text-emerald-700">{doc.citations ?? doc.TC ?? 0} citations</span>
+                                  {doc.source && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="line-clamp-1 text-slate-600">{doc.source}</span>
+                                    </>
+                                  )}
+                                </div>
+                                {/* Grant & Funding Info */}
+                                {(doc.funding_agencies?.length > 0 || doc.grant_numbers?.length > 0) && (
+                                  <div className="flex flex-wrap items-center gap-1 pt-1">
+                                    {doc.funding_agencies?.slice(0, 2).map((fa: string, fai: number) => (
+                                      <span key={fai} className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
+                                        <Landmark className="h-2.5 w-2.5" />
+                                        {fa}
+                                      </span>
+                                    ))}
+                                    {doc.grant_numbers?.slice(0, 2).map((gn: string, gni: number) => (
+                                      <span key={gni} className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-700">
+                                        #{gn}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Affiliation Info */}
+                                {(doc.institutions?.length > 0 || doc.affiliations?.length > 0) && (
+                                  <div className="text-[10px] text-slate-500 line-clamp-1 pt-0.5">
+                                    🏛️ {(doc.institutions?.[0] || doc.affiliations?.[0] || "").slice(0, 45)}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center space-y-3">
+                      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                        <BarChart2 className="h-5 w-5" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">No Entity Selected</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Click any row in the table to inspect longitudinal citation impact, annual production curves, and affiliated publications.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Capability model results */}
+          {selectedModel && focusedAnalysis && (
+            <div key={focusedAnalysis.id}>
+              <AnalysisResultPanel analysis={focusedAnalysis} onRefresh={runAnalysis} />
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

@@ -309,37 +309,37 @@ export function MachineLearningStudio({
     <div className="space-y-6">
       {/* Top Banner with Architecture Context */}
       <div className="rounded-xl border border-emerald-200 bg-linear-to-r from-emerald-50/70 via-teal-50/40 to-white p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-5">
           <div className="flex items-start gap-3.5">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
               <BrainCircuit className="h-6 w-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-black tracking-tight text-slate-900">
                   Scientometric Machine Learning Studio
                 </h2>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider whitespace-nowrap">
                   Native TS Engine
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-600 max-w-3xl leading-relaxed">
+              <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-slate-600">
                 Empowering scientometric discovery with algorithmic Machine Learning: Unsupervised K-Means++ clustering over TF-IDF term spaces, Gibbs-sampled Latent Dirichlet Allocation (LDA) topic modeling, and Supervised Ridge-regularized citation trajectory classifiers with SHAP feature attributions.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3 shrink-0">
+          <div className="flex flex-wrap items-end gap-3">
             {/* Dataset Selector matching Historical Citation Genealogy */}
             {datasets.length > 0 && (
-              <div className="flex flex-col">
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <Database className="h-3 w-3 text-emerald-600" />
+              <div className="flex min-w-0 flex-col">
+                <label className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+                  <Database className="h-3 w-3 shrink-0 text-emerald-600" />
                   Target Dataset
                 </label>
                 <select
                   id="ml-dataset-select"
-                  className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 sm:w-80"
                   value={activeDatasetId}
                   onChange={(e) => handleDatasetChange(e.target.value)}
                 >
@@ -352,7 +352,7 @@ export function MachineLearningStudio({
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => onTriggerAnalysis("ml.kmeans_clusters", "K-Means Clustering & PCA")}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"

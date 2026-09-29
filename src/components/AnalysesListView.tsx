@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Analysis, Dataset } from '../types';
 import { AnalysisResultPanel } from './AnalysisResultPanel';
 import {
@@ -9,6 +9,7 @@ import {
   BarChart3,
   Layers,
   BookOpen,
+  FileText,
   Users,
   Compass,
   Tag,
@@ -17,17 +18,16 @@ import {
 } from 'lucide-react';
 
 interface AnalysesListViewProps {
-  analyses: Analysis[];
   datasets: Dataset[];
   selectedDatasetId?: string;
   onSelectDataset?: (id: string) => void;
-  onSelectAnalysis?: (analysis: Analysis) => void;
-  onQuickRun?: (capId: string, dsId?: string) => Promise<void>;
+  onQuickRun: (capId: string, dsId: string) => Promise<Analysis | null>;
+  scope?: "corpus" | "entity";
 }
 
-// کاتالوگ جامع تمام شاخص‌ها، مدل‌ها و قوانین علم‌سنجی
-const SCIENTOMETRIC_MODELS = [
-  // ۱. شاخص‌های خانواده هرش و ارزیابی استنادی
+// Scientometric models available in the corpus and entity studios.
+export const SCIENTOMETRIC_MODELS = [
+  // Hirsch-family indices and citation metrics
   {
     id: 'citation.advanced_hirsch',
     name: 'Advanced Hirsch Family Metrics (h, g, m, e)',
@@ -93,7 +93,7 @@ const SCIENTOMETRIC_MODELS = [
     tag: 'RPYS Peaks',
   },
 
-  // ۲. قوانین کلاسیک و بنیادین علم‌سنجی
+  // Foundational scientometric laws
   {
     id: 'author.lotka_law',
     name: "Lotka's Law of Scientific Productivity",
@@ -119,7 +119,7 @@ const SCIENTOMETRIC_MODELS = [
     tag: 'Price Law',
   },
 
-  // ۳. نقشه‌های دانش، مضامین و شبکه‌های هم‌نویسندگی
+  // Knowledge maps, themes, and collaboration networks
   {
     id: 'keyword.thematic_map',
     name: "Callon's Strategic Thematic Map",
@@ -160,15 +160,108 @@ const SCIENTOMETRIC_MODELS = [
     category: 'Longitudinal Growth',
     tag: 'Growth Velocity',
   },
+  {
+    id: 'document.count',
+    name: 'Corpus Profile & Document Count',
+    desc: 'Total records, coverage timespan, and annual corpus statistics for the selected dataset.',
+    icon: Database,
+    category: 'Longitudinal Growth',
+    tag: 'Corpus Profile',
+  },
+  {
+    id: 'funding.agency_distribution',
+    name: 'Funding Agency Distribution',
+    desc: 'Research sponsors and funding agency distribution from available funding metadata.',
+    icon: Layers,
+    category: 'Knowledge Structures',
+    tag: 'Funding',
+  },
+  {
+    id: 'funding.grant_analytics',
+    name: 'Grant Coverage & Impact Analytics',
+    desc: 'Grant identifiers, funded-paper coverage, and citation impact of funded research.',
+    icon: TrendingUp,
+    category: 'Knowledge Structures',
+    tag: 'Grant Analytics',
+  },
+  {
+    id: 'keyword.thematic_evolution',
+    name: 'Longitudinal Thematic Evolution',
+    desc: 'Track keyword themes across time slices with trajectories, inclusion indices, and flows.',
+    icon: TrendingUp,
+    category: 'Longitudinal Growth',
+    tag: 'Theme Evolution',
+  },
+  {
+    id: 'ml.kmeans_clusters',
+    name: 'K-Means Document Clusters',
+    desc: 'TF-IDF document clustering with exploratory groups and PCA coordinates.',
+    icon: Layers,
+    category: 'Machine Learning',
+    tag: 'Machine Learning',
+  },
+  {
+    id: 'ml.lda_topics',
+    name: 'LDA Topic Modeling',
+    desc: 'Discover latent topics, representative terms, and document-topic assignments.',
+    icon: Compass,
+    category: 'Machine Learning',
+    tag: 'Machine Learning',
+  },
+  {
+    id: 'ml.citation_prediction',
+    name: 'Citation Impact Prediction',
+    desc: 'Estimate citation-impact classes and expose the features contributing to predictions.',
+    icon: TrendingUp,
+    category: 'Machine Learning',
+    tag: 'Machine Learning',
+  },
+  {
+    id: 'ml.text_classification',
+    name: 'Statistical Text Classification',
+    desc: 'Classify document text into viable target groups with cross-validation diagnostics.',
+    icon: FileText,
+    category: 'Machine Learning',
+    tag: 'Machine Learning',
+  },
+  {
+    id: 'source.productivity',
+    name: 'Source Productivity & Bradford Core',
+    desc: 'Rank journals and venues by output and citation impact for entity-level source analysis.',
+    icon: BookOpen,
+    category: 'Scientometric Laws',
+    tag: 'Sources',
+  },
+  {
+    id: 'institution.productivity',
+    name: 'Institution Productivity',
+    desc: 'Rank institutional affiliations by publication output and research impact.',
+    icon: Users,
+    category: 'Knowledge Structures',
+    tag: 'Institutions',
+  },
+  {
+    id: 'group.comparative_significance',
+    name: 'Comparative Group Significance',
+    desc: 'Compare defined geographic or institutional groups with statistical significance testing.',
+    icon: BarChart3,
+    category: 'Knowledge Structures',
+    tag: 'Group Comparison',
+  },
 ];
 
+export const ENTITY_ANALYSIS_IDS = new Set([
+  'citation.advanced_hirsch', 'citation.author_h_index', 'author.productivity',
+  'source.productivity', 'institution.productivity', 'keyword.frequency',
+  'group.analysis', 'group.comparative_significance',
+]);
+
 export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
-  analyses,
   datasets,
   selectedDatasetId,
   onSelectDataset,
-  onSelectAnalysis,
   onQuickRun,
+  scope = "corpus",
 }) => {
   const [activeRunningCap, setActiveRunningCap] = useState<string | null>(null);
   const [focusedAnalysis, setFocusedAnalysis] = useState<Analysis | null>(null);
@@ -177,40 +270,25 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
 
   const currentDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
-  const categories = ['All', 'Hirsch Family & Citations', 'Scientometric Laws', 'Knowledge Structures', 'Historical Foundations'];
+  useEffect(() => {
+    setFocusedAnalysis(null);
+  }, [currentDataset?.id]);
 
-  const filteredModels = selectedCategory === 'All'
-    ? SCIENTOMETRIC_MODELS
-    : SCIENTOMETRIC_MODELS.filter((m) => m.category === selectedCategory);
+  const categories = ['All', ...new Set(SCIENTOMETRIC_MODELS
+    .filter((model) => scope === "entity" ? ENTITY_ANALYSIS_IDS.has(model.id) : !ENTITY_ANALYSIS_IDS.has(model.id))
+    .map((model) => model.category))];
+
+  const filteredModels = SCIENTOMETRIC_MODELS.filter((model) =>
+    (selectedCategory === 'All' || model.category === selectedCategory) &&
+    (scope === "entity" ? ENTITY_ANALYSIS_IDS.has(model.id) : !ENTITY_ANALYSIS_IDS.has(model.id))
+  );
 
   const handleExecuteModel = async (capId: string) => {
+    if (!currentDataset?.id || runningAll || activeRunningCap) return;
     setActiveRunningCap(capId);
     try {
-      if (onQuickRun) {
-        await onQuickRun(capId, currentDataset?.id);
-      } else if (currentDataset?.id) {
-        const vRes = await fetch(`/datasets/${currentDataset.id}/versions`);
-        if (!vRes.ok) throw new Error("Failed to load versions for dataset");
-        const vList = await vRes.json();
-        const validVer = Array.isArray(vList)
-          ? vList.find((v) => !v.dataset_id || v.dataset_id === currentDataset.id)
-          : null;
-        if (!validVer?.id) {
-          throw new Error("No valid snapshot versions available for this dataset");
-        }
-        const res = await fetch('/api/analyses/run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dataset_version_id: validVer.id,
-            capability_id: capId,
-          }),
-        });
-        const data = await res.json();
-        if (data && data.id) {
-          setFocusedAnalysis(data);
-        }
-      }
+      const result = await onQuickRun(capId, currentDataset.id);
+      if (result) setFocusedAnalysis(result);
     } catch (err) {
       console.error('Error executing scientometric model:', err);
     } finally {
@@ -219,38 +297,35 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
   };
 
   const handleExecuteAll = async () => {
+    if (!currentDataset?.id || runningAll || activeRunningCap) return;
     setRunningAll(true);
-    for (const model of filteredModels) {
-      try {
-        if (onQuickRun) {
-          await onQuickRun(model.id, currentDataset?.id);
-        }
-      } catch (err) {
-        console.error(`Error running ${model.name}:`, err);
+    try {
+      for (const model of filteredModels) {
+        const result = await onQuickRun(model.id, currentDataset.id);
+        if (result) setFocusedAnalysis(result);
       }
+    } catch (err) {
+      console.error('Error running scientometric models:', err);
+    } finally {
+      setRunningAll(false);
     }
-    setRunningAll(false);
   };
 
-  const findExistingAnalysis = (capId: string) => {
-    return analyses.find(
-      (a) => a.capability_id === capId || a.analysis_type === capId
-    );
-  };
+  const scopeLabel = scope === "entity" ? "Entity-level analyses" : "Corpus-level analyses";
 
   return (
     <div className="space-y-8">
-      {/* هدر هاب */}
+      {/* Analysis section header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-            <span>Scientometric Analyses Hub</span>
+            <span>{scope === "entity" ? "Entity Analysis" : "Corpus Analysis"}</span>
             <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-              Direct Cockpit
+              {scopeLabel}
             </span>
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Execute foundational scientometric laws, distributions, Hirsch metrics, and networks directly on your corpus.
+            Run an analysis for the selected dataset version. Results are shown for this execution only.
           </p>
         </div>
 
@@ -262,11 +337,12 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
             </label>
             <select
               id="datasetFilter"
-              value={selectedDatasetId || ''}
+              value={currentDataset?.id || ''}
               onChange={(e) => onSelectDataset?.(e.target.value)}
+              disabled={!datasets.length || runningAll || !!activeRunningCap}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs focus:border-slate-400 focus:outline-hidden"
             >
-              <option value="">All Datasets (Consolidated)</option>
+              {!datasets.length && <option value="">Select a dataset</option>}
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name} ({d.record_count || 0} docs)
@@ -275,20 +351,20 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
             </select>
           </div>
 
-          {/* دکمه اجرای همزمان همه مدل‌ها با یک کلیک */}
+          {/* Run all currently visible methods */}
           <button
             type="button"
             onClick={handleExecuteAll}
-            disabled={runningAll}
+            disabled={runningAll || !!activeRunningCap || !currentDataset?.id || filteredModels.length === 0}
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer disabled:opacity-50"
           >
             <Play className={`h-3.5 w-3.5 fill-current ${runningAll ? 'animate-spin' : ''}`} />
-            <span>{runningAll ? 'Executing Models...' : 'Execute All Models (1-Click)'}</span>
+            <span>{runningAll ? 'Running Analyses...' : 'Run All Visible'}</span>
           </button>
         </div>
       </div>
 
-      {/* تب‌های فیلتر دسته‌بندی موضوعی */}
+      {/* Analysis categories */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100">
         {categories.map((cat) => (
           <button
@@ -306,11 +382,11 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
         ))}
       </div>
 
-      {/* گرید کارت‌های تحلیل‌های علم‌سنجی */}
+      {/* Analysis method cards */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold tracking-tight text-slate-900 uppercase">
-            Foundational Scientometric Models & Indicators ({filteredModels.length})
+            Available Analysis Methods ({filteredModels.length})
           </h2>
           <span className="text-xs text-slate-500 font-medium">
             Category: {selectedCategory}
@@ -320,7 +396,6 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredModels.map((model) => {
             const Icon = model.icon;
-            const existing = findExistingAnalysis(model.id);
             const isCurrentlyRunning = activeRunningCap === model.id;
 
             return (
@@ -352,38 +427,20 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  {existing ? (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Ready</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400 font-medium">Not Computed</span>
-                  )}
-
-                  <div className="flex items-center gap-1.5">
-                    {existing && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFocusedAnalysis(existing);
-                          onSelectAnalysis?.(existing);
-                        }}
-                        className="px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                      >
-                        View Results
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleExecuteModel(model.id)}
-                      disabled={isCurrentlyRunning}
-                      className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
-                    >
-                      <Play className={`h-3 w-3 fill-current ${isCurrentlyRunning ? 'animate-spin' : ''}`} />
-                      <span>{isCurrentlyRunning ? 'Running...' : existing ? 'Re-run' : 'Compute'}</span>
-                    </button>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                    <Play className="h-3.5 w-3.5" />
+                    <span>Not run yet</span>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExecuteModel(model.id)}
+                    disabled={runningAll || !!activeRunningCap || !currentDataset?.id}
+                    className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <Play className={`h-3 w-3 fill-current ${isCurrentlyRunning ? 'animate-spin' : ''}`} />
+                    <span>{isCurrentlyRunning ? 'Running...' : 'Run analysis'}</span>
+                  </button>
                 </div>
               </div>
             );
@@ -391,7 +448,7 @@ export const AnalysesListView: React.FC<AnalysesListViewProps> = ({
         </div>
       </div>
 
-      {/* نمایش نتایج در همان صفحه (زیر کارت‌ها) بدون پریدن به صفحه دیگر */}
+      {/* Show the current execution result inline */}
       {focusedAnalysis && (
         <div className="rounded-2xl border border-blue-200 bg-blue-50/20 p-6 space-y-4">
           <div className="flex items-center justify-between">

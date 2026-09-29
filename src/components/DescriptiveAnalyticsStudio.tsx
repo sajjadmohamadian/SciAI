@@ -23,6 +23,7 @@ import {
   PieChart as PieIcon,
   Clock,
   AlertCircle,
+  Play,
 } from "lucide-react";
 import {
   AreaChart,
@@ -38,47 +39,88 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { AnalysesListView } from "./AnalysesListView.js";
+import { SCIENTOMETRIC_MODELS, ENTITY_ANALYSIS_IDS } from "./AnalysesListView.js";
+import { AnalysisResultPanel } from "./AnalysisResultPanel.js";
+
+const LOCAL_ANALYSES = [
+  { id: "overview", name: "Global Collection Metrics", category: "Corpus Overview & Growth", desc: "Corpus coverage, citation averages, authors, and sources.", icon: BarChart3 },
+  { id: "trends", name: "Annual Trends", category: "Corpus Overview & Growth", desc: "Publication trajectory and mean citations by year.", icon: TrendingUp },
+  { id: "citations", name: "Citation Distribution", category: "Citation Impact", desc: "Citation brackets and exposure-adjusted velocity.", icon: Award },
+  { id: "grants", name: "Research Grants & Funding", category: "Funding & Affiliations", desc: "Funding coverage, sponsors, and grant awards.", icon: Landmark },
+  { id: "affiliations", name: "Affiliations & Institutions", category: "Funding & Affiliations", desc: "Institutional productivity and collaboration.", icon: Building2 },
+  { id: "lotka", name: "Lotka's Law", category: "Scientometric Laws", desc: "Observed author productivity against Lotka's theoretical curve.", icon: Users },
+  { id: "bradford", name: "Bradford's Law", category: "Scientometric Laws", desc: "Journal scattering and the three Bradford zones.", icon: BookOpen },
+] as const;
+
+type LocalAnalysisId = typeof LOCAL_ANALYSES[number]["id"];
+
+const CATEGORY_ORDER = [
+  "Corpus Overview & Growth",
+  "Citation Impact",
+  "Funding & Affiliations",
+  "Scientometric Laws",
+  "Knowledge Structures",
+  "Historical Foundations",
+  "Longitudinal Growth",
+  "Machine Learning",
+];
+
+const CORPUS_MODELS = SCIENTOMETRIC_MODELS.filter((model) => !ENTITY_ANALYSIS_IDS.has(model.id));
 
 interface Props {
   datasets: Dataset[];
   selectedDatasetId?: string;
   onSelectDataset?: (id: string) => void;
-  analyses?: Analysis[];
-  onSelectAnalysis?: (analysis: Analysis) => void;
-  onQuickRun?: (capId: string, dsId?: string) => Promise<void>;
+  onQuickRun: (capId: string, dsId: string) => Promise<Analysis | null>;
 }
 
 export function DescriptiveAnalyticsStudio({
   datasets = [],
   selectedDatasetId,
   onSelectDataset,
-  analyses = [],
-  onSelectAnalysis,
   onQuickRun,
 }: Props) {
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
   );
-  const [activeSubTab, setActiveSubTab] = useState<
-    "overview" | "trends" | "citations" | "grants" | "affiliations" | "lotka" | "bradford" | "analyses"
-  >("trends");
+  const [activeSubTab, setActiveSubTab] = useState<LocalAnalysisId | null>("overview");
+  const [activeModelId, setActiveModelId] = useState<string | null>(null);
+  const [completedLocal, setCompletedLocal] = useState<LocalAnalysisId | null>(null);
+  const [focusedAnalysis, setFocusedAnalysis] = useState<Analysis | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState("");
 
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
+
+  const selectDataset = (id: string) => {
+    setActiveDatasetId(id);
+    setDocuments([]);
+    setCompletedLocal(null);
+    setFocusedAnalysis(null);
+    setRunError("");
+    onSelectDataset?.(id);
+  };
 
   useEffect(() => {
     if (selectedDatasetId && selectedDatasetId !== activeDatasetId) {
-      setActiveDatasetId(selectedDatasetId);
+      selectDataset(selectedDatasetId);
     }
   }, [selectedDatasetId]);
 
   const currentDataset = datasets.find((d) => d.id === activeDatasetId) || datasets[0];
 
   useEffect(() => {
-    if (!activeDatasetId) return;
+    if (!currentDataset?.id) {
+      setDocuments([]);
+      return;
+    }
+    const controller = new AbortController();
     setIsLoading(true);
-    fetch(`/api/datasets/${activeDatasetId}/documents?limit=5000`)
+    setDocumentsError("");
+    setDocuments([]);
+    fetch(`/api/datasets/${currentDataset.id}/documents?limit=5000`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch documents");
         return res.json();
@@ -87,9 +129,56 @@ export function DescriptiveAnalyticsStudio({
         const docs = Array.isArray(data) ? data : data.documents || data.records || [];
         setDocuments(docs);
       })
-      .catch((err) => console.warn("Error fetching documents:", err))
-      .finally(() => setIsLoading(false));
-  }, [activeDatasetId]);
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setDocumentsError("Unable to load documents for this dataset.");
+        console.warn("Error fetching documents:", err);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [currentDataset?.id]);
+
+  const selectedLocal = LOCAL_ANALYSES.find((item) => item.id === activeSubTab);
+  const selectedModel = CORPUS_MODELS.find((item) => item.id === activeModelId);
+  const selectedItem = selectedLocal || selectedModel;
+
+  const selectAnalysis = (id: string, local: boolean) => {
+    if (running) return;
+    setActiveSubTab(local ? id as LocalAnalysisId : null);
+    setActiveModelId(local ? null : id);
+    setCompletedLocal(null);
+    setFocusedAnalysis(null);
+    setRunError("");
+  };
+
+  const runAnalysis = async () => {
+    if (!currentDataset?.id || running || isLoading) return;
+    setRunError("");
+    setCompletedLocal(null);
+    setFocusedAnalysis(null);
+    if (activeSubTab) {
+      if (documentsError) {
+        setRunError(documentsError);
+        return;
+      }
+      setCompletedLocal(activeSubTab);
+      return;
+    }
+    if (!activeModelId) return;
+    setRunning(true);
+    try {
+      const result = await onQuickRun(activeModelId, currentDataset.id);
+      if (result) setFocusedAnalysis(result);
+      else setRunError("The analysis could not be completed. Check the message above for details.");
+    } catch (error) {
+      console.error("Corpus analysis failed:", error);
+      setRunError("The analysis could not be completed.");
+    } finally {
+      setRunning(false);
+    }
+  };
 
   // Global Collection Statistics
   const macroStats = useMemo(() => {
@@ -527,9 +616,6 @@ export function DescriptiveAnalyticsStudio({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Phase 2
-            </span>
             <span className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-mono font-bold text-blue-700">
               Descriptive Analytics
             </span>
@@ -546,12 +632,9 @@ export function DescriptiveAnalyticsStudio({
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
             <Database className="h-3.5 w-3.5 text-slate-400" />
             <select
-              value={activeDatasetId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setActiveDatasetId(id);
-                onSelectDataset?.(id);
-              }}
+              value={currentDataset?.id || ""}
+              onChange={(e) => selectDataset(e.target.value)}
+              disabled={running || !datasets.length}
               className="text-xs font-bold text-slate-800 bg-transparent focus:outline-hidden"
             >
               {datasets.map((d) => (
@@ -564,115 +647,69 @@ export function DescriptiveAnalyticsStudio({
         </div>
       </div>
 
-      {/* Navigation Sub-tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("overview")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "overview"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-          Global Collection Metrics
-        </button>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(215px,250px)_minmax(0,1fr)]">
+        <aside aria-label="Corpus analysis methods" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+          <h2 className="px-2 pb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Analysis methods</h2>
+          {CATEGORY_ORDER.map((category) => {
+            const localItems = LOCAL_ANALYSES.filter((item) => item.category === category);
+            const models = CORPUS_MODELS.filter((model) => {
+              if (model.category === "Hirsch Family & Citations") return category === "Citation Impact";
+              if (model.category === "Longitudinal Growth" && model.id !== "keyword.thematic_evolution") return category === "Corpus Overview & Growth";
+              if (model.id === "keyword.thematic_evolution") return category === "Longitudinal Growth";
+              if (model.id.startsWith("funding.")) return category === "Funding & Affiliations";
+              return model.category === category;
+            });
+            if (!localItems.length && !models.length) return null;
+            return (
+              <div key={category} className="border-t border-slate-100 py-2 first:border-0">
+                <h3 className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{category}</h3>
+                {[...localItems.map((item) => ({ ...item, local: true })), ...models.map((item) => ({ ...item, local: false }))].map((item) => {
+                  const Icon = item.icon;
+                  const selected = item.local ? activeSubTab === item.id : activeModelId === item.id;
+                  return (
+                    <button
+                      key={`${item.local ? "view" : "model"}-${item.id}`}
+                      type="button"
+                      aria-current={selected ? "page" : undefined}
+                      onClick={() => selectAnalysis(item.id, item.local)}
+                      disabled={running}
+                      className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs font-semibold transition disabled:cursor-wait ${selected ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"}`}
+                    >
+                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </aside>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("trends")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "trends"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <TrendingUp className="h-3.5 w-3.5" />
-          Annual Trends
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("citations")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "citations"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <Award className="h-3.5 w-3.5" />
-          Citation Distribution
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("grants")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "grants"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <Landmark className="h-3.5 w-3.5" />
-          Research Grants & Funding
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("affiliations")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "affiliations"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <Building2 className="h-3.5 w-3.5" />
-          Affiliations & Institutions
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("lotka")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "lotka"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <Users className="h-3.5 w-3.5" />
-          Lotka's Law
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("bradford")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "bradford"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          Bradford's Law
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("analyses")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
-            activeSubTab === "analyses"
-              ? "bg-slate-900 text-white shadow-xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-          Analyses Hub
-        </button>
-      </div>
+        <section className="min-w-0 space-y-5" aria-live="polite">
+          {selectedItem && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{selectedItem.category}</div>
+                  <h2 className="mt-1 text-lg font-black text-slate-900">{selectedItem.name}</h2>
+                  <p className="mt-1 text-xs text-slate-500">{selectedItem.desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={runAnalysis}
+                  disabled={running || isLoading || !currentDataset?.id}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  {running ? "Running..." : isLoading ? "Loading dataset..." : "Run analysis"}
+                </button>
+              </div>
+              {runError && <p role="alert" className="mt-3 text-xs font-semibold text-rose-700">{runError}</p>}
+            </div>
+          )}
 
       {/* SUB-TAB 1: GLOBAL COLLECTION METRICS */}
-      {activeSubTab === "overview" && (
+      {activeSubTab === "overview" && completedLocal === "overview" && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
@@ -771,7 +808,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 2: ANNUAL PRODUCTION & TRENDS */}
-      {activeSubTab === "trends" && (
+      {activeSubTab === "trends" && completedLocal === "trends" && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
@@ -824,7 +861,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 3: CITATION DISTRIBUTION */}
-      {activeSubTab === "citations" && (
+      {activeSubTab === "citations" && completedLocal === "citations" && (
         <div className="space-y-6">
           {/* Citation Opportunity & Window Adjustment KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -940,7 +977,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 4: RESEARCH GRANTS & FUNDING (WoS & Scopus) */}
-      {activeSubTab === "grants" && (
+      {activeSubTab === "grants" && completedLocal === "grants" && (
         <div className="space-y-6">
           {/* Funding KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1070,7 +1107,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 5: AFFILIATIONS & INSTITUTIONS */}
-      {activeSubTab === "affiliations" && (
+      {activeSubTab === "affiliations" && completedLocal === "affiliations" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
@@ -1147,7 +1184,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 6: LOTKA'S LAW */}
-      {activeSubTab === "lotka" && (
+      {activeSubTab === "lotka" && completedLocal === "lotka" && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
             <div>
@@ -1179,7 +1216,7 @@ export function DescriptiveAnalyticsStudio({
       )}
 
       {/* SUB-TAB 7: BRADFORD'S LAW */}
-      {activeSubTab === "bradford" && (
+      {activeSubTab === "bradford" && completedLocal === "bradford" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {bradfordAnalysis.zones.map((z, idx) => (
@@ -1222,20 +1259,16 @@ export function DescriptiveAnalyticsStudio({
         </div>
       )}
 
-      {/* SUB-TAB 8: CAPABILITY ANALYSES HUB */}
-      {activeSubTab === "analyses" && (
-        <AnalysesListView
-          analyses={analyses}
-          datasets={datasets}
-          selectedDatasetId={activeDatasetId}
-          onSelectDataset={(id) => {
-            setActiveDatasetId(id);
-            onSelectDataset?.(id);
-          }}
-          onSelectAnalysis={onSelectAnalysis}
-          onQuickRun={onQuickRun}
-        />
-      )}
+          {selectedModel && focusedAnalysis && (
+            <div key={focusedAnalysis.id}>
+              <AnalysisResultPanel
+                analysis={focusedAnalysis}
+                onRefresh={runAnalysis}
+              />
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

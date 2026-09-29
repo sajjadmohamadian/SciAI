@@ -3,6 +3,7 @@ import { test, describe, before, after } from "node:test";
 import http from "node:http";
 import { AddressInfo } from "node:net";
 import { app } from "../server.ts";
+import { getAnalysisById } from "../server/db.ts";
 
 describe("API Contracts & Analysis Route Aliases Suite", () => {
   let server: http.Server;
@@ -100,6 +101,7 @@ describe("API Contracts & Analysis Route Aliases Suite", () => {
       assert.equal(json.status, "completed");
       assert.equal(json.capability_id, "publication.year_distribution");
       assert(Array.isArray(json.result?.records));
+      assert.equal(getAnalysisById(json.id), null, "Executed results must not be saved to SQLite");
     });
 
     test("POST /api/analysis/run (singular alias) produces equivalent response structure", async () => {

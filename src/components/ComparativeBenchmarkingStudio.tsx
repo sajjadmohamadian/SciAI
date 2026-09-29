@@ -275,34 +275,34 @@ $\\chi^2$ Elite Papers (Top 10\\% Citations) & $\\chi^2=${s.chiSquareElitePapers
     <div className="space-y-6">
       {/* Top Header Card */}
       <div className="rounded-xl border border-indigo-200 bg-linear-to-r from-indigo-50/70 via-sky-50/40 to-white p-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col gap-5">
           <div className="flex items-start gap-3.5">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
               <Scale className="h-6 w-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-black tracking-tight text-slate-900">
                   Biblium Comparative Cross-Dataset Benchmarking
                 </h2>
-                <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-800 uppercase tracking-wider">
+                <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-800 uppercase tracking-wider whitespace-nowrap">
                   Biblium Framework
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-600 max-w-3xl leading-relaxed">
+              <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-slate-600">
                 Side-by-side scientometric benchmarking across two independent scientific corpora. Features non-parametric hypothesis testing (Mann-Whitney U, Kolmogorov-Smirnov, Pearson’s χ²), relative thematic specialization (Log-Odds specificity), and 6-dimensional radar alignment.
               </p>
             </div>
           </div>
 
           {/* Dataset Pickers */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs">
-              <span className="font-bold text-indigo-700">Corpus A:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs">
+              <span className="shrink-0 font-bold text-indigo-700">Corpus A:</span>
               <select
                 value={datasetIdA}
                 onChange={(e) => setDatasetIdA(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 focus:outline-hidden"
+                className="min-w-0 max-w-full truncate bg-transparent font-semibold text-slate-800 focus:outline-hidden sm:max-w-64"
               >
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -312,14 +312,14 @@ $\\chi^2$ Elite Papers (Top 10\\% Citations) & $\\chi^2=${s.chiSquareElitePapers
               </select>
             </div>
 
-            <ArrowRightLeft className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <ArrowRightLeft className="h-3.5 w-3.5 shrink-0 text-slate-400" />
 
-            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs">
-              <span className="font-bold text-emerald-700">Corpus B:</span>
+            <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-2xs">
+              <span className="shrink-0 font-bold text-emerald-700">Corpus B:</span>
               <select
                 value={datasetIdB}
                 onChange={(e) => setDatasetIdB(e.target.value)}
-                className="bg-transparent font-semibold text-slate-800 focus:outline-hidden"
+                className="min-w-0 max-w-full truncate bg-transparent font-semibold text-slate-800 focus:outline-hidden sm:max-w-64"
               >
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -332,7 +332,7 @@ $\\chi^2$ Elite Papers (Top 10\\% Citations) & $\\chi^2=${s.chiSquareElitePapers
             <button
               onClick={runBenchmark}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-indigo-700 transition-colors"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-indigo-700 transition-colors cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Compute Benchmark

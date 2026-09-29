@@ -520,37 +520,37 @@ export function ThematicEvolutionStudio({
   return (
     <div className="space-y-6">
       {/* Studio Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-purple-600">
+      <div className="space-y-5 border-b border-slate-200 pb-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-purple-600 whitespace-nowrap">
               Phase 7 • Scientometrics Evolution Lab
             </span>
-            <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+            <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 whitespace-nowrap">
               Cobo (2011) & SciMAT / Bibliometrix
             </span>
           </div>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-            <GitBranch className="h-8 w-8 text-purple-600" />
-            Thematic Evolution & Slicing
+          <h1 className="mt-2 flex items-center gap-3 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+            <GitBranch className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-purple-600" />
+            <span className="min-w-0">Thematic Evolution &amp; Slicing</span>
           </h1>
-          <p className="mt-1 text-xs text-slate-500 max-w-3xl leading-relaxed">
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
             Longitudinal science mapping: divide the corpus into sequential time slices, calculate Callon&apos;s strategic themes, and trace evolutionary trajectories (continuation, splitting, merging) using the Simpson Inclusion Index.
           </p>
         </div>
 
         {/* Dataset Selector & Action Controls */}
-        <div className="flex flex-wrap items-end gap-3 shrink-0">
+        <div className="flex flex-wrap items-end gap-3">
           {/* Target Dataset Selector matching Historical Citation Genealogy */}
           {datasets.length > 0 && (
-            <div className="flex flex-col">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <Database className="h-3 w-3 text-purple-600" />
+            <div className="flex min-w-0 flex-col">
+              <label className="flex items-center gap-1 text-xs font-semibold text-slate-500">
+                <Database className="h-3 w-3 shrink-0 text-purple-600" />
                 Target Dataset
               </label>
               <select
                 id="thematic-dataset-select"
-                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:w-80"
                 value={selectedDsId}
                 onChange={(e) => handleDatasetChange(e.target.value)}
               >

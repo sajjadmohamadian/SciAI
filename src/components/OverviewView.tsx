@@ -40,7 +40,6 @@ interface Props {
   capabilities: Capability[];
   loading: boolean;
   onQuickRun: (capId: string) => void;
-  onOpenRunAnalysis: () => void;
   onNavigateTab: (tab: NavTab) => void;
   onOpenUpload: () => void;
 }

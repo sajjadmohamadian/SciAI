@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Analysis, DatasetVersion } from "../src/types.js";
+import { SCIENTOMETRIC_MODELS, ENTITY_ANALYSIS_IDS } from "../src/components/AnalysesListView.js";
 import {
   CAPABILITY_CATALOG,
   CAPABILITY_CATEGORIES,
@@ -49,6 +50,14 @@ describe("Analysis capability catalog and destinations", () => {
     assert.equal(getCapabilityPresentation("reference.rpys").destination, "historical");
     assert.equal(getCapabilityPresentation("ml.text_classification").destination, "ml");
     assert.equal(getCapabilityPresentation("keyword.frequency").destination, "descriptive");
+  });
+
+  test("exposes every runnable capability in exactly one analysis section", () => {
+    const listed = SCIENTOMETRIC_MODELS.map((model) => model.id);
+    assert.equal(new Set(listed).size, listed.length);
+    assert.deepEqual(listed.sort(), Object.keys(CAPABILITY_CATALOG).sort());
+    for (const id of ENTITY_ANALYSIS_IDS) assert.ok(listed.includes(id));
+    assert.ok(SCIENTOMETRIC_MODELS.some((model) => !ENTITY_ANALYSIS_IDS.has(model.id)));
   });
 
   test("keeps unknown future capabilities selectable with a fallback destination", () => {

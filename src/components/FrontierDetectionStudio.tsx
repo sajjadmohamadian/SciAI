@@ -253,40 +253,40 @@ export function FrontierDetectionStudio({
   return (
     <div className="space-y-6">
       {/* Top Banner & Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600">
+      <div className="space-y-5 border-b border-slate-200 pb-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-600 whitespace-nowrap">
               Scientometrics Lab • Module 2
             </span>
-            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 whitespace-nowrap">
               Dynamics & Frontier Detection
             </span>
-            <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+            <span className="rounded-md bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 whitespace-nowrap">
               Kleinberg (2003) & van Raan (2004) / Ke et al. (2015)
             </span>
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-            <Flame className="h-8 w-8 text-rose-600" />
-            Topic Dynamics & Emerging Frontier Detection
+          <h1 className="mt-2 flex items-center gap-3 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+            <Flame className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-rose-600" />
+            <span className="min-w-0">Topic Dynamics &amp; Emerging Frontier Detection</span>
           </h1>
-          <p className="mt-1 text-xs text-slate-500 max-w-3xl leading-relaxed">
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
             Uncover sudden keyword surges (Kleinberg&apos;s Burst Detection) to pinpoint active research frontiers and identify Sleeping Beauties in science using the parameter-free beauty coefficient (Ke et al., PNAS) and van Raan&apos;s formulation.
           </p>
         </div>
 
         {/* Dataset Selector & Action Controls */}
-        <div className="flex flex-wrap items-end gap-3 shrink-0">
+        <div className="flex flex-wrap items-end gap-3">
           {/* Target Dataset Selector matching HistoricalGenealogyStudio */}
           {datasets.length > 0 && (
-            <div className="flex flex-col">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <Database className="h-3 w-3 text-rose-600" />
+            <div className="flex min-w-0 flex-col">
+              <label className="flex items-center gap-1 text-xs font-semibold text-slate-500">
+                <Database className="h-3 w-3 shrink-0 text-rose-600" />
                 Target Dataset
               </label>
               <select
                 id="frontier-dataset-select"
-                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 sm:w-80"
                 value={selectedDsId}
                 onChange={(e) => handleDatasetChange(e.target.value)}
               >

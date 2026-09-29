@@ -26,8 +26,8 @@ interface Props {
   selectedDatasetId?: string;
   onSelectDataset?: (id: string) => void;
   onOpenUpload: () => void;
+  onOpenDescriptive: (datasetId: string) => void;
   onRefreshData: () => void;
-  onRunAnalysisForDataset: (datasetId: string) => void;
   onDatasetDeleted?: (deletedDatasetIds: string[]) => void;
   initialStep?: PipelineStep;
   onStepChange?: (step: PipelineStep) => void;
@@ -38,8 +38,8 @@ export function CorpusPipelineStudio({
   selectedDatasetId,
   onSelectDataset,
   onOpenUpload,
+  onOpenDescriptive,
   onRefreshData,
-  onRunAnalysisForDataset,
   onDatasetDeleted,
   initialStep = "repository",
   onStepChange,
@@ -191,7 +191,7 @@ export function CorpusPipelineStudio({
           <DatasetsView
             datasets={datasets}
             onOpenUpload={onOpenUpload}
-            onRunAnalysisForDataset={onRunAnalysisForDataset}
+            onOpenDescriptive={onOpenDescriptive}
             onDatasetDeleted={onDatasetDeleted}
           />
         )}
