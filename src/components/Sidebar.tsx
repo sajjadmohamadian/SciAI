@@ -103,16 +103,16 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Scientometrics",
     items: [
       {
-        id: "descriptive",
-        label: "Descriptive Analytics",
-        icon: <LineChart className="h-4 w-4 text-blue-600" />,
-        description: "Macro Trends, Grants, Lotka & Bradford",
-      },
-      {
         id: "entities",
         label: "Entity Explorer",
-        icon: <Compass className="h-4 w-4 text-purple-600" />,
+        icon:<Compass className="h-4 w-4 text-blue-600" />,
         description: "Authors, Sources, Affiliations & Grants",
+      },
+      {
+        id: "descriptive",
+        label: "Descriptive Analytics",
+        icon:<LineChart className="h-4 w-4 text-purple-600" />,
+        description: "Macro Trends, Grants, Lotka & Bradford",
       },
     ],
   },
@@ -140,7 +140,7 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "collaboration",
-        label: "Network Studio",
+        label: "Network Analysis",
         icon: <Share2 className="h-4 w-4 text-sky-500" />,
         description: "VOSviewer Graphs",
       },

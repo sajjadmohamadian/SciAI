@@ -524,7 +524,7 @@ export function ThematicEvolutionStudio({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-purple-600 whitespace-nowrap">
-              Phase 7 • Scientometrics Evolution Lab
+              Scientometrics Evolution Lab
             </span>
             <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 whitespace-nowrap">
               Cobo (2011) & SciMAT / Bibliometrix
@@ -593,18 +593,6 @@ export function ThematicEvolutionStudio({
               <FileSpreadsheet className="h-3.5 w-3.5" />
               <span>Export Matrix</span>
             </button>
-
-            {onNavigateToFrontier && (
-              <button
-                type="button"
-                onClick={onNavigateToFrontier}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer shadow-2xs"
-              >
-                <Flame className="h-3.5 w-3.5 text-rose-600" />
-                <span>Burst Detection & Sleeping Beauties</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            )}
           </div>
         </div>
       </div>

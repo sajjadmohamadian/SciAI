@@ -7,17 +7,13 @@ import {
   Globe2,
   FileText,
   Search,
-  Award,
   TrendingUp,
   Download,
   Database,
   ArrowUpDown,
-  Filter,
   BarChart2,
-  Calendar,
   Hash,
   Landmark,
-  Play,
   Loader2,
 } from "lucide-react";
 import {
@@ -29,32 +25,73 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { SCIENTOMETRIC_MODELS, ENTITY_ANALYSIS_IDS } from "./AnalysesListView.js";
+import {
+  SCIENTOMETRIC_MODELS,
+  ENTITY_ANALYSIS_IDS,
+} from "./AnalysesListView.js";
 import { AnalysisResultPanel } from "./AnalysisResultPanel.js";
 
-const ENTITY_MODELS = SCIENTOMETRIC_MODELS.filter((model) => ENTITY_ANALYSIS_IDS.has(model.id));
-
-const ENTITY_CATEGORY_ORDER = [
-  "Entity & Author Metrics",
-  "Scientometric Laws",
-  "Sources & Institutions",
-  "Knowledge Structures",
-  "Group Comparison",
-];
+const ENTITY_MODELS = SCIENTOMETRIC_MODELS.filter((model) =>
+  ENTITY_ANALYSIS_IDS.has(model.id)
+);
 
 const LOCAL_ENTITY_ANALYSES = [
-  { id: "authors", name: "Authors & Scholars", category: "Entity & Author Metrics", desc: "Author output, citation impact, h-index and g-index rankings.", icon: Users },
-  { id: "sources", name: "Sources & Journals", category: "Sources & Institutions", desc: "Publication venues ranked by output, citations and core zones.", icon: BookOpen },
-  { id: "institutions", name: "Affiliations / Institutions", category: "Sources & Institutions", desc: "Institutional affiliations aggregated by output and impact.", icon: Building2 },
-  { id: "grants", name: "Research Grants & Funding", category: "Sources & Institutions", desc: "Funding agencies and grant identifiers observed in the corpus.", icon: Landmark },
-  { id: "keywords", name: "Keywords & Concepts", category: "Knowledge Structures", desc: "Author keywords and indexed descriptors across the corpus.", icon: Hash },
-  { id: "countries", name: "Countries & Territories", category: "Knowledge Structures", desc: "Geographic distribution of scholarly output.", icon: Globe2 },
-  { id: "documents", name: "Core Documents", category: "Knowledge Structures", desc: "Core publication records with citations and sources.", icon: FileText },
+  {
+    id: "authors",
+    name: "Authors & Scholars",
+    category: "Entity & Author Metrics",
+    desc: "Author output, citation impact, h-index and g-index rankings.",
+    icon: Users,
+  },
+  {
+    id: "sources",
+    name: "Sources & Journals",
+    category: "Sources & Institutions",
+    desc: "Publication venues ranked by output, citations and core zones.",
+    icon: BookOpen,
+  },
+  {
+    id: "institutions",
+    name: "Affiliations / Institutions",
+    category: "Sources & Institutions",
+    desc: "Institutional affiliations aggregated by output and impact.",
+    icon: Building2,
+  },
+  {
+    id: "grants",
+    name: "Research Grants & Funding",
+    category: "Sources & Institutions",
+    desc: "Funding agencies and grant identifiers observed in the corpus.",
+    icon: Landmark,
+  },
+  {
+    id: "keywords",
+    name: "Keywords & Concepts",
+    category: "Knowledge Structures",
+    desc: "Author keywords and indexed descriptors across the corpus.",
+    icon: Hash,
+  },
+  {
+    id: "countries",
+    name: "Countries & Territories",
+    category: "Knowledge Structures",
+    desc: "Geographic distribution of scholarly output.",
+    icon: Globe2,
+  },
+  {
+    id: "documents",
+    name: "Core Documents",
+    category: "Knowledge Structures",
+    desc: "Core publication records with citations and sources.",
+    icon: FileText,
+  },
 ] as const;
 
-type LocalEntityId = typeof LOCAL_ENTITY_ANALYSES[number]["id"];
+type LocalEntityId = (typeof LOCAL_ENTITY_ANALYSES)[number]["id"];
 
-const SELECTABLE_ENTITY_DIMENSIONS = new Set<string>(LOCAL_ENTITY_ANALYSES.map((item) => item.id));
+const SELECTABLE_ENTITY_DIMENSIONS = new Set<string>(
+  LOCAL_ENTITY_ANALYSES.map((item) => item.id)
+);
 
 interface Props {
   datasets: Dataset[];
@@ -65,7 +102,14 @@ interface Props {
   onQuickRun: (capId: string, dsId: string) => Promise<Analysis | null>;
 }
 
-type EntityDimension = "authors" | "sources" | "keywords" | "institutions" | "grants" | "countries" | "documents";
+type EntityDimension =
+  | "authors"
+  | "sources"
+  | "keywords"
+  | "institutions"
+  | "grants"
+  | "countries"
+  | "documents";
 
 interface EntityMetric {
   id: string;
@@ -92,110 +136,232 @@ export function EntityExplorerStudio({
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
   );
-  const [dimension, setDimension] = useState<EntityDimension>(focusDimension || "authors");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"docCount" | "totalCitations" | "hIndex" | "gIndex">("docCount");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [selectedEntity, setSelectedEntity] = useState<EntityMetric | null>(null);
 
-  // Analysis workspace: which entity view or capability model is active
-  const [activeViewId, setActiveViewId] = useState<LocalEntityId | null>(
-    SELECTABLE_ENTITY_DIMENSIONS.has(String(focusDimension)) ? (focusDimension as LocalEntityId) : "authors"
+  const [dimension, setDimension] = useState<EntityDimension>(
+    focusDimension || "authors"
   );
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [sortBy, setSortBy] = useState<
+    "docCount" | "totalCitations" | "hIndex" | "gIndex"
+  >("docCount");
+
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  const [selectedEntity, setSelectedEntity] =
+    useState<EntityMetric | null>(null);
+
+  const [activeViewId, setActiveViewId] =
+    useState<LocalEntityId | null>(
+      SELECTABLE_ENTITY_DIMENSIONS.has(String(focusDimension))
+        ? (focusDimension as LocalEntityId)
+        : "authors"
+    );
+
   const [activeModelId, setActiveModelId] = useState<string | null>(null);
-  const [completedView, setCompletedView] = useState<LocalEntityId | null>(null);
-  const [focusedAnalysis, setFocusedAnalysis] = useState<Analysis | null>(null);
+
+  const [completedView, setCompletedView] =
+    useState<LocalEntityId | null>(
+      SELECTABLE_ENTITY_DIMENSIONS.has(String(focusDimension))
+        ? (focusDimension as LocalEntityId)
+        : "authors"
+    );
+
+  const [focusedAnalysis, setFocusedAnalysis] =
+    useState<Analysis | null>(null);
+
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
 
   const [documents, setDocuments] = useState<BibliometricDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  /*
+   * IMPORTANT:
+   * Keep selectedModel explicitly defined.
+   * The previous broken version omitted this variable,
+   * which caused a runtime ReferenceError and a blank page.
+   */
+  const selectedModel = activeModelId
+    ? ENTITY_MODELS.find((item) => item.id === activeModelId)
+    : undefined;
+
   useEffect(() => {
-    if (focusDimension && SELECTABLE_ENTITY_DIMENSIONS.has(focusDimension)) {
+    if (
+      focusDimension &&
+      SELECTABLE_ENTITY_DIMENSIONS.has(focusDimension)
+    ) {
       setDimension(focusDimension);
       setActiveViewId(focusDimension as LocalEntityId);
       setActiveModelId(null);
+      setCompletedView(focusDimension as LocalEntityId);
     }
+
     setSelectedEntity(null);
-    setCompletedView(null);
     setFocusedAnalysis(null);
     setRunError("");
   }, [focusDimension, focusKey]);
 
   useEffect(() => {
-    if (selectedDatasetId && selectedDatasetId !== activeDatasetId) {
+    if (
+      selectedDatasetId &&
+      selectedDatasetId !== activeDatasetId
+    ) {
       setActiveDatasetId(selectedDatasetId);
     }
-  }, [selectedDatasetId]);
+  }, [selectedDatasetId, activeDatasetId]);
 
   useEffect(() => {
     if (!activeDatasetId) return;
+
     setIsLoading(true);
+
     fetch(`/api/datasets/${activeDatasetId}/documents?limit=5000`)
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch documents");
+        if (!res.ok) {
+          throw new Error("Failed to fetch documents");
+        }
+
         return res.json();
       })
       .then((data) => {
-        const docs = Array.isArray(data) ? data : data.documents || data.records || [];
+        const docs = Array.isArray(data)
+          ? data
+          : data.documents || data.records || [];
+
         setDocuments(docs);
       })
-      .catch((err) => console.warn("Error fetching documents:", err))
-      .finally(() => setIsLoading(false));
+      .catch((err) => {
+        console.warn("Error fetching documents:", err);
+        setDocuments([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [activeDatasetId]);
 
-  // Extract Institutions Helper (handles Web of Science C1/RP addresses and Scopus Affiliations)
+  // ---------------------------------------------------------------------------
+  // Institution extraction
+  // ---------------------------------------------------------------------------
+
   const extractInstitutions = (raw: any): string[] => {
     if (!raw) return [];
+
     if (Array.isArray(raw)) {
       return raw.flatMap((item) => extractInstitutions(item));
     }
+
     const str = String(raw);
     const items = str.split(";");
+
     return items
       .map((item: any) => {
-        let cleaned = String(item).replace(/\[.*?\]/g, "").trim();
+        let cleaned = String(item)
+          .replace(/\[.*?\]/g, "")
+          .trim();
+
         const parts = cleaned.split(",");
         let primary = parts[0]?.trim() || "";
+
         if (
-          /^(dept|department|fac|faculty|inst|institute|centre|center|school|coll|college) of\s+/i.test(primary) ||
+          /^(dept|department|fac|faculty|inst|institute|centre|center|school|coll|college) of\s+/i.test(
+            primary
+          ) ||
           /^(department|faculty|division)\b/i.test(primary)
         ) {
           if (parts[1] && parts[1].trim().length > 3) {
             primary = parts[1].trim();
           }
         }
-        return primary.replace(/^(dept|department|fac|faculty|inst|institute|centre|center) of\s+/i, "").slice(0, 60).trim();
+
+        return primary
+          .replace(
+            /^(dept|department|fac|faculty|inst|institute|centre|center) of\s+/i,
+            ""
+          )
+          .slice(0, 60)
+          .trim();
       })
-      .filter((s: string) => s && s.length > 2 && !/^\d+$/.test(s));
+      .filter(
+        (s: string) =>
+          s &&
+          s.length > 2 &&
+          !/^\d+$/.test(s)
+      );
   };
 
-  // Extract Countries Helper
+  // ---------------------------------------------------------------------------
+  // Country extraction
+  // ---------------------------------------------------------------------------
+
   const extractCountries = (raw: any): string[] => {
     if (!raw) return [];
-    const text = Array.isArray(raw) ? raw.join(" ") : String(raw);
+
+    const text = Array.isArray(raw)
+      ? raw.join(" ")
+      : String(raw);
+
     const countryList = [
-      "USA", "United States", "China", "United Kingdom", "UK", "Germany", "Iran",
-      "Canada", "France", "Japan", "Australia", "Italy", "Spain", "India",
-      "Netherlands", "Brazil", "South Korea", "Switzerland", "Sweden", "Turkey",
-      "Russia", "Poland", "Belgium", "Taiwan", "Austria", "Denmark", "Norway"
+      "USA",
+      "United States",
+      "China",
+      "United Kingdom",
+      "UK",
+      "Germany",
+      "Iran",
+      "Canada",
+      "France",
+      "Japan",
+      "Australia",
+      "Italy",
+      "Spain",
+      "India",
+      "Netherlands",
+      "Brazil",
+      "South Korea",
+      "Switzerland",
+      "Sweden",
+      "Turkey",
+      "Russia",
+      "Poland",
+      "Belgium",
+      "Taiwan",
+      "Austria",
+      "Denmark",
+      "Norway",
     ];
+
     const found: string[] = [];
     const textLower = text.toLowerCase();
-    countryList.forEach((c) => {
-      if (textLower.includes(c.toLowerCase())) {
-        const norm = c === "United States" ? "USA" : c === "United Kingdom" ? "UK" : c;
-        if (!found.includes(norm)) found.push(norm);
+
+    countryList.forEach((country) => {
+      if (textLower.includes(country.toLowerCase())) {
+        const normalized =
+          country === "United States"
+            ? "USA"
+            : country === "United Kingdom"
+            ? "UK"
+            : country;
+
+        if (!found.includes(normalized)) {
+          found.push(normalized);
+        }
       }
     });
+
     return found;
   };
 
-  // Calculate H-Index and G-Index
+  // ---------------------------------------------------------------------------
+  // H-Index / G-Index
+  // ---------------------------------------------------------------------------
+
   const computeImpactIndices = (citationList: number[]) => {
     const sorted = [...citationList].sort((a, b) => b - a);
+
     let h = 0;
+
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i] >= i + 1) {
         h = i + 1;
@@ -206,17 +372,25 @@ export function EntityExplorerStudio({
 
     let g = 0;
     let cumSum = 0;
+
     for (let i = 0; i < sorted.length; i++) {
       cumSum += sorted[i];
+
       if (cumSum >= (i + 1) * (i + 1)) {
         g = i + 1;
       }
     }
 
-    return { hIndex: h, gIndex: g };
+    return {
+      hIndex: h,
+      gIndex: g,
+    };
   };
 
-  // Entity Aggregation Engine across all research dimensions
+  // ---------------------------------------------------------------------------
+  // Entity aggregation engine
+  // ---------------------------------------------------------------------------
+
   const entities = useMemo<EntityMetric[]>(() => {
     if (documents.length === 0) return [];
 
@@ -232,40 +406,123 @@ export function EntityExplorerStudio({
     >();
 
     documents.forEach((d: any, idx) => {
-      const year = Number(d.year || d.PY || 2023);
-      const cits = Number(d.citations ?? d.TC ?? 0);
+      const year = Number(
+        d.year || d.PY || 2023
+      );
+
+      const cits = Number(
+        d.citations ?? d.TC ?? 0
+      );
 
       let keys: string[] = [];
 
       if (dimension === "authors") {
-        if (Array.isArray(d.authors)) keys = d.authors;
-        else if (Array.isArray(d.AU)) keys = d.AU;
-        else if (typeof d.author === "string") keys = d.author.split(";");
-      } else if (dimension === "sources") {
-        const src = (d.source || d.SO || "").trim();
-        if (src) keys = [src];
-      } else if (dimension === "keywords") {
-        if (Array.isArray(d.keywords)) keys = d.keywords;
-        else if (Array.isArray(d.DE)) keys = d.DE;
-        else if (Array.isArray(d.ID)) keys = d.ID;
-        else if (typeof d.keyword === "string") keys = d.keyword.split(";");
-      } else if (dimension === "institutions") {
-        keys = extractInstitutions(d.institutions || d.affiliations || d.C1 || d.RP || d.affiliation);
-      } else if (dimension === "grants") {
-        if (Array.isArray(d.funding_agencies)) keys = [...keys, ...d.funding_agencies];
-        if (Array.isArray(d.grant_numbers)) keys = [...keys, ...d.grant_numbers.map((g: string) => `Grant #${g}`)];
-        if (d.FU) {
-          const fuList = Array.isArray(d.FU) ? d.FU : String(d.FU).split(";");
-          keys = [...keys, ...fuList.map((f: string) => f.split("[")[0].trim()).filter((s: string) => s && s.length > 2)];
+        if (Array.isArray(d.authors)) {
+          keys = d.authors;
+        } else if (Array.isArray(d.AU)) {
+          keys = d.AU;
+        } else if (typeof d.author === "string") {
+          keys = d.author.split(";");
         }
-      } else if (dimension === "countries") {
-        keys = extractCountries(d.country || d.countries || d.affiliations || d.C1);
-      } else if (dimension === "documents") {
-        const title = (d.title || d.TI || `Doc #${idx + 1}`).trim();
+      }
+
+      else if (dimension === "sources") {
+        const src = (
+          d.source ||
+          d.SO ||
+          ""
+        ).trim();
+
+        if (src) {
+          keys = [src];
+        }
+      }
+
+      else if (dimension === "keywords") {
+        if (Array.isArray(d.keywords)) {
+          keys = d.keywords;
+        } else if (Array.isArray(d.DE)) {
+          keys = d.DE;
+        } else if (Array.isArray(d.ID)) {
+          keys = d.ID;
+        } else if (typeof d.keyword === "string") {
+          keys = d.keyword.split(";");
+        }
+      }
+
+      else if (dimension === "institutions") {
+        keys = extractInstitutions(
+          d.institutions ||
+            d.affiliations ||
+            d.C1 ||
+            d.RP ||
+            d.affiliation
+        );
+      }
+
+      else if (dimension === "grants") {
+        if (Array.isArray(d.funding_agencies)) {
+          keys = [
+            ...keys,
+            ...d.funding_agencies,
+          ];
+        }
+
+        if (Array.isArray(d.grant_numbers)) {
+          keys = [
+            ...keys,
+            ...d.grant_numbers.map(
+              (g: string) => `Grant #${g}`
+            ),
+          ];
+        }
+
+        if (d.FU) {
+          const fuList = Array.isArray(d.FU)
+            ? d.FU
+            : String(d.FU).split(";");
+
+          keys = [
+            ...keys,
+            ...fuList
+              .map(
+                (f: string) =>
+                  f.split("[")[0].trim()
+              )
+              .filter(
+                (s: string) =>
+                  s && s.length > 2
+              ),
+          ];
+        }
+      }
+
+      else if (dimension === "countries") {
+        keys = extractCountries(
+          d.country ||
+            d.countries ||
+            d.affiliations ||
+            d.C1
+        );
+      }
+
+      else if (dimension === "documents") {
+        const title = (
+          d.title ||
+          d.TI ||
+          `Doc #${idx + 1}`
+        ).trim();
+
         keys = [title];
       }
 
-      const uniqueKeys = Array.from(new Set(keys.map((k) => String(k).trim()).filter(Boolean)));
+      const uniqueKeys = Array.from(
+        new Set(
+          keys
+            .map((k) => String(k).trim())
+            .filter(Boolean)
+        )
+      );
 
       uniqueKeys.forEach((key) => {
         if (!map.has(key)) {
@@ -277,24 +534,50 @@ export function EntityExplorerStudio({
             docIndices: [],
           });
         }
+
         const record = map.get(key)!;
+
         record.citations.push(cits);
         record.docIndices.push(idx);
+
         if (year) {
           record.years.push(year);
-          record.annualMap[year] = (record.annualMap[year] || 0) + 1;
+          record.annualMap[year] =
+            (record.annualMap[year] || 0) + 1;
         }
       });
     });
 
     const result: EntityMetric[] = [];
+
     map.forEach((val, key) => {
       const docCount = val.citations.length;
-      const totalCitations = val.citations.reduce((acc, c) => acc + c, 0);
-      const avgCitations = Number((totalCitations / (docCount || 1)).toFixed(1));
-      const { hIndex, gIndex } = computeImpactIndices(val.citations);
-      const minYr = val.years.length ? Math.min(...val.years) : 2020;
-      const maxYr = val.years.length ? Math.max(...val.years) : 2024;
+
+      const totalCitations =
+        val.citations.reduce(
+          (acc, c) => acc + c,
+          0
+        );
+
+      const avgCitations = Number(
+        (
+          totalCitations /
+          (docCount || 1)
+        ).toFixed(1)
+      );
+
+      const { hIndex, gIndex } =
+        computeImpactIndices(
+          val.citations
+        );
+
+      const minYr = val.years.length
+        ? Math.min(...val.years)
+        : 2020;
+
+      const maxYr = val.years.length
+        ? Math.max(...val.years)
+        : 2024;
 
       result.push({
         id: key,
@@ -307,166 +590,347 @@ export function EntityExplorerStudio({
         firstYear: minYr,
         lastYear: maxYr,
         annualProduction: val.annualMap,
-        matchedDocIndices: val.docIndices,
+        matchedDocIndices:
+          val.docIndices,
       });
     });
 
     return result;
   }, [documents, dimension]);
 
-  // Filtered & Sorted
+  // ---------------------------------------------------------------------------
+  // Filtered and sorted entities
+  // ---------------------------------------------------------------------------
+
   const filteredEntities = useMemo(() => {
-    let list = entities;
+    let list = [...entities];
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((e) => e.name.toLowerCase().includes(q));
+
+      list = list.filter((e) =>
+        e.name.toLowerCase().includes(q)
+      );
     }
 
     return list.sort((a, b) => {
-      const mul = sortOrder === "desc" ? -1 : 1;
-      return (a[sortBy] - b[sortBy]) * mul;
-    });
-  }, [entities, searchQuery, sortBy, sortOrder]);
+      const mul =
+        sortOrder === "desc" ? -1 : 1;
 
-  const handleSort = (field: "docCount" | "totalCitations" | "hIndex" | "gIndex") => {
+      return (
+        (a[sortBy] - b[sortBy]) * mul
+      );
+    });
+  }, [
+    entities,
+    searchQuery,
+    sortBy,
+    sortOrder,
+  ]);
+
+  const handleSort = (
+    field:
+      | "docCount"
+      | "totalCitations"
+      | "hIndex"
+      | "gIndex"
+  ) => {
     if (sortBy === field) {
-      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSortOrder((prev) =>
+        prev === "asc" ? "desc" : "asc"
+      );
     } else {
       setSortBy(field);
       setSortOrder("desc");
     }
   };
 
-  // Prepare annual chart data for selected entity
+  // ---------------------------------------------------------------------------
+  // Annual chart
+  // ---------------------------------------------------------------------------
+
   const annualChartData = useMemo(() => {
     if (!selectedEntity) return [];
-    const yrs = Object.keys(selectedEntity.annualProduction).map(Number).sort((a, b) => a - b);
+
+    const yrs = Object.keys(
+      selectedEntity.annualProduction
+    )
+      .map(Number)
+      .sort((a, b) => a - b);
+
     return yrs.map((yr) => ({
       year: String(yr),
-      articles: selectedEntity.annualProduction[yr] || 0,
+      articles:
+        selectedEntity.annualProduction[yr] ||
+        0,
     }));
   }, [selectedEntity]);
 
-  // Associated publications for selected entity
+  // ---------------------------------------------------------------------------
+  // Associated documents
+  // ---------------------------------------------------------------------------
+
   const matchedDocs = useMemo(() => {
-    if (!selectedEntity || !selectedEntity.matchedDocIndices) return [];
+    if (
+      !selectedEntity ||
+      !selectedEntity.matchedDocIndices
+    ) {
+      return [];
+    }
+
     return selectedEntity.matchedDocIndices
       .slice(0, 10)
       .map((idx) => documents[idx])
       .filter(Boolean);
   }, [selectedEntity, documents]);
 
-  // --- Analysis workspace selection ---
-  const selectedLocal = LOCAL_ENTITY_ANALYSES.find((item) => item.id === activeViewId);
-  const selectedModel = activeModelId ? ENTITY_MODELS.find((item) => item.id === activeModelId) : undefined;
-  const selectedItem = selectedLocal || selectedModel;
+  // ---------------------------------------------------------------------------
+  // Dataset selection
+  // ---------------------------------------------------------------------------
 
   const selectEntityDataset = (id: string) => {
     setActiveDatasetId(id);
     setSelectedEntity(null);
-    setCompletedView(null);
     setFocusedAnalysis(null);
     setRunError("");
+
+    if (activeViewId) {
+      setCompletedView(activeViewId);
+    } else {
+      setCompletedView(null);
+    }
+
     onSelectDataset?.(id);
   };
 
-  const selectAnalysis = (id: string, local: boolean) => {
+  // ---------------------------------------------------------------------------
+  // Analysis selection
+  // Clicking a sidebar item immediately runs/shows it.
+  // ---------------------------------------------------------------------------
+
+  const selectAnalysis = async (
+    id: string,
+    local: boolean
+  ) => {
     if (running) return;
+
     setSelectedEntity(null);
     setCompletedView(null);
     setFocusedAnalysis(null);
     setRunError("");
+
     if (local) {
-      setActiveViewId(id as LocalEntityId);
+      const localId =
+        id as LocalEntityId;
+
+      setActiveViewId(localId);
       setActiveModelId(null);
-      setDimension(id as EntityDimension);
-    } else {
-      setActiveViewId(null);
-      setActiveModelId(id);
-    }
-  };
+      setDimension(
+        localId as EntityDimension
+      );
 
-  const runAnalysis = async () => {
-    if (running || isLoading) return;
-    setRunError("");
-    setFocusedAnalysis(null);
+      /*
+       * Local analyses are computed directly from
+       * the loaded dataset, so selecting the item
+       * immediately activates its result view.
+       */
+      setCompletedView(localId);
 
-    if (activeViewId) {
-      setCompletedView(activeViewId);
       return;
     }
-    if (!activeModelId || !activeDatasetId) return;
 
+    /*
+     * Model/capability analyses require a dataset
+     * and are executed immediately on click.
+     */
+    if (!activeDatasetId) {
+      setRunError(
+        "Please select a dataset first."
+      );
+      return;
+    }
+
+    setActiveViewId(null);
+    setActiveModelId(id);
     setRunning(true);
+
     try {
-      const result = await onQuickRun(activeModelId, activeDatasetId);
-      if (result) setFocusedAnalysis(result);
-      else setRunError("The analysis could not be completed. Check the notification banner for details.");
+      const result = await onQuickRun(
+        id,
+        activeDatasetId
+      );
+
+      if (result) {
+        setFocusedAnalysis(result);
+      } else {
+        setRunError(
+          "The analysis could not be completed."
+        );
+      }
     } catch (error) {
-      console.error("Entity analysis failed:", error);
-      setRunError("The analysis could not be completed.");
+      console.error(
+        "Entity analysis failed:",
+        error
+      );
+
+      setRunError(
+        "The analysis could not be completed."
+      );
     } finally {
       setRunning(false);
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Refresh currently active model analysis
+  // ---------------------------------------------------------------------------
+
+  const refreshAnalysis = async () => {
+    if (
+      !activeModelId ||
+      !activeDatasetId ||
+      running
+    ) {
+      return;
+    }
+
+    setRunning(true);
+    setRunError("");
+
+    try {
+      const result = await onQuickRun(
+        activeModelId,
+        activeDatasetId
+      );
+
+      if (result) {
+        setFocusedAnalysis(result);
+      } else {
+        setRunError(
+          "The analysis could not be completed."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Entity analysis refresh failed:",
+        error
+      );
+
+      setRunError(
+        "The analysis could not be completed."
+      );
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Export CSV
+  // ---------------------------------------------------------------------------
+
   const exportCsv = () => {
-    const headers = ["Name", "Documents", "Total Citations", "Avg Citations", "H-Index", "G-Index", "First Year", "Last Year"];
-    const rows = filteredEntities.map((e) => [
-      `"${e.name.replace(/"/g, '""')}"`,
-      e.docCount,
-      e.totalCitations,
-      e.avgCitations,
-      e.hIndex,
-      e.gIndex,
-      e.firstYear,
-      e.lastYear,
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${dimension}_performance_analysis.csv`);
+    const headers = [
+      "Name",
+      "Documents",
+      "Total Citations",
+      "Avg Citations",
+      "H-Index",
+      "G-Index",
+      "First Year",
+      "Last Year",
+    ];
+
+    const rows = filteredEntities.map(
+      (e) => [
+        `"${e.name.replace(/"/g, '""')}"`,
+        e.docCount,
+        e.totalCitations,
+        e.avgCitations,
+        e.hIndex,
+        e.gIndex,
+        e.firstYear,
+        e.lastYear,
+      ]
+    );
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((r) =>
+          r.join(",")
+        ),
+      ].join("\n");
+
+    const encodedUri =
+      encodeURI(csvContent);
+
+    const link =
+      document.createElement("a");
+
+    link.setAttribute(
+      "href",
+      encodedUri
+    );
+
+    link.setAttribute(
+      "download",
+      `${dimension}_performance_analysis.csv`
+    );
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <div className="space-y-6">
+
       {/* Top Header */}
       <div className="space-y-5 border-b border-slate-200 pb-5">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Phase 3
-            </span>
-            <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-mono font-bold text-purple-700">
-              Entities & Micro Performance
-            </span>
-          </div>
           <h1 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
             Scientometric Entity Explorer
           </h1>
+
           <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
-            Deep drill-down across authors, publication venues, conceptual keywords, institutional affiliations, research grants (WoS & Scopus), and global countries.
+            Deep drill-down across authors, publication
+            venues, conceptual keywords, institutional
+            affiliations, research grants (WoS & Scopus),
+            and global countries.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs sm:w-80">
             <Database className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+
             <select
               aria-label="Target Dataset"
               value={activeDatasetId}
-              onChange={(e) => selectEntityDataset(e.target.value)}
-              disabled={running || !datasets.length}
+              onChange={(e) =>
+                selectEntityDataset(
+                  e.target.value
+                )
+              }
+              disabled={
+                running ||
+                !datasets.length
+              }
               className="min-w-0 flex-1 truncate bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden disabled:text-slate-400"
             >
               {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count.toLocaleString()} docs)
+                <option
+                  key={d.id}
+                  value={d.id}
+                >
+                  {d.name} (
+                  {d.record_count.toLocaleString()}{" "}
+                  docs)
                 </option>
               ))}
             </select>
@@ -483,8 +947,13 @@ export function EntityExplorerStudio({
         </div>
       </div>
 
-      {/* Analysis workspace: categorized left sidebar + inline results */}
+      {/* Main Workspace */}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(215px,250px)_minmax(0,1fr)]">
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Sidebar */}
+        {/* ---------------------------------------------------------------- */}
+
         <aside
           aria-label="Entity and author analysis methods"
           className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
@@ -495,359 +964,680 @@ export function EntityExplorerStudio({
             </div>
           </div>
 
-          <nav className="space-y-3.5">
-            {ENTITY_CATEGORY_ORDER.map((category) => {
-              const locals = LOCAL_ENTITY_ANALYSES.filter((item) => item.category === category);
-              const models = ENTITY_MODELS.filter((model) => {
-                if (model.id === "citation.author_h_index" || model.id === "citation.advanced_hirsch") {
-                  return category === "Entity & Author Metrics";
-                }
-                if (model.id === "author.productivity") {
-                  return category === "Scientometric Laws";
-                }
-                if (model.id === "source.productivity" || model.id === "institution.productivity") {
-                  return category === "Sources & Institutions";
-                }
-                if (model.id === "keyword.frequency" || model.id === "group.analysis") {
-                  return category === "Knowledge Structures";
-                }
-                if (model.id === "group.comparative_significance") {
-                  return category === "Group Comparison";
-                }
-                return false;
-              });
+          {/* Flat analysis list — no category grouping */}
+          <nav className="space-y-0.5">
 
-              if (!locals.length && !models.length) return null;
+            {/* Local Entity Analyses */}
+            {LOCAL_ENTITY_ANALYSES.map(
+              (item) => {
+                const Icon = item.icon;
 
-              return (
-                <div key={category} className="space-y-0.5">
-                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {category}
-                  </div>
+                const isActive =
+                  activeViewId === item.id;
 
-                  {locals.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeViewId === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => selectAnalysis(item.id, true)}
-                        disabled={running}
-                        className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      selectAnalysis(
+                        item.id,
+                        true
+                      )
+                    }
+                    disabled={running}
+                    title={item.desc}
+                    className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
+                      isActive
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-3.5 w-3.5 shrink-0 ${
+                        isActive
+                          ? "text-white"
+                          : "text-slate-500"
+                      }`}
+                    />
+
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.name}
+                    </span>
+                  </button>
+                );
+              }
+            )}
+
+            {/* Capability / Model Analyses */}
+            {ENTITY_MODELS.map(
+              (model) => {
+                const Icon = model.icon;
+
+                const isActive =
+                  activeModelId === model.id;
+
+                const isRunning =
+                  running &&
+                  activeModelId === model.id;
+
+                return (
+                  <button
+                    key={model.id}
+                    type="button"
+                    onClick={() =>
+                      selectAnalysis(
+                        model.id,
+                        false
+                      )
+                    }
+                    disabled={running}
+                    className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
+                      isActive
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {isRunning ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white" />
+                    ) : (
+                      <Icon
+                        className={`h-3.5 w-3.5 shrink-0 ${
                           isActive
-                            ? "bg-slate-900 text-white shadow-xs"
-                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            ? "text-white"
+                            : "text-slate-500"
                         }`}
-                      >
-                        <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
-                        <span className="truncate">{item.name}</span>
-                      </button>
-                    );
-                  })}
+                      />
+                    )}
 
-                  {models.map((model) => {
-                    const Icon = model.icon;
-                    const isActive = activeModelId === model.id;
-                    return (
-                      <button
-                        key={model.id}
-                        type="button"
-                        onClick={() => selectAnalysis(model.id, false)}
-                        disabled={running}
-                        className={`w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs font-semibold transition cursor-pointer disabled:opacity-60 ${
-                          isActive
-                            ? "bg-slate-900 text-white shadow-xs"
-                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                        }`}
-                      >
-                        <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-white" : "text-slate-500"}`} />
-                        <span className="truncate">{model.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                    <span className="min-w-0 flex-1 truncate">
+                      {model.name}
+                    </span>
+
+                    {isRunning && (
+                      <span className="shrink-0 text-[9px] font-bold text-slate-300">
+                        Running
+                      </span>
+                    )}
+                  </button>
+                );
+              }
+            )}
+
           </nav>
         </aside>
 
-        <section className="min-w-0 space-y-5" aria-live="polite">
-          {selectedItem ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {selectedItem.category}
-                  </div>
-                  <h2 className="mt-0.5 text-lg font-black tracking-tight text-slate-900">
-                    {selectedItem.name}
-                  </h2>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">{selectedItem.desc}</p>
-                </div>
+        {/* ---------------------------------------------------------------- */}
+        {/* Content */}
+        {/* ---------------------------------------------------------------- */}
 
-                <button
-                  type="button"
-                  onClick={runAnalysis}
-                  disabled={running || isLoading || !activeDatasetId}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-                >
-                  {running ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  {running ? "Running..." : isLoading ? "Loading dataset..." : "Run analysis"}
-                </button>
-              </div>
+        <section
+          className="min-w-0 space-y-5"
+          aria-live="polite"
+        >
 
-              {runError && (
-                <p role="alert" className="mt-3 text-xs font-semibold text-rose-700">
-                  {runError}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-600">
-              Select an analysis method from the list to view its details and run it.
+          {/* Error */}
+          {runError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700"
+            >
+              {runError}
             </div>
           )}
 
-          {/* Legacy entity dimension results */}
-          {activeViewId && completedView === activeViewId && (
-            <div className="space-y-5">
-              {/* Search & Sort Controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                <div className="flex items-center gap-2 flex-1 max-w-md">
-                  <Search className="h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder={`Search ${dimension}...`}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full text-xs text-slate-800 bg-transparent focus:outline-hidden"
-                  />
-                </div>
-                <div className="text-xs text-slate-500 font-semibold">
-                  Found <strong>{filteredEntities.length.toLocaleString()}</strong> {dimension}
-                </div>
-              </div>
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading dataset...
+            </div>
+          )}
 
-              {/* Main Grid: Entity Table & Drill-down */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Table View (2 Cols) */}
-                <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-                  <div className="overflow-x-auto max-h-[640px] overflow-y-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 z-10">
-                        <tr>
-                          <th className="p-3.5">Name / Label</th>
-                          <th
-                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                            onClick={() => handleSort("docCount")}
-                          >
-                            <div className="inline-flex items-center gap-1">
-                              Articles
-                              <ArrowUpDown className="h-3 w-3" />
-                            </div>
-                          </th>
-                          <th
-                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                            onClick={() => handleSort("totalCitations")}
-                          >
-                            <div className="inline-flex items-center gap-1">
-                              Citations
-                              <ArrowUpDown className="h-3 w-3" />
-                            </div>
-                          </th>
-                          <th
-                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                            onClick={() => handleSort("hIndex")}
-                          >
-                            <div className="inline-flex items-center gap-1">
-                              H-Index
-                              <ArrowUpDown className="h-3 w-3" />
-                            </div>
-                          </th>
-                          <th
-                            className="p-3.5 text-right cursor-pointer hover:text-slate-900"
-                            onClick={() => handleSort("gIndex")}
-                          >
-                            <div className="inline-flex items-center gap-1">
-                              G-Index
-                              <ArrowUpDown className="h-3 w-3" />
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {filteredEntities.slice(0, 50).map((entity) => {
-                          const isSelected = selectedEntity?.id === entity.id;
-                          return (
-                            <tr
-                              key={entity.id}
-                              onClick={() => setSelectedEntity(entity)}
-                              className={`hover:bg-slate-50/80 transition cursor-pointer ${
-                                isSelected ? "bg-blue-50/60 font-semibold" : ""
-                              }`}
+          {/* ---------------------------------------------------------------- */}
+          {/* Legacy Entity Dimension Results */}
+          {/* ---------------------------------------------------------------- */}
+
+          {activeViewId &&
+            completedView ===
+              activeViewId && (
+              <div className="space-y-5">
+
+                {/* Search & Sort Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+
+                  <div className="flex items-center gap-2 flex-1 max-w-md">
+                    <Search className="h-4 w-4 text-slate-400" />
+
+                    <input
+                      type="text"
+                      placeholder={`Search ${dimension}...`}
+                      value={searchQuery}
+                      onChange={(e) =>
+                        setSearchQuery(
+                          e.target.value
+                        )
+                      }
+                      className="w-full text-xs text-slate-800 bg-transparent focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div className="text-xs text-slate-500 font-semibold">
+                    Found{" "}
+                    <strong>
+                      {filteredEntities.length.toLocaleString()}
+                    </strong>{" "}
+                    {dimension}
+                  </div>
+                </div>
+
+                {/* Main Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                  {/* Table */}
+                  <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+
+                    <div className="overflow-x-auto max-h-[640px] overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+
+                        <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 z-10">
+                          <tr>
+
+                            <th className="p-3.5">
+                              Name / Label
+                            </th>
+
+                            <th
+                              className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                              onClick={() =>
+                                handleSort(
+                                  "docCount"
+                                )
+                              }
                             >
-                              <td className="p-3.5 font-bold text-slate-800 line-clamp-1 max-w-[220px]">
-                                {entity.name}
-                              </td>
-                              <td className="p-3.5 text-right font-mono text-slate-900">
-                                {entity.docCount.toLocaleString()}
-                              </td>
-                              <td className="p-3.5 text-right font-mono text-emerald-600 font-bold">
-                                {entity.totalCitations.toLocaleString()}
-                              </td>
-                              <td className="p-3.5 text-right font-mono text-purple-600 font-bold">
-                                {entity.hIndex}
-                              </td>
-                              <td className="p-3.5 text-right font-mono text-blue-600">
-                                {entity.gIndex}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                              <div className="inline-flex items-center gap-1">
+                                Articles
+                                <ArrowUpDown className="h-3 w-3" />
+                              </div>
+                            </th>
+
+                            <th
+                              className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                              onClick={() =>
+                                handleSort(
+                                  "totalCitations"
+                                )
+                              }
+                            >
+                              <div className="inline-flex items-center gap-1">
+                                Citations
+                                <ArrowUpDown className="h-3 w-3" />
+                              </div>
+                            </th>
+
+                            <th
+                              className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                              onClick={() =>
+                                handleSort(
+                                  "hIndex"
+                                )
+                              }
+                            >
+                              <div className="inline-flex items-center gap-1">
+                                H-Index
+                                <ArrowUpDown className="h-3 w-3" />
+                              </div>
+                            </th>
+
+                            <th
+                              className="p-3.5 text-right cursor-pointer hover:text-slate-900"
+                              onClick={() =>
+                                handleSort(
+                                  "gIndex"
+                                )
+                              }
+                            >
+                              <div className="inline-flex items-center gap-1">
+                                G-Index
+                                <ArrowUpDown className="h-3 w-3" />
+                              </div>
+                            </th>
+
+                          </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-slate-100">
+
+                          {filteredEntities
+                            .slice(0, 50)
+                            .map(
+                              (entity) => {
+                                const isSelected =
+                                  selectedEntity?.id ===
+                                  entity.id;
+
+                                return (
+                                  <tr
+                                    key={
+                                      entity.id
+                                    }
+                                    onClick={() =>
+                                      setSelectedEntity(
+                                        entity
+                                      )
+                                    }
+                                    className={`hover:bg-slate-50/80 transition cursor-pointer ${
+                                      isSelected
+                                        ? "bg-blue-50/60 font-semibold"
+                                        : ""
+                                    }`}
+                                  >
+
+                                    <td className="p-3.5 font-bold text-slate-800 line-clamp-1 max-w-[220px]">
+                                      {
+                                        entity.name
+                                      }
+                                    </td>
+
+                                    <td className="p-3.5 text-right font-mono text-slate-900">
+                                      {entity.docCount.toLocaleString()}
+                                    </td>
+
+                                    <td className="p-3.5 text-right font-mono text-emerald-600 font-bold">
+                                      {entity.totalCitations.toLocaleString()}
+                                    </td>
+
+                                    <td className="p-3.5 text-right font-mono text-purple-600 font-bold">
+                                      {
+                                        entity.hIndex
+                                      }
+                                    </td>
+
+                                    <td className="p-3.5 text-right font-mono text-blue-600">
+                                      {
+                                        entity.gIndex
+                                      }
+                                    </td>
+
+                                  </tr>
+                                );
+                              }
+                            )}
+
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Drill-down Detail Inspector */}
+                  <div className="space-y-6">
+
+                    {selectedEntity ? (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
+
+                        <div className="border-b border-slate-100 pb-3">
+
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Selected Entity
+                          </span>
+
+                          <h3 className="text-base font-black text-slate-900 line-clamp-2 mt-1">
+                            {
+                              selectedEntity.name
+                            }
+                          </h3>
+
+                          <div className="mt-1 text-xs text-slate-500">
+                            Active Years:{" "}
+                            {
+                              selectedEntity.firstYear
+                            }{" "}
+                            -{" "}
+                            {
+                              selectedEntity.lastYear
+                            }
+                          </div>
+
+                        </div>
+
+                        {/* Metrics */}
+                        <div className="grid grid-cols-2 gap-3">
+
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="text-[10px] font-bold uppercase text-slate-400">
+                              Publications
+                            </div>
+
+                            <div className="text-xl font-black text-slate-900">
+                              {
+                                selectedEntity.docCount
+                              }
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="text-[10px] font-bold uppercase text-slate-400">
+                              Citations
+                            </div>
+
+                            <div className="text-xl font-black text-emerald-600">
+                              {
+                                selectedEntity.totalCitations
+                              }
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="text-[10px] font-bold uppercase text-slate-400">
+                              Hirsch (H-Index)
+                            </div>
+
+                            <div className="text-xl font-black text-purple-600">
+                              {
+                                selectedEntity.hIndex
+                              }
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="text-[10px] font-bold uppercase text-slate-400">
+                              Egghe (G-Index)
+                            </div>
+
+                            <div className="text-xl font-black text-blue-600">
+                              {
+                                selectedEntity.gIndex
+                              }
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Annual Production */}
+                        <div className="space-y-2 pt-2">
+
+                          <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
+                            Annual Production Curve
+                          </div>
+
+                          <div className="h-40 w-full">
+
+                            <ResponsiveContainer
+                              width="100%"
+                              height="100%"
+                            >
+                              <BarChart
+                                data={
+                                  annualChartData
+                                }
+                                margin={{
+                                  top: 5,
+                                  right: 10,
+                                  left: -20,
+                                  bottom: 0,
+                                }}
+                              >
+
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke="#f1f5f9"
+                                />
+
+                                <XAxis
+                                  dataKey="year"
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                />
+
+                                <YAxis
+                                  stroke="#94a3b8"
+                                  fontSize={10}
+                                />
+
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor:
+                                      "#0f172a",
+                                    borderRadius:
+                                      "8px",
+                                    border:
+                                      "none",
+                                    fontSize:
+                                      "11px",
+                                    color:
+                                      "#fff",
+                                  }}
+                                />
+
+                                <Bar
+                                  dataKey="articles"
+                                  fill="#3b82f6"
+                                  radius={[
+                                    4,
+                                    4,
+                                    0,
+                                    0,
+                                  ]}
+                                />
+
+                              </BarChart>
+                            </ResponsiveContainer>
+
+                          </div>
+                        </div>
+
+                        {/* Related Publications */}
+                        {matchedDocs.length >
+                          0 && (
+                          <div className="space-y-2.5 pt-3 border-t border-slate-100">
+
+                            <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                              <span>
+                                Sample Publications (
+                                {
+                                  matchedDocs.length
+                                }
+                                )
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+
+                              {matchedDocs.map(
+                                (
+                                  doc: any,
+                                  i
+                                ) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs space-y-1"
+                                  >
+
+                                    <div className="font-bold text-slate-900 line-clamp-1">
+                                      {
+                                        doc.title
+                                      }
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+
+                                      <span>
+                                        {
+                                          doc.year ||
+                                          doc.PY
+                                        }
+                                      </span>
+
+                                      <span>
+                                        •
+                                      </span>
+
+                                      <span className="font-semibold text-emerald-700">
+                                        {
+                                          doc.citations ??
+                                          doc.TC ??
+                                          0
+                                        }{" "}
+                                        citations
+                                      </span>
+
+                                      {doc.source && (
+                                        <>
+                                          <span>
+                                            •
+                                          </span>
+
+                                          <span className="line-clamp-1 text-slate-600">
+                                            {
+                                              doc.source
+                                            }
+                                          </span>
+                                        </>
+                                      )}
+
+                                    </div>
+
+                                    {/* Funding */}
+                                    {(
+                                      doc.funding_agencies?.length >
+                                        0 ||
+                                      doc.grant_numbers?.length >
+                                        0
+                                    ) && (
+                                      <div className="flex flex-wrap items-center gap-1 pt-1">
+
+                                        {doc.funding_agencies
+                                          ?.slice(
+                                            0,
+                                            2
+                                          )
+                                          .map(
+                                            (
+                                              fa: string,
+                                              fai: number
+                                            ) => (
+                                              <span
+                                                key={
+                                                  fai
+                                                }
+                                                className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800"
+                                              >
+                                                <Landmark className="h-2.5 w-2.5" />
+                                                {
+                                                  fa
+                                                }
+                                              </span>
+                                            )
+                                          )}
+
+                                        {doc.grant_numbers
+                                          ?.slice(
+                                            0,
+                                            2
+                                          )
+                                          .map(
+                                            (
+                                              gn: string,
+                                              gni: number
+                                            ) => (
+                                              <span
+                                                key={
+                                                  gni
+                                                }
+                                                className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-700"
+                                              >
+                                                #
+                                                {
+                                                  gn
+                                                }
+                                              </span>
+                                            )
+                                          )}
+
+                                      </div>
+                                    )}
+
+                                    {/* Affiliation */}
+                                    {(
+                                      doc.institutions?.length >
+                                        0 ||
+                                      doc.affiliations?.length >
+                                        0
+                                    ) && (
+                                      <div className="text-[10px] text-slate-500 line-clamp-1 pt-0.5">
+                                        🏛️{" "}
+                                        {(
+                                          doc.institutions?.[0] ||
+                                          doc.affiliations?.[0] ||
+                                          ""
+                                        ).slice(
+                                          0,
+                                          45
+                                        )}
+                                      </div>
+                                    )}
+
+                                  </div>
+                                )
+                              )}
+
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center space-y-3">
+
+                        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                          <BarChart2 className="h-5 w-5" />
+                        </div>
+
+                        <h4 className="text-xs font-bold text-slate-800">
+                          No Entity Selected
+                        </h4>
+
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Click any row in the
+                          table to inspect
+                          longitudinal citation
+                          impact, annual
+                          production curves,
+                          and affiliated
+                          publications.
+                        </p>
+
+                      </div>
+                    )}
+
                   </div>
                 </div>
-
-                {/* Drill-down Detail Inspector */}
-                <div className="space-y-6">
-                  {selectedEntity ? (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
-                      <div className="border-b border-slate-100 pb-3">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Selected Entity
-                        </span>
-                        <h3 className="text-base font-black text-slate-900 line-clamp-2 mt-1">
-                          {selectedEntity.name}
-                        </h3>
-                        <div className="mt-1 text-xs text-slate-500">
-                          Active Years: {selectedEntity.firstYear} - {selectedEntity.lastYear}
-                        </div>
-                      </div>
-
-                      {/* Metrics Grid */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <div className="text-[10px] font-bold uppercase text-slate-400">Publications</div>
-                          <div className="text-xl font-black text-slate-900">{selectedEntity.docCount}</div>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <div className="text-[10px] font-bold uppercase text-slate-400">Citations</div>
-                          <div className="text-xl font-black text-emerald-600">{selectedEntity.totalCitations}</div>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <div className="text-[10px] font-bold uppercase text-slate-400">Hirsch (H-Index)</div>
-                          <div className="text-xl font-black text-purple-600">{selectedEntity.hIndex}</div>
-                        </div>
-                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                          <div className="text-[10px] font-bold uppercase text-slate-400">Egghe (G-Index)</div>
-                          <div className="text-xl font-black text-blue-600">{selectedEntity.gIndex}</div>
-                        </div>
-                      </div>
-
-                      {/* Longitudinal Production Chart */}
-                      <div className="space-y-2 pt-2">
-                        <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
-                          Annual Production Curve
-                        </div>
-                        <div className="h-40 w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={annualChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                              <XAxis dataKey="year" stroke="#94a3b8" fontSize={10} />
-                              <YAxis stroke="#94a3b8" fontSize={10} />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "#0f172a",
-                                  borderRadius: "8px",
-                                  border: "none",
-                                  fontSize: "11px",
-                                  color: "#fff",
-                                }}
-                              />
-                              <Bar dataKey="articles" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-
-                      {/* Related Documents with Funding & Affiliation Badges */}
-                      {matchedDocs.length > 0 && (
-                        <div className="space-y-2.5 pt-3 border-t border-slate-100">
-                          <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
-                            <span>Sample Publications ({matchedDocs.length})</span>
-                          </div>
-                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                            {matchedDocs.map((doc: any, i) => (
-                              <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs space-y-1">
-                                <div className="font-bold text-slate-900 line-clamp-1">{doc.title}</div>
-                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                  <span>{doc.year || doc.PY}</span>
-                                  <span>•</span>
-                                  <span className="font-semibold text-emerald-700">{doc.citations ?? doc.TC ?? 0} citations</span>
-                                  {doc.source && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="line-clamp-1 text-slate-600">{doc.source}</span>
-                                    </>
-                                  )}
-                                </div>
-                                {/* Grant & Funding Info */}
-                                {(doc.funding_agencies?.length > 0 || doc.grant_numbers?.length > 0) && (
-                                  <div className="flex flex-wrap items-center gap-1 pt-1">
-                                    {doc.funding_agencies?.slice(0, 2).map((fa: string, fai: number) => (
-                                      <span key={fai} className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800">
-                                        <Landmark className="h-2.5 w-2.5" />
-                                        {fa}
-                                      </span>
-                                    ))}
-                                    {doc.grant_numbers?.slice(0, 2).map((gn: string, gni: number) => (
-                                      <span key={gni} className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-slate-700">
-                                        #{gn}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                {/* Affiliation Info */}
-                                {(doc.institutions?.length > 0 || doc.affiliations?.length > 0) && (
-                                  <div className="text-[10px] text-slate-500 line-clamp-1 pt-0.5">
-                                    🏛️ {(doc.institutions?.[0] || doc.affiliations?.[0] || "").slice(0, 45)}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center space-y-3">
-                      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                        <BarChart2 className="h-5 w-5" />
-                      </div>
-                      <h4 className="text-xs font-bold text-slate-800">No Entity Selected</h4>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Click any row in the table to inspect longitudinal citation impact, annual production curves, and affiliated publications.
-                      </p>
-                    </div>
-                  )}
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Capability model results */}
-          {selectedModel && focusedAnalysis && (
-            <div key={focusedAnalysis.id}>
-              <AnalysisResultPanel analysis={focusedAnalysis} onRefresh={runAnalysis} />
-            </div>
-          )}
+          {/* ---------------------------------------------------------------- */}
+          {/* Capability Model Results */}
+          {/* ---------------------------------------------------------------- */}
+
+          {selectedModel &&
+            focusedAnalysis && (
+              <div
+                key={
+                  focusedAnalysis.id
+                }
+              >
+                <AnalysisResultPanel
+                  analysis={
+                    focusedAnalysis
+                  }
+                  onRefresh={
+                    refreshAnalysis
+                  }
+                />
+              </div>
+            )}
+
         </section>
       </div>
     </div>

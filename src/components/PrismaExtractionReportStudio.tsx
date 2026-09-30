@@ -35,7 +35,6 @@ interface Props {
   dataset: Dataset;
   allDatasets: Dataset[];
   onSelectDataset?: (id: string) => void;
-  onNavigateToDedup?: () => void;
   onRefreshData?: () => void;
 }
 
@@ -43,7 +42,7 @@ export function PrismaExtractionReportStudio({
   dataset,
   allDatasets = [],
   onSelectDataset,
-  onNavigateToDedup,
+  
   onRefreshData,
 }: Props) {
   const { getAiRequestOptions } = useAiProvider();
@@ -473,24 +472,7 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             {prisma.flow && !prisma.flow.consistency.valid && <p role="alert" className="mt-3 text-xs text-rose-700">{prisma.flow.consistency.errors.join("; ")}</p>}
             {prisma.flow?.consistency.warnings.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>)}
           </div>
-
-          {/* Quick Actions Card */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs text-xs space-y-2">
-            <div className="font-bold text-slate-800">Workflow Integrations</div>
-            <p className="text-slate-500 text-[11px]">
-              Need to resolve borderline duplicate candidates or normalize inconsistent author names?
-            </p>
-            {onNavigateToDedup && (
-              <button
-                type="button"
-                onClick={onNavigateToDedup}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-slate-500" />
-                Launch Full Hygiene & Deduplication Engine
-              </button>
-            )}
-          </div>
+         
         </div>
 
         {/* Right Column: AI-Powered Summary & Descriptive Report */}

@@ -532,13 +532,7 @@ export function DatasetsView({
 
                             <div className="flex items-center gap-3">
                               <StatusBadge status={v.status || "ready"} />
-                              <button
-                                type="button"
-                                onClick={() => onOpenDescriptive(selectedDataset.id)}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                              >
-                                Open Corpus Analytics
-                              </button>
+                             
                             </div>
                           </div>
                         ))}

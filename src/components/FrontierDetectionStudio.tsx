@@ -40,7 +40,6 @@ interface Props {
   datasets: Dataset[];
   activeDatasetId?: string;
   onSelectDataset?: (datasetId: string) => void;
-  onNavigateToThematic?: () => void;
 }
 
 export function FrontierDetectionStudio({
@@ -332,16 +331,7 @@ export function FrontierDetectionStudio({
               </button>
             )}
 
-            {onNavigateToThematic && (
-              <button
-                type="button"
-                onClick={onNavigateToThematic}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-bold text-purple-700 hover:bg-purple-100 transition cursor-pointer"
-              >
-                <span>Thematic Evolution (Sankey)</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            )}
+            
           </div>
         </div>
       </div>
