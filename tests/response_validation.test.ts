@@ -143,23 +143,21 @@ describe("Frontend Defensive Response Validation Suite", () => {
 
     test("identifies empty or missing research gaps as incomplete/partial", () => {
       const invalidRes = validateResearchGapsResponse({});
+      assert.equal(invalidRes.success, false);
       assert.equal(invalidRes.isComplete, false);
-      assert.equal(invalidRes.isPartial, true);
+
+      assert.equal(validateResearchGapsResponse({ status: "unavailable", white_spaces: [], unexplored_intersections: [], future_trend_forecasts: [] }).success, false);
+      assert.equal(validateRagChatResponse({ status: "unavailable", answer: "unavailable" }).success, false);
+      assert.equal(validateManuscriptSectionResponse({ status: "unavailable", content: "unavailable" }).success, false);
+      assert.equal(validateCitationContextResponse({ status: "unavailable", sentiment_summary: "unavailable", exemplar_analyses: [] }).success, false);
 
       const validRes = validateResearchGapsResponse({
-        gaps: [
-          {
-            id: "gap-1",
-            title: "Novel mechanism",
-            description: "Unexplored pathway",
-            feasibility: "high",
-            suggestedMethodology: "Wet-lab",
-            priorityScore: 85,
-          },
-        ],
+        white_spaces: [{ title: "Novel mechanism", rationale: "Unexplored pathway", bridging_topics: ["Biology"], potential_impact: "High" }],
+        unexplored_intersections: [],
+        future_trend_forecasts: [],
       });
       assert.equal(validRes.success, true);
-      assert.equal(validRes.data?.gaps.length, 1);
+      assert.equal(validRes.data?.white_spaces.length, 1);
     });
 
     test("validates AI Interpretation with partial truncation detection", () => {
@@ -188,6 +186,29 @@ describe("Frontend Defensive Response Validation Suite", () => {
       assert.equal(unavailable.success, true);
       assert.equal(unavailable.isComplete, false);
       assert.equal(unavailable.isPartial, true);
+
+      const complete = validateResearchGapMatrixResponse({
+        proposals: [{ title: "Fixture proposal", quadrant: "High Novelty / High Feasibility", noveltyScore: 85, feasibilityScore: 75 }],
+        matrixSummary: { recommendedTopGrantProposal: "Fixture proposal" },
+      });
+      assert.equal(complete.isComplete, true);
+      assert.equal(complete.data?.proposals[0].title, "Fixture proposal");
+      assert.equal(validateResearchGapMatrixResponse({ proposals: [{}] }).success, false);
+    });
+
+    test("accepts canonical indexing metrics and rejects incomplete discrepancy reports", () => {
+      const complete = validateCorpusDiscrepancyResponse({
+        totalUniqueUnionDocs: 2,
+        databaseMetrics: [{ database: "Scopus", docCount: 2 }],
+        vennIntersections: { scopusOnly: 2 },
+        fieldBiases: [],
+        synthesizedReport: { recommendedIndexingStrategy: "Compare sources" },
+      });
+      assert.equal(complete.isComplete, true);
+      assert.equal(complete.data?.databaseMetrics[0].database, "Scopus");
+      assert.equal(validateCorpusDiscrepancyResponse({ databaseMetrics: [], vennIntersections: {} }).success, false);
+      const unavailable = validateCorpusDiscrepancyResponse({ status: "unavailable", databaseMetrics: [] });
+      assert.equal(unavailable.isComplete, false);
     });
   });
 

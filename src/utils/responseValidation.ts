@@ -715,6 +715,10 @@ export function validateRagChatResponse(raw: unknown): AIResponseOutcome<string>
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
+  if (obj.status === "unavailable") {
+    const warning = Array.isArray(obj.warnings) && typeof obj.warnings[0] === "string" ? obj.warnings[0] : "AI Copilot is unavailable for this provider configuration.";
+    return { success: false, isComplete: false, data: null, error: warning };
+  }
   const answer = typeof obj.answer === "string" ? obj.answer.trim() : "";
   if (!answer) {
     return { success: false, isComplete: false, data: null, error: "AI generated an empty response." };
@@ -745,14 +749,16 @@ export function validateResearchGapsResponse(raw: unknown): AIResponseOutcome<an
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
-  if (!Array.isArray(obj.gaps) || obj.gaps.length === 0) {
-    return {
-      success: true,
-      isComplete: false,
-      isPartial: true,
-      data: obj,
-      error: "AI returned no identified gaps for this corpus.",
-    };
+  if (!Array.isArray(obj.white_spaces) || !Array.isArray(obj.unexplored_intersections) ||
+      !Array.isArray(obj.future_trend_forecasts)) {
+    return { success: false, isComplete: false, data: null, error: "Research gaps response is malformed." };
+  }
+  if (obj.status === "unavailable" || obj.white_spaces.length === 0) {
+    return { success: false, isComplete: false, isPartial: true, data: null, error: "AI returned no identified gaps for this corpus." };
+  }
+  if (!obj.white_spaces.every((gap: any) => gap && typeof gap.title === "string" &&
+      Array.isArray(gap.bridging_topics))) {
+    return { success: false, isComplete: false, data: null, error: "Research gaps response is malformed." };
   }
 
   return { success: true, isComplete: true, data: obj };
@@ -767,6 +773,9 @@ export function validateManuscriptSectionResponse(raw: unknown): AIResponseOutco
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
+  if (obj.status === "unavailable") {
+    return { success: false, isComplete: false, data: null, error: "Manuscript generation is unavailable for this provider configuration." };
+  }
   const content = typeof obj.content === "string" ? obj.content.trim() : "";
   if (!content) {
     return { success: false, isComplete: false, data: null, error: "Generated manuscript section is empty." };
@@ -784,6 +793,9 @@ export function validateCitationContextResponse(raw: unknown): AIResponseOutcome
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
+  if (obj.status === "unavailable") {
+    return { success: false, isComplete: false, data: null, error: "Citation context analysis is unavailable for this provider configuration." };
+  }
   if (typeof obj.sentiment_summary !== "string" || !Array.isArray(obj.exemplar_analyses)) {
     return {
       success: false,
@@ -805,22 +817,23 @@ export function validateResearchGapMatrixResponse(raw: unknown): AIResponseOutco
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
+  if (obj.status === "unavailable") {
+    return { success: true, isComplete: false, isPartial: true, data: null, error: "Research gap matrix is unavailable for this provider configuration." };
+  }
   if (!Array.isArray(obj.proposals) || obj.proposals.length === 0) {
-    if (obj.status === "unavailable") {
-      return {
-        success: true,
-        isComplete: false,
-        isPartial: true,
-        data: obj as unknown as ResearchGapMatrixOutput,
-        error: "Research gap matrix is unavailable for this provider configuration.",
-      };
-    }
     return {
       success: false,
       isComplete: false,
       data: null,
       error: "Research gap matrix returned zero proposals.",
     };
+  }
+
+  if (!obj.matrixSummary || typeof obj.matrixSummary !== "object" ||
+      !obj.proposals.every((proposal: any) => proposal && typeof proposal === "object" &&
+        typeof proposal.quadrant === "string" && typeof proposal.title === "string" &&
+        typeof proposal.noveltyScore === "number" && typeof proposal.feasibilityScore === "number")) {
+    return { success: false, isComplete: false, data: null, error: "Research gap matrix output is incomplete." };
   }
 
   return { success: true, isComplete: true, data: obj as unknown as ResearchGapMatrixOutput };
@@ -835,22 +848,21 @@ export function validateCorpusDiscrepancyResponse(raw: unknown): AIResponseOutco
     return { success: false, isComplete: false, data: null, error: obj.error };
   }
 
-  if (!Array.isArray(obj.databaseMetrics) || !obj.vennIntersections) {
-    if (obj.status === "unavailable") {
-      return {
-        success: true,
-        isComplete: false,
-        isPartial: true,
-        data: obj as unknown as MultiCorpusDiscrepancyOutput,
-        error: "Multi-corpus discrepancy analysis is unavailable for this provider configuration.",
-      };
-    }
-    return {
-      success: false,
-      isComplete: false,
-      data: null,
-      error: "Multi-corpus discrepancy metrics are incomplete.",
-    };
+  if (obj.status === "unavailable") {
+    return { success: true, isComplete: false, isPartial: true, data: null, error: "Multi-corpus discrepancy analysis is unavailable for this provider configuration." };
+  }
+  if (!Array.isArray(obj.databaseMetrics) || !obj.vennIntersections ||
+      !Array.isArray(obj.fieldBiases) || !obj.synthesizedReport || typeof obj.synthesizedReport !== "object" ||
+      typeof obj.totalUniqueUnionDocs !== "number") {
+    return { success: false, isComplete: false, data: null, error: "Multi-corpus discrepancy metrics are incomplete." };
+  }
+
+  const intersections = obj.vennIntersections as Record<string, unknown>;
+  if (!obj.databaseMetrics.every((metric: any) => metric && typeof metric.database === "string" &&
+      typeof metric.docCount === "number") ||
+      !Object.values(intersections).every((count) => typeof count === "number") ||
+      !obj.fieldBiases.every((bias: any) => bias && typeof bias.categoryName === "string")) {
+    return { success: false, isComplete: false, data: null, error: "Multi-corpus discrepancy metrics are malformed." };
   }
 
   return { success: true, isComplete: true, data: obj as unknown as MultiCorpusDiscrepancyOutput };

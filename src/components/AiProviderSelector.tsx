@@ -3,6 +3,7 @@ import { useAiProvider, type AiProviderChoice } from "../context/AiProviderConte
 
 const PROVIDER_LABELS: Record<AiProviderChoice, string> = {
   default: "Server default",
+  ollama: "Ollama (local)",
   gemini: "Gemini",
   claude: "Claude",
   openai: "OpenAI",
@@ -40,9 +41,9 @@ export function AiProviderSelector() {
         />
         Allow fallback
       </label>
-      <span className="inline-flex items-center gap-1 text-[10px] text-slate-500" title="Provider keys remain on the server">
+      <span className="inline-flex items-center gap-1 text-[10px] text-slate-500" title="Ollama configuration and optional cloud keys remain on the server">
         <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-        Server-managed keys
+        Server-managed configuration
       </span>
     </div>
   );

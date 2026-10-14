@@ -51,6 +51,7 @@ class MockProvider implements AiProvider {
 }
 
 const makeProviders = (overrides: Partial<Record<AiProviderId, AiProvider>> = {}): Record<AiProviderId, AiProvider> => ({
+  ollama: new MockProvider("ollama", { configured: false }),
   gemini: new MockProvider("gemini", { configured: false }),
   claude: new MockProvider("claude", { configured: false }),
   openai: new MockProvider("openai", { configured: false }),

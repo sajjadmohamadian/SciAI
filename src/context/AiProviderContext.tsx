@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type AiProviderChoice = "default" | "gemini" | "claude" | "openai";
+export type AiProviderChoice = "default" | "ollama" | "gemini" | "claude" | "openai";
 
 export interface AiRequestOptions {
   provider?: Exclude<AiProviderChoice, "default">;

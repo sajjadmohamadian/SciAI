@@ -18,7 +18,7 @@ const DEFAULT_DB_PATH = process.env.SCIAI_DB_PATH || path.join(process.cwd(), "d
  * Current schema version for SciAI SQLite persistence layer.
  * Stored in _schema_meta table to track future migrations without data loss.
  */
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
 
 /**
  * Explicit transaction executor for Node's DatabaseSync.
@@ -66,6 +66,7 @@ export function initDb(dbFilePath: string = DEFAULT_DB_PATH): DatabaseSync {
   // Enable WAL mode for better concurrency and reliability
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA synchronous = NORMAL;");
+  db.exec("PRAGMA foreign_keys = ON;");
 
   // Create tables for entity storage as JSON blobs keyed by id
   db.exec(`
@@ -103,11 +104,108 @@ export function initDb(dbFilePath: string = DEFAULT_DB_PATH): DatabaseSync {
       id TEXT PRIMARY KEY,
       data TEXT NOT NULL
     );
+
+    -- Power BI v2: sources define immutable server-validated aggregate schemas.
+    CREATE TABLE IF NOT EXISTS powerbi_sources (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL CHECK (kind IN ('internal_aggregate', 'external_reference')),
+      data TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS powerbi_snapshots (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES powerbi_sources(id),
+      version INTEGER NOT NULL CHECK (version > 0),
+      data TEXT NOT NULL,
+      UNIQUE(source_id, version)
+    );
+
+    CREATE TABLE IF NOT EXISTS powerbi_snapshot_rows (
+      snapshot_id TEXT NOT NULL REFERENCES powerbi_snapshots(id),
+      row_index INTEGER NOT NULL CHECK (row_index >= 0),
+      data TEXT NOT NULL,
+      PRIMARY KEY (snapshot_id, row_index)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_powerbi_snapshots_source
+      ON powerbi_snapshots(source_id, version DESC);
+
+    -- Append-only storage protects provenance and the column approval policy as well as rows.
+    CREATE TRIGGER IF NOT EXISTS powerbi_sources_no_update BEFORE UPDATE ON powerbi_sources
+      BEGIN SELECT RAISE(ABORT, 'Power BI sources are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_sources_no_delete BEFORE DELETE ON powerbi_sources
+      BEGIN SELECT RAISE(ABORT, 'Power BI sources are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_snapshots_no_update BEFORE UPDATE ON powerbi_snapshots
+      BEGIN SELECT RAISE(ABORT, 'Power BI snapshots are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_snapshots_no_delete BEFORE DELETE ON powerbi_snapshots
+      BEGIN SELECT RAISE(ABORT, 'Power BI snapshots are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_snapshot_rows_no_update BEFORE UPDATE ON powerbi_snapshot_rows
+      BEGIN SELECT RAISE(ABORT, 'Power BI snapshot rows are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_snapshot_rows_no_delete BEFORE DELETE ON powerbi_snapshot_rows
+      BEGIN SELECT RAISE(ABORT, 'Power BI snapshot rows are immutable'); END;
+
+    -- Power BI v3: explicit, versioned local combined evidence contracts.
+    CREATE TABLE IF NOT EXISTS powerbi_profiles (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES powerbi_sources(id),
+      version INTEGER NOT NULL CHECK (version > 0),
+      data TEXT NOT NULL,
+      UNIQUE(source_id, version)
+    );
+    CREATE TABLE IF NOT EXISTS powerbi_mappings (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL REFERENCES powerbi_profiles(id),
+      version INTEGER NOT NULL CHECK (version > 0),
+      data TEXT NOT NULL,
+      UNIQUE(profile_id, version)
+    );
+    CREATE TABLE IF NOT EXISTS powerbi_combined_models (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS powerbi_combined_model_rows (
+      model_id TEXT NOT NULL REFERENCES powerbi_combined_models(id),
+      row_index INTEGER NOT NULL CHECK (row_index >= 0),
+      data TEXT NOT NULL,
+      PRIMARY KEY(model_id, row_index)
+    );
+    CREATE TABLE IF NOT EXISTS powerbi_refresh_runs (
+      id TEXT PRIMARY KEY,
+      model_id TEXT REFERENCES powerbi_combined_models(id),
+      idempotency_key TEXT NOT NULL,
+      data TEXT NOT NULL,
+      UNIQUE(idempotency_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_powerbi_profiles_source ON powerbi_profiles(source_id, version DESC);
+    CREATE INDEX IF NOT EXISTS idx_powerbi_mappings_profile ON powerbi_mappings(profile_id, version DESC);
+    CREATE INDEX IF NOT EXISTS idx_powerbi_refresh_model ON powerbi_refresh_runs(model_id);
+
+    CREATE TRIGGER IF NOT EXISTS powerbi_profiles_no_update BEFORE UPDATE ON powerbi_profiles
+      BEGIN SELECT RAISE(ABORT, 'Power BI profiles are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_profiles_no_delete BEFORE DELETE ON powerbi_profiles
+      BEGIN SELECT RAISE(ABORT, 'Power BI profiles are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_mappings_no_update BEFORE UPDATE ON powerbi_mappings
+      BEGIN SELECT RAISE(ABORT, 'Power BI mappings are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_mappings_no_delete BEFORE DELETE ON powerbi_mappings
+      BEGIN SELECT RAISE(ABORT, 'Power BI mappings are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_combined_models_no_update BEFORE UPDATE ON powerbi_combined_models
+      BEGIN SELECT RAISE(ABORT, 'Power BI combined models are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_combined_models_no_delete BEFORE DELETE ON powerbi_combined_models
+      BEGIN SELECT RAISE(ABORT, 'Power BI combined models are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_combined_model_rows_no_update BEFORE UPDATE ON powerbi_combined_model_rows
+      BEGIN SELECT RAISE(ABORT, 'Power BI combined rows are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_combined_model_rows_no_delete BEFORE DELETE ON powerbi_combined_model_rows
+      BEGIN SELECT RAISE(ABORT, 'Power BI combined rows are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_refresh_runs_no_update BEFORE UPDATE ON powerbi_refresh_runs
+      BEGIN SELECT RAISE(ABORT, 'Power BI refresh runs are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS powerbi_refresh_runs_no_delete BEFORE DELETE ON powerbi_refresh_runs
+      BEGIN SELECT RAISE(ABORT, 'Power BI refresh runs are immutable'); END;
   `);
 
   // Ensure schema version marker is saved
   db.prepare(`
-    INSERT OR IGNORE INTO _schema_meta (key, value) VALUES ('schema_version', ?)
+    INSERT INTO _schema_meta (key, value) VALUES ('schema_version', ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
   `).run(SCHEMA_VERSION);
 
   // Indexes to support fast dataset, version, analysis, and project lookups & cascades:

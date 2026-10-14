@@ -11,7 +11,7 @@ afterEach(() => {
 describe("AI provider configuration", () => {
   test("parses provider order and filters invalid entries", () => {
     assert.deepEqual(parseProviderOrder("openai,invalid,claude,openai,gemini"), ["openai", "claude", "gemini"]);
-    assert.deepEqual(parseProviderOrder("invalid"), ["gemini", "claude", "openai"]);
+    assert.deepEqual(parseProviderOrder("invalid"), ["ollama", "gemini", "claude", "openai"]);
   });
 
   test("reports unconfigured providers without exposing secret values", () => {

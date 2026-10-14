@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sciai-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set HOST=localhost&& set PORT=3000&& set SCIAI_API_TOKEN=&& set API_TOKEN=&& set SCIAI_DEV_AUTH_BYPASS=true&& npm run dev"],
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "sciai-prisma-preview",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set HOST=localhost&& set PORT=3020&& set SCIAI_DB_PATH=.claude/prisma-preview.db&& set SCIAI_API_TOKEN=&& set API_TOKEN=&& set SCIAI_DEV_AUTH_BYPASS=true&& npm run dev"],
+      "port": 3020,
+      "url": "http://localhost:3020"
+    },
+    {
+      "name": "sciai-powerbi-preview",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set HOST=localhost&& set PORT=3030&& set SCIAI_DB_PATH=.claude/powerbi-preview.db&& set SCIAI_API_TOKEN=&& set API_TOKEN=&& set SCIAI_DEV_AUTH_BYPASS=true&& set SCIAI_OLLAMA_ENABLED=false&& set NODE_ENV=production&& npm run build&& npm start"],
+      "port": 3030,
+      "url": "http://localhost:3030"
+    },
+    {
+      "name": "sciai-public-upload-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set HOST=localhost&& set PORT=3010&& set SCIAI_API_TOKEN=&& set API_TOKEN=&& set SCIAI_DEV_AUTH_BYPASS=false&& set SCIAI_PUBLIC_UPLOADS=true&& set SCIAI_PUBLIC_ORIGIN=http://localhost:3010&& npm run dev"],
+      "port": 3010,
+      "url": "http://localhost:3010"
+    }
+  ]
+}

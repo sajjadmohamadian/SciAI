@@ -4,10 +4,12 @@ import { AiCallRequest, AiCallResult, AiProvider, AiProviderAttempt, AiProviderE
 import { GeminiProvider } from "./providers/gemini.js";
 import { ClaudeProvider } from "./providers/claude.js";
 import { OpenAiProvider } from "./providers/openai.js";
+import { OllamaProvider } from "./providers/ollama.js";
 
 export function createDefaultProviders(): Record<AiProviderId, AiProvider> {
   const config = getAiProviderConfig();
   return {
+    ollama: new OllamaProvider(config.models.ollama),
     gemini: new GeminiProvider(config.models.gemini),
     claude: new ClaudeProvider(config.models.claude),
     openai: new OpenAiProvider(config.models.openai),

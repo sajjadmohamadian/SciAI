@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dataset, Analysis } from "../types.js";
+import { PowerBIDataSources } from "./PowerBIDataSources.js";
+import { PowerBICombinedEvidence } from "./PowerBICombinedEvidence.js";
 import {
   BarChart3,
   Copy,
@@ -23,6 +25,7 @@ import {
   Users,
   Award,
   BookOpen,
+  GitMerge,
   Info
 } from "lucide-react";
 
@@ -42,16 +45,16 @@ export function PowerBIConnectorStudio({
   const currentDatasetId = selectedDatasetId || (datasets[0]?.id ?? "dataset-bio-1");
   const currentDataset = datasets.find((d) => d.id === currentDatasetId) || datasets[0];
 
-  const [activeTab, setActiveTab] = useState<"overview" | "tables" | "powerquery" | "dax" | "simulator" | "guide">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "sources" | "combined" | "tables" | "powerquery" | "dax" | "simulator" | "guide">("overview");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [pingStatus, setPingStatus] = useState<{ status: "idle" | "testing" | "success" | "error"; latency?: number; message?: string }>({
     status: "idle",
   });
-  const [refreshingStream, setRefreshingStream] = useState(false);
-  const [streamMessage, setStreamMessage] = useState<string | null>(null);
 
   // Live Model Data fetched from backend
   const [powerBiData, setPowerBiData] = useState<any>(null);
+  const currentDatasetIdRef = useRef(currentDatasetId);
+  currentDatasetIdRef.current = currentDatasetId;
   const [loadingModel, setLoadingModel] = useState(false);
   const [selectedTableTab, setSelectedTableTab] = useState<"Fact_Documents" | "Dim_Authors" | "Dim_Sources" | "Dim_ThematicClusters" | "Dim_GeographicCollaborations" | "Fact_ExecutiveKPIs">("Fact_Documents");
 
@@ -63,26 +66,33 @@ export function PowerBIConnectorStudio({
   const [simSearchText, setSimSearchText] = useState<string>("");
 
   const originUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const liveFeedUrl = `${originUrl}/api/powerbi/feed/${currentDatasetId}`;
+  const selectedVersionId = powerBiData?.feedMetadata?.dataset_id === currentDatasetId
+    ? powerBiData.feedMetadata.dataset_version_id
+    : null;
+  const versionQuery = selectedVersionId ? `&version_id=${encodeURIComponent(selectedVersionId)}` : "";
+  const liveFeedUrl = `${originUrl}/api/powerbi/feed/${encodeURIComponent(currentDatasetId)}${selectedVersionId ? `?version_id=${encodeURIComponent(selectedVersionId)}` : ""}`;
 
   // Fetch live model
   const fetchLiveModel = async () => {
+    const requestedDatasetId = currentDatasetId;
     setLoadingModel(true);
     try {
-      const res = await fetch(`/api/powerbi/feed/${currentDatasetId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPowerBiData(data);
-      }
+      const res = await fetch(`/api/powerbi/feed/${encodeURIComponent(requestedDatasetId)}`);
+      const data = res.ok ? await res.json() : null;
+      if (currentDatasetIdRef.current === requestedDatasetId) setPowerBiData(data);
     } catch (err) {
-      console.error("Failed to fetch Power BI feed:", err);
+      if (currentDatasetIdRef.current === requestedDatasetId) {
+        setPowerBiData(null);
+        console.error("Failed to fetch Power BI feed:", err);
+      }
     } finally {
-      setLoadingModel(false);
+      if (currentDatasetIdRef.current === requestedDatasetId) setLoadingModel(false);
     }
   };
 
   useEffect(() => {
-    fetchLiveModel();
+    setPowerBiData(null);
+    void fetchLiveModel();
   }, [currentDatasetId]);
 
   const handleCopy = (text: string, fieldId: string) => {
@@ -102,7 +112,7 @@ export function PowerBIConnectorStudio({
         setPingStatus({
           status: "success",
           latency: elapsed,
-          message: `HTTP 200 OK • Response time: ${elapsed}ms • ${json.Fact_Documents?.length || 0} documents ready for DirectQuery/Web Feed`,
+          message: `HTTP 200 OK • Response time: ${elapsed}ms • ${json.Fact_Documents?.length || 0} documents available for Web Import`,
         });
       } else {
         setPingStatus({
@@ -118,36 +128,15 @@ export function PowerBIConnectorStudio({
     }
   };
 
-  const handleSimulateRefresh = async () => {
-    setRefreshingStream(true);
-    setStreamMessage(null);
-    try {
-      const res = await fetch("/api/powerbi/simulate-live-refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataset_id: currentDatasetId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStreamMessage(`Synchronized: ${data.citations_incremented} citations updated across live streaming feed at ${new Date().toLocaleTimeString()}`);
-        await fetchLiveModel();
-      }
-    } catch (err) {
-      console.error("Refresh error:", err);
-    } finally {
-      setRefreshingStream(false);
-    }
-  };
-
   const handleDownloadPbids = () => {
-    window.location.href = `/api/powerbi/download-pbids?dataset_id=${currentDatasetId}`;
+    window.location.href = `/api/powerbi/download-pbids?dataset_id=${encodeURIComponent(currentDatasetId)}${versionQuery}`;
   };
 
   // Power Query M Scripts
   const powerQueryMasterScript = `// Power Query M Script for Microsoft Power BI Desktop
-// Generated for SciAI Live Bibliometric Feed (${currentDataset?.name || "Dataset"})
+// Generated for SciAI bibliometric snapshot (${currentDataset?.name || "Dataset"})
 let
-    // 1. Fetch JSON Feed from SciAI Live Web Connector
+    // 1. Fetch version-pinned JSON feed from SciAI
     Source = Json.Document(Web.Contents("${liveFeedUrl}")),
 
     // 2. Extract Fact_Documents Table
@@ -183,7 +172,7 @@ in
     #"Changed Type"`;
 
   const powerQueryAuthorsScript = `let
-    Source = Json.Document(Web.Contents("${originUrl}/api/powerbi/tables/authors?dataset_id=${currentDatasetId}")),
+    Source = Json.Document(Web.Contents("${originUrl}/api/powerbi/tables/authors?dataset_id=${encodeURIComponent(currentDatasetId)}${versionQuery}")),
     #"Converted to Table" = Table.FromList(Source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
     #"Expanded Column" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {
         "AuthorName", "TotalPublications", "TotalCitations", "AverageCitationsPerPaper", "HIndex", "LeadAffiliation"
@@ -200,7 +189,7 @@ in
     #"Changed Type"`;
 
   const powerQuerySourcesScript = `let
-    Source = Json.Document(Web.Contents("${originUrl}/api/powerbi/tables/sources?dataset_id=${currentDatasetId}")),
+    Source = Json.Document(Web.Contents("${originUrl}/api/powerbi/tables/sources?dataset_id=${encodeURIComponent(currentDatasetId)}${versionQuery}")),
     #"Converted to Table" = Table.FromList(Source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
     #"Expanded Column" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {
         "JournalSource", "TotalArticles", "TotalCitations", "AverageCitations", "BradfordZone", "CumulativeArticleSharePercent"
@@ -259,21 +248,21 @@ in
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 text-xs shadow-2xs">
                 <BarChart3 className="h-3.5 w-3.5" />
-                Microsoft Power BI Direct Connector
+                Microsoft Power BI Web Export
               </span>
               <span className="rounded-md bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-bold">
-                Live OData & Web REST Feed
+                JSON Web Import
               </span>
               <span className="rounded-md bg-slate-100 text-slate-700 px-2 py-0.5 text-[11px] font-mono">
-                DirectQuery & Scheduled Refresh Ready
+                Versioned research snapshots
               </span>
             </div>
 
             <h1 className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-              Direct Power BI Live Data Connector
+              Power BI Research Intelligence Export
             </h1>
             <p className="mt-1.5 text-xs sm:text-sm text-slate-600 max-w-3xl leading-relaxed">
-              Optimized continuous live feed structured as a Star Schema for Microsoft Power BI. Analysts and decision-makers can ingest enriched scientometric data into Power BI Desktop with one click, enabling real-time cross-filtering, multi-dimensional slicers, and dynamic KPI dashboards.
+              Import bibliometric snapshots and approved organizational or external reference tables into Power BI Desktop. Dataset versions and source provenance are available for reproducible reporting; refresh your Power BI import after a new snapshot is added.
             </p>
           </div>
 
@@ -294,7 +283,7 @@ in
               className="cursor-pointer inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 px-3.5 py-2.5 text-xs font-bold transition shadow-2xs"
             >
               <Zap className="h-4 w-4 text-amber-500" />
-              <span>Ping Live Feed</span>
+              <span>Check JSON Feed</span>
             </button>
           </div>
         </div>
@@ -323,11 +312,11 @@ in
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                Direct Web Feed URL for Power BI:
+                Web Import URL for Power BI:
               </label>
               <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live Feed Active
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Snapshot available
               </span>
             </div>
             <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 pl-3 shadow-2xs">
@@ -364,7 +353,7 @@ in
               {pingStatus.status === "testing" && <RefreshCw className="h-4 w-4 animate-spin text-slate-500" />}
               {pingStatus.status === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
               {pingStatus.status === "error" && <Info className="h-4 w-4 text-rose-600" />}
-              <span>{pingStatus.message || "Testing connection with Power BI live server..."}</span>
+              <span>{pingStatus.message || "Checking the JSON feed..."}</span>
             </div>
             {pingStatus.latency && (
               <span className="font-mono text-[11px] font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">
@@ -374,15 +363,12 @@ in
           </div>
         )}
 
-        {/* Streaming Refresh Notice */}
-        {streamMessage && (
-          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="h-3.5 w-3.5 text-amber-600" />
-              <span>{streamMessage}</span>
-            </div>
-            <span className="text-[10px] font-mono text-amber-700">Power BI Live Cache Refreshed</span>
-          </div>
+        {powerBiData?.feedMetadata && (
+          <p className="mt-3 text-xs text-slate-600" role="status">
+            Dataset version: {powerBiData.feedMetadata.dataset_version_id || "Not available"} ·
+            Source date: {powerBiData.feedMetadata.last_sync || "Not available"} ·
+            {powerBiData.feedMetadata.total_records} records. Approximated metrics require expert review.
+          </p>
         )}
       </div>
 
@@ -403,6 +389,26 @@ in
 
         <button
           type="button"
+          onClick={() => setActiveTab("sources")}
+          className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
+            activeTab === "sources" ? "bg-slate-900 text-white shadow-2xs" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          <Database className="h-3.5 w-3.5" />
+          <span>Organizational & External Sources</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("combined")}
+          className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
+            activeTab === "combined" ? "bg-indigo-700 text-white shadow-2xs" : "bg-indigo-50 text-indigo-800 hover:bg-indigo-100"
+          }`}
+        >
+          <GitMerge className="h-3.5 w-3.5" />
+          <span>Combined Evidence Model</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("simulator")}
           className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 ${
             activeTab === "simulator"
@@ -411,7 +417,7 @@ in
           }`}
         >
           <BarChart3 className="h-3.5 w-3.5" />
-          <span>2. Live Power BI Slicer Simulator</span>
+          <span>2. Snapshot Slicer Preview</span>
         </button>
 
         <button
@@ -467,6 +473,9 @@ in
         </button>
       </div>
 
+      {activeTab === "sources" && <PowerBIDataSources />}
+      {activeTab === "combined" && <PowerBICombinedEvidence datasetId={currentDatasetId} datasetVersionId={selectedVersionId} />}
+
       {/* TAB 1: OVERVIEW & STAR SCHEMA ARCHITECTURE */}
       {activeTab === "overview" && (
         <div className="space-y-6">
@@ -474,7 +483,7 @@ in
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
-                <span>Real-Time Slicing</span>
+                <span>Interactive Preview</span>
                 <Filter className="h-4 w-4 text-amber-500" />
               </div>
               <div className="mt-2 text-lg font-black text-slate-900">Instant Filtering</div>
@@ -501,18 +510,18 @@ in
               </div>
               <div className="mt-2 text-lg font-black text-slate-900">Executive KPI Cards</div>
               <p className="mt-1 text-xs text-slate-500">
-                Pre-aggregated h-index, Lotka coefficient, and international collaboration ratios ready for board reporting.
+                Pre-aggregated publication, citation and author metrics are available; treat modeled collaboration as an approximation.
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
               <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase">
-                <span>Scheduled Refresh</span>
+                <span>Import Refresh</span>
                 <RefreshCw className="h-4 w-4 text-blue-500" />
               </div>
-              <div className="mt-2 text-lg font-black text-slate-900">Automated Ingestion</div>
+              <div className="mt-2 text-lg font-black text-slate-900">Source-controlled</div>
               <p className="mt-1 text-xs text-slate-500">
-                Compatible with Power BI Service Gateway for daily or weekly automated scheduled data refreshes.
+                Create a new source snapshot in SciAI, then refresh your Power BI Desktop import manually.
               </p>
             </div>
           </div>
@@ -525,17 +534,17 @@ in
                   Relational Star-Schema Architecture in Power BI
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Tables and keys are strictly normalized so Power BI detects 1-to-many (1:*) relationships automatically.
+                  Review keys and relationships manually before combining tables in Power BI. Author names are not unique identifiers.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={handleSimulateRefresh}
-                disabled={refreshingStream}
+                onClick={fetchLiveModel}
+                disabled={loadingModel}
                 className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshingStream ? "animate-spin" : ""}`} />
-                <span>Simulate Live Citation Stream</span>
+                <RefreshCw className={`h-3.5 w-3.5 ${loadingModel ? "animate-spin" : ""}`} />
+                <span>Reload snapshot preview</span>
               </button>
             </div>
 
@@ -550,7 +559,7 @@ in
                       <span className="flex items-center gap-1.5">
                         <Users className="h-3.5 w-3.5" /> Dim_Authors
                       </span>
-                      <span className="font-mono text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded">1:* Key: AuthorName</span>
+                      <span className="font-mono text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded">AuthorName (not a stable ID)</span>
                     </div>
                     <ul className="mt-2 text-[11px] text-slate-600 space-y-1 font-mono">
                       <li>• TotalPublications (Int64)</li>
@@ -566,7 +575,7 @@ in
                       <span className="flex items-center gap-1.5">
                         <BookOpen className="h-3.5 w-3.5" /> Dim_Sources
                       </span>
-                      <span className="font-mono text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">1:* Key: JournalSource</span>
+                      <span className="font-mono text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">JournalSource (review key)</span>
                     </div>
                     <ul className="mt-2 text-[11px] text-slate-600 space-y-1 font-mono">
                       <li>• TotalArticles (Int64)</li>
@@ -829,7 +838,7 @@ in
                 </p>
               </div>
               <span className="text-[11px] font-mono text-slate-400">
-                Live DAX Aggregation
+                DAX on imported data
               </span>
             </div>
 
@@ -858,7 +867,7 @@ in
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-black text-slate-900">
-                  Live Fact_Documents Feed ({filteredSimDocs.length} rows)
+                  Fact_Documents snapshot preview ({filteredSimDocs.length} rows)
                 </h4>
                 <p className="text-xs text-slate-500">
                   Flattened and normalized data ready for Power BI detailed report tables
@@ -910,7 +919,7 @@ in
             </div>
             {filteredSimDocs.length > 15 && (
               <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-100">
-                Displaying 15 of {filteredSimDocs.length} filtered records. Power BI Desktop loads all records automatically.
+                Displaying 15 of {filteredSimDocs.length} filtered records in the selected dataset version.
               </div>
             )}
           </div>
@@ -943,7 +952,7 @@ in
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-black text-slate-900">
-                  Live Feed Preview: {selectedTableTab}
+                  Snapshot Preview: {selectedTableTab}
                 </h3>
                 <p className="text-xs text-slate-500">
                   Clean JSON data structure ingested and expanded directly by Power Query.
@@ -971,7 +980,7 @@ in
               </pre>
             </div>
             <div className="text-[11px] text-slate-400 text-right">
-              Showing first 10 sample records from the live stream.
+              Showing the first 10 records in this dataset version.
             </div>
           </div>
         </div>
@@ -1175,10 +1184,10 @@ DIVIDE(
         <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
           <div>
             <h3 className="text-base font-black text-slate-900">
-              Step-by-Step Microsoft Power BI Live Connection Guide
+              Step-by-Step Power BI Desktop JSON Import Guide
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Two straightforward workflows to connect and load live data into Power BI:
+              Local single-operator Web Import is available with the explicit development authentication bypass. Remote access requires an approved gateway and credential flow; never put API tokens in URLs or PBIDS files.
             </p>
           </div>
 
@@ -1196,8 +1205,8 @@ DIVIDE(
               <ol className="list-decimal list-inside space-y-2 text-xs text-slate-700 leading-relaxed">
                 <li>Click the orange button at the top: <strong>"Download Connector (.pbids)"</strong>.</li>
                 <li>Double-click the downloaded file; <strong>Power BI Desktop</strong> launches automatically.</li>
-                <li>In the Authentication dialogue, keep <strong>Anonymous</strong> selected and click <strong>Connect</strong>.</li>
-                <li>Tables load automatically and are ready to be dragged onto your dashboard canvas!</li>
+                <li>On an explicitly configured local development server only, choose <strong>Anonymous</strong>. On a hosted server, use an approved authenticated gateway; the PBIDS file contains no credentials.</li>
+                <li>In Power Query, select and expand the JSON tables; relationships and refresh settings must be configured manually.</li>
               </ol>
               <button
                 type="button"
@@ -1220,12 +1229,12 @@ DIVIDE(
               </div>
               <ol className="list-decimal list-inside space-y-2 text-xs text-slate-700 leading-relaxed">
                 <li>In Power BI Desktop, navigate to <strong>Get Data</strong> and select <strong>Web</strong>.</li>
-                <li>Paste the live feed URL below:
+                <li>Paste the JSON feed URL below:
                   <div className="my-1.5 p-2 rounded bg-white border border-slate-200 font-mono text-[10px] break-all select-all">
                     {liveFeedUrl}
                   </div>
                 </li>
-                <li>Click <strong>OK</strong>. Under access credentials, choose <strong>Anonymous</strong>.</li>
+                <li>Choose <strong>Anonymous</strong> only for a local development server with authentication bypass enabled. A protected server requires an approved gateway.</li>
                 <li>In Power Query, expand the <code>Fact_Documents</code> records and click <strong>Close &amp; Apply</strong>.</li>
               </ol>
             </div>

@@ -1,4 +1,4 @@
-export type AiProviderId = "gemini" | "claude" | "openai";
+export type AiProviderId = "ollama" | "gemini" | "claude" | "openai";
 export type AiProviderStatus = AiProviderId | "unavailable";
 
 export type AiTaskKind =

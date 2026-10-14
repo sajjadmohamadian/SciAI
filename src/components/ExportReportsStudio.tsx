@@ -522,17 +522,17 @@ Thematic keyword co-occurrence analysis identifies the strategic driving themes:
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-amber-500 text-slate-950 font-black px-2 py-0.5 text-[10px] uppercase">
-                Power BI Live Connector
+                Power BI Web Export
               </span>
               <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
-                Real-Time OData / Web Feed Active
+                Versioned JSON Import
               </span>
             </div>
             <h2 className="mt-1.5 text-lg font-black tracking-tight text-slate-900">
-              Direct Live Feed & Star-Schema Connector for Microsoft Power BI
+              Research Intelligence exports for Microsoft Power BI
             </h2>
             <p className="mt-1 text-xs text-slate-600 max-w-2xl leading-relaxed">
-              Optimized Star-Schema multi-table feed designed for real-time slicing, cross-filtering, and dynamic executive dashboards in Power BI Desktop & Power BI Service.
+              Import bibliometric data and approved organizational or external aggregate snapshots. Configure Power BI credentials, relationships and refresh separately.
             </p>
           </div>
 

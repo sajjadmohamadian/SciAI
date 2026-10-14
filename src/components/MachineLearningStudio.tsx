@@ -66,7 +66,9 @@ export function MachineLearningStudio({
     }
   };
 
-  const [activeSubTab, setActiveSubTab] = useState<"kmeans" | "lda" | "simulator" | "gnn" | "classifiers">("classifiers");
+  const [activeSubTab, setActiveSubTab] = useState<
+  "kmeans" | "lda" | "simulator" | "gnn" | "classifiers"
+>("kmeans");
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [selectedClusterFilter, setSelectedClusterFilter] = useState<number | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");

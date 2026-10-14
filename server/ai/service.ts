@@ -195,7 +195,7 @@ Motor Themes: ${motorThemes.join(", ") || "unavailable"}
 Niche Themes: ${nicheThemes.join(", ") || "unavailable"}
 Recent Keywords: ${recentKeywords.join(", ") || "unavailable"}
 
-Return JSON with white_spaces, unexplored_intersections, and future_trend_forecasts. The white_spaces key is a compatibility field whose values should be research gaps.`, "Research gaps are hypotheses/suggestions, not measured discoveries. Avoid unsupported growth rates.");
+Return JSON with exactly these top-level keys: white_spaces, unexplored_intersections, and future_trend_forecasts. Each white_spaces item must contain title (string), rationale (string), bridging_topics (string array), and potential_impact (string). Each unexplored_intersections item must contain topic_a (string), topic_b (string), and hypothesis (string). Each future_trend_forecasts item must contain concept (string), projected_growth (string), and trajectory_rationale (string). Return only valid JSON; do not rename white_spaces to research_gaps. The white_spaces key is a compatibility field whose values should be research gaps.`, "Research gaps are hypotheses/suggestions, not measured discoveries. Avoid unsupported growth rates.");
 
   const result = await callAiJson<unknown>({ task: "research_gaps", prompt, responseFormat: "json", temperature: 0.3, ...parseOptions(options) });
   const parsed = result.status === "available" ? validateResearchGaps(result.content) : null;
@@ -336,7 +336,7 @@ Thematic Clusters: ${(thematicClusters || []).join(", ") || "unavailable"}
 Sample Research Corpus Titles:
 ${sampleTitles.join("\n") || "unavailable"}
 
-Return JSON with proposals and matrixSummary.`, "Scores are heuristic suggestions only; do not invent references or factual evidence outside supplied context.");
+Return JSON with exactly two top-level keys: proposals and matrixSummary. Each proposals item must include id, title, subField, gapDescription, methodologicalApproach, noveltyScore (number 0-100), feasibilityScore (number 0-100), competitivenessDegree, quadrant, targetDegreeLevel, estimatedCompletionHorizon, keyFoundationalReferences (string array), suggestedPrimaryKeywords (string array), and expectedDeliverables (string array). Use one of these exact quadrant values: "High Novelty / High Feasibility (Gold Standard Grant)", "High Novelty / Low Feasibility (High-Risk Moonshot Thesis)", "Low Novelty / High Feasibility (Low-Hanging Fruit / Incremental)", or "Low Novelty / Low Feasibility (Deprioritized)". matrixSummary must include totalIdentifiedGaps, goldStandardCount, moonshotCount, incrementalCount, recommendedTopGrantProposal, and recommendedTopThesisTopic. Return only valid JSON; do not omit required fields.`, "Scores are heuristic suggestions only; do not invent references or factual evidence outside supplied context.");
 
   const result = await callAiJson<unknown>({ task: "research_gap_matrix", prompt, responseFormat: "json", temperature: 0.3, ...parseOptions(options) });
   const parsed = result.status === "available" ? validateResearchGapMatrix(result.content, datasetId, datasetName) : null;

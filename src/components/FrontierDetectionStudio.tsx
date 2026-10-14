@@ -46,7 +46,6 @@ export function FrontierDetectionStudio({
   datasets = [],
   activeDatasetId,
   onSelectDataset,
-  onNavigateToThematic,
 }: Props) {
   // Target Dataset State
   const [selectedDsId, setSelectedDsId] = useState<string>(

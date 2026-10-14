@@ -288,7 +288,6 @@ export function CorpusPipelineStudio({
                   dataset={currentDataset}
                   allDatasets={datasets}
                   onSelectDataset={onSelectDataset}
-                  onNavigateToDedup={() => setHygieneSubMode("hygiene")}
                   onRefreshData={onRefreshData}
                 />
               </div>

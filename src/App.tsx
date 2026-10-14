@@ -153,10 +153,6 @@ export default function App() {
         <Header
           activeTab={activeTab}
           onRefresh={loadDashboard}
-          onOpenUpload={() => {
-            setMessage("");
-            setModal("upload");
-          }}
           onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
         />
 
@@ -277,7 +273,6 @@ export default function App() {
               datasets={datasets}
               activeDatasetId={selectedDataset?.id}
               onSelectDataset={setSelectedDatasetId}
-              onNavigateToThematic={() => setActiveTab("thematic")}
             />
           )}
 

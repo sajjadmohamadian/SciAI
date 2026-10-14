@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 data/
+
+# Local Claude preview databases are disposable and must not enter commits.
+.claude/*.db*

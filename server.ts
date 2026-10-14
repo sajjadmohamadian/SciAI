@@ -12,6 +12,29 @@ import {
 } from "./server/scientometrics.js";
 import { getSeedDocuments } from "./server/seed_data.js";
 import {
+  createSource as createPowerBISource,
+  createSnapshot as createPowerBISnapshot,
+  listSources as listPowerBISources,
+  listSnapshots as listPowerBISnapshots,
+  getSnapshot as getPowerBISnapshot,
+  getSnapshotRows as getPowerBISnapshotRows,
+  SNAPSHOT_LIMITS,
+} from "./server/powerbi/snapshots.js";
+import {
+  createProfile as createPowerBIProfile,
+  listProfiles as listPowerBIProfiles,
+  getProfile as getPowerBIProfile,
+  createMapping as createPowerBIMapping,
+  getMapping as getPowerBIMapping,
+  createCombinedModel as createPowerBICombinedModel,
+  getCombinedModel as getPowerBICombinedModel,
+  getCombinedRows as getPowerBICombinedRows,
+  recordRefreshRun as recordPowerBIRefreshRun,
+  getRefreshRun as getPowerBIRefreshRun,
+  type JoinTarget,
+  type Normalization,
+} from "./server/powerbi/profiles.js";
+import {
   generateScientometricInsight,
   generateSemanticClusterLabels,
   detectResearchGapsAndWhiteSpaces,
@@ -3478,20 +3501,17 @@ app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], re
 });
 
 // ============================================================================
-// POWER BI DIRECT LIVE CONNECTOR ENGINE (OData / REST Web Feed)
+// POWER BI JSON WEB EXPORT (Import mode; not OData or DirectQuery)
 // ============================================================================
-function buildPowerBIDataModel(targetDatasetId?: string) {
-  let targetDs = targetDatasetId ? datasets.get(targetDatasetId) : null;
+function buildPowerBIDataModel(targetDatasetId?: string, versionId?: string) {
+  const targetDs = targetDatasetId ? datasets.get(targetDatasetId) : Array.from(datasets.values())[0];
   if (!targetDs) {
-    targetDs = Array.from(datasets.values())[0];
-  }
-  if (!targetDs) {
-    throw new Error("No dataset available to generate Power BI feed");
+    throw new Error("Dataset not found");
   }
 
-  const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === targetDs!.id);
-  const latestVer = versions[versions.length - 1];
-  const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
+  const selectedVersion = getDatasetVersionForDataset(targetDs.id, versionId);
+  if (versionId && !selectedVersion) throw new Error("Dataset version not found");
+  const docs = selectedVersion ? versionDocuments.get(selectedVersion.id) || [] : [];
 
   // 1. Calculate Source Bradford Zones
   const sourceMap = new Map<string, { count: number; citations: number }>();
@@ -3685,9 +3705,9 @@ function buildPowerBIDataModel(targetDatasetId?: string) {
       DominantDatabaseSource: dominantSource,
       DatasetName: targetDs.name || "Bibliometric Corpus",
       DatasetID: targetDs.id,
-      SynchronizedTimestamp: new Date().toISOString(),
-      FeedHealthStatus: "LIVE_STREAMING_ACTIVE",
-      PowerBIConnectorVersion: "v2.4 (OData & REST Compatible)",
+      SynchronizedTimestamp: selectedVersion?.created_at || null,
+      FeedHealthStatus: "SNAPSHOT_AVAILABLE",
+      PowerBIConnectorVersion: "JSON Web Import v1",
     },
   ];
 
@@ -3696,9 +3716,12 @@ function buildPowerBIDataModel(targetDatasetId?: string) {
     feedMetadata: {
       dataset_id: targetDs.id,
       dataset_name: targetDs.name,
-      last_sync: new Date().toISOString(),
+      dataset_version_id: selectedVersion?.id || null,
+      last_sync: selectedVersion?.created_at || null,
       total_records: docs.length,
-      format: "Power BI Direct Multi-Table Feed",
+      format: "Power BI JSON Web Import",
+      schema_version: "1.1",
+      limitations: ["Collaboration and thematic quadrants are approximations; not validated network metrics."],
       tables_available: [
         "Fact_Documents",
         "Dim_Authors",
@@ -3717,11 +3740,211 @@ function buildPowerBIDataModel(targetDatasetId?: string) {
   };
 }
 
+function buildPowerBIAggregateTargetRows(model: any, targetField: JoinTarget): {
+  rows: Array<Record<string, string | number | boolean | null>>;
+  schema: Array<{ name: string; type: "string" | "number" | "boolean" | "date" | "unknown" }>;
+} {
+  const fieldMap: Record<JoinTarget, string> = {
+    publication_year: "Year",
+    country: "Country",
+    journal_source: "JournalSource",
+    keyword: "PrimaryKeyword",
+  };
+  const sourceField = fieldMap[targetField];
+  const grouped = new Map<string, { key: string | number | boolean; publication_count: number; citation_total: number }>();
+  for (const document of (model.Fact_Documents || []) as Array<Record<string, unknown>>) {
+    const raw = document[sourceField];
+    if (raw === null || raw === undefined || raw === "") continue;
+    const key = typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean" ? raw : String(raw);
+    const encoded = `${typeof key}:${String(key)}`;
+    const aggregate = grouped.get(encoded) || { key, publication_count: 0, citation_total: 0 };
+    aggregate.publication_count += 1;
+    const citations = Number(document.Citations);
+    if (Number.isFinite(citations)) aggregate.citation_total += citations;
+    grouped.set(encoded, aggregate);
+  }
+  return {
+    rows: Array.from(grouped.values()).map((aggregate) => ({
+      [targetField]: aggregate.key,
+      publication_count: aggregate.publication_count,
+      citation_total: aggregate.citation_total,
+    })),
+    schema: [
+      { name: targetField, type: targetField === "publication_year" ? "number" : "string" },
+      { name: "publication_count", type: "number" },
+      { name: "citation_total", type: "number" },
+    ],
+  };
+}
+
+// Snapshot imports are available only in an explicit, tokenless, single-operator local mode.
+// A bind address and shared API token cannot establish organizational identity behind a proxy.
+const requireLocalPowerBI: express.RequestHandler = (_req, res, next) => {
+  if (!isDevBypassEnabled() || getConfiguredApiToken() || isPublicUploadsEnabled()) {
+    return res.status(403).json({ error: "Power BI snapshot imports require a local single-operator installation without a shared API token or public uploads" });
+  }
+  next();
+};
+const powerBISourceAccess: express.RequestHandler = (req, res, next) => {
+  const source = listPowerBISources().find((item) => item.id === req.params.id);
+  if (!source) return res.status(404).json({ error: "Power BI source not found" });
+  next();
+};
+const powerBISnapshotAccess: express.RequestHandler = (req, res, next) => {
+  const snapshot = getPowerBISnapshot(String(req.params.snapshot_id));
+  if (!snapshot) return res.status(404).json({ error: "Power BI snapshot not found" });
+  next();
+};
+app.get("/api/powerbi/v2/sources", requireApiToken, requireLocalPowerBI, (_req, res) => {
+  res.json(listPowerBISources());
+});
+app.post("/api/powerbi/v2/sources", requireApiToken, requireLocalPowerBI, (req, res) => {
+  try {
+    res.status(201).json(createPowerBISource(req.body));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid Power BI source" });
+  }
+});
+app.get("/api/powerbi/v2/sources/:id/snapshots", requireApiToken, requireLocalPowerBI, powerBISourceAccess, (req, res) => {
+  res.json(listPowerBISnapshots(req.params.id));
+});
+app.post("/api/powerbi/v2/sources/:id/snapshots", requireApiToken, requireLocalPowerBI, powerBISourceAccess, (req, res) => {
+  try {
+    res.status(201).json(createPowerBISnapshot({ sourceId: req.params.id, format: req.body?.format, content: req.body?.content, asOf: req.body?.asOf }));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid Power BI snapshot" });
+  }
+});
+app.get("/api/powerbi/v2/manifest/:snapshot_id", requireApiToken, requireLocalPowerBI, powerBISnapshotAccess, (req, res) => {
+  const snapshot = getPowerBISnapshot(req.params.snapshot_id)!;
+  const source = listPowerBISources().find((item) => item.id === snapshot.source_id)!;
+  res.json({ schema_version: "2.0", source, snapshot, tables: [{ name: snapshot.id, grain: "one approved aggregate observation", columns: snapshot.columns, row_count: snapshot.row_count,
+    url: `/api/powerbi/v2/tables/${encodeURIComponent(snapshot.id)}` }], relationships: [],
+    limitations: ["No inferred relationships to publications; join only using an independently validated key.", "No tenant isolation or automatic Power BI Service refresh."] });
+});
+app.get("/api/powerbi/v2/tables/:snapshot_id", requireApiToken, requireLocalPowerBI, powerBISnapshotAccess, (req, res) => {
+  try {
+    const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    const limit = req.query.limit === undefined ? SNAPSHOT_LIMITS.maxPageSize : Number(req.query.limit);
+    res.json(getPowerBISnapshotRows(req.params.snapshot_id, { offset, limit }));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid pagination" });
+  }
+});
+
+app.get("/api/powerbi/v3/profiles", requireApiToken, requireLocalPowerBI, (req, res) => {
+  try {
+    const sourceId = typeof req.query.source_id === "string" ? req.query.source_id : undefined;
+    res.json(listPowerBIProfiles(sourceId));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid profile query" });
+  }
+});
+app.post("/api/powerbi/v3/profiles", requireApiToken, requireLocalPowerBI, (req, res) => {
+  try {
+    res.status(201).json(createPowerBIProfile(req.body));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid Power BI profile" });
+  }
+});
+app.get("/api/powerbi/v3/profiles/:id", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const profile = getPowerBIProfile(req.params.id);
+  if (!profile) return res.status(404).json({ error: "Power BI profile not found" });
+  res.json(profile);
+});
+app.post("/api/powerbi/v3/mappings", requireApiToken, requireLocalPowerBI, (req, res) => {
+  try {
+    const body = req.body || {};
+    if (typeof body.target_dataset_id !== "string" || typeof body.target_dataset_version_id !== "string" || !getDatasetVersionForDataset(body.target_dataset_id, body.target_dataset_version_id)) {
+      return res.status(404).json({ error: "Pinned target dataset version not found" });
+    }
+    res.status(201).json(createPowerBIMapping({
+      profile_id: body.profile_id,
+      target_dataset_id: body.target_dataset_id,
+      target_dataset_version_id: body.target_dataset_version_id,
+      source_column: body.source_column,
+      target_field: body.target_field as JoinTarget,
+      normalization: body.normalization as Normalization,
+    }));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid Power BI mapping" });
+  }
+});
+app.get("/api/powerbi/v3/mappings/:id", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const mapping = getPowerBIMapping(req.params.id);
+  if (!mapping) return res.status(404).json({ error: "Power BI mapping not found" });
+  res.json(mapping);
+});
+app.post("/api/powerbi/v3/combined-models", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const body = req.body || {};
+  try {
+    if (typeof body.dataset_id !== "string" || typeof body.dataset_version_id !== "string" || typeof body.snapshot_id !== "string" || typeof body.profile_id !== "string" || typeof body.mapping_id !== "string") {
+      return res.status(400).json({ error: "dataset_id, dataset_version_id, snapshot_id, profile_id, and mapping_id are required; v3 never selects latest implicitly" });
+    }
+    if (!getDatasetVersionForDataset(body.dataset_id, body.dataset_version_id)) return res.status(404).json({ error: "Pinned target dataset version not found" });
+    const mapping = getPowerBIMapping(body.mapping_id);
+    if (!mapping || mapping.target_dataset_id !== body.dataset_id || mapping.target_dataset_version_id !== body.dataset_version_id) return res.status(400).json({ error: "Mapping does not match the pinned dataset version" });
+    const model = buildPowerBIDataModel(body.dataset_id, body.dataset_version_id);
+    const target = buildPowerBIAggregateTargetRows(model, mapping.target_field);
+    const combined = createPowerBICombinedModel({
+      dataset_id: body.dataset_id, dataset_version_id: body.dataset_version_id, snapshot_id: body.snapshot_id,
+      profile_id: body.profile_id, mapping_id: body.mapping_id, target_rows: target.rows, target_schema: target.schema,
+    });
+    const idempotencyKey = typeof body.idempotency_key === "string" && body.idempotency_key.trim() ? body.idempotency_key.trim() : `build:${combined.manifest.id}`;
+    const refresh = recordPowerBIRefreshRun({ idempotency_key: idempotencyKey, model_id: combined.manifest.id, operation: "build", status: "completed", requested_at: new Date().toISOString(), completed_at: new Date().toISOString(), output_row_count: combined.manifest.row_count });
+    res.status(201).json({ ...combined, refresh });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to build combined Power BI model";
+    res.status(message.includes("not found") ? 404 : 400).json({ error: message });
+  }
+});
+app.get("/api/powerbi/v3/combined-models/:id", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const model = getPowerBICombinedModel(req.params.id);
+  if (!model) return res.status(404).json({ error: "Combined Power BI model not found" });
+  res.json(model);
+});
+app.get("/api/powerbi/v3/combined-models/:id/manifest", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const model = getPowerBICombinedModel(req.params.id);
+  if (!model) return res.status(404).json({ error: "Combined Power BI model not found" });
+  res.json(model.manifest);
+});
+app.get("/api/powerbi/v3/combined-models/:id/evidence", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const model = getPowerBICombinedModel(req.params.id);
+  if (!model) return res.status(404).json({ error: "Combined Power BI model not found" });
+  res.json({ model_id: model.manifest.id, manifest: model.manifest, evidence: model.evidence });
+});
+app.get("/api/powerbi/v3/combined-models/:id/tables/:table_name", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const model = getPowerBICombinedModel(req.params.id);
+  if (!model) return res.status(404).json({ error: "Combined Power BI model not found" });
+  if (req.params.table_name.toLowerCase() !== "combined_aggregate" && req.params.table_name.toLowerCase() !== "combined_portfolio") return res.status(400).json({ error: "Unknown combined table" });
+  try {
+    const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+    const limit = req.query.limit === undefined ? 100 : Number(req.query.limit);
+    const page = getPowerBICombinedRows(req.params.id, offset, limit);
+    res.json(page);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Invalid combined table pagination" });
+  }
+});
+app.post("/api/powerbi/v3/combined-models/:id/refresh", requireApiToken, requireLocalPowerBI, (req, res) => {
+  const model = getPowerBICombinedModel(req.params.id);
+  if (!model) return res.status(404).json({ error: "Combined Power BI model not found" });
+  const key = typeof req.body?.idempotency_key === "string" && req.body.idempotency_key.trim() ? req.body.idempotency_key.trim() : `refresh:${req.params.id}:${model.manifest.model_hash}`;
+  const refresh = recordPowerBIRefreshRun({ idempotency_key: key, model_id: req.params.id, operation: "refresh", status: "completed", requested_at: new Date().toISOString(), completed_at: new Date().toISOString(), output_row_count: model.manifest.row_count });
+  res.json({ refresh, message: "No source was fetched or mutated. Re-import an approved source to publish a new immutable version." });
+});
+app.get("/api/powerbi/v3/combined-models/:id/refresh-status", requireApiToken, requireLocalPowerBI, (req, res) => {
+  if (!getPowerBICombinedModel(req.params.id)) return res.status(404).json({ error: "Combined Power BI model not found" });
+  const rows = getDb().prepare("SELECT data FROM powerbi_refresh_runs WHERE model_id = ? ORDER BY rowid DESC").all(req.params.id) as Array<{ data: string }>;
+  res.json((rows.map((row) => JSON.parse(row.data))));
+});
+
 // 1. Full Multi-Table Feed for Power BI Web/REST Connector
 app.get(["/api/powerbi/feed/:dataset_id?", "/powerbi/feed/:dataset_id?"], requireNonLoopbackToken, (req, res) => {
   try {
     const datasetId = req.params.dataset_id || (req.query.dataset_id as string);
-    const model = buildPowerBIDataModel(datasetId);
+    const versionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+    const model = buildPowerBIDataModel(datasetId, versionId);
 
     const origin = req.headers.origin as string | undefined;
     if (origin && (allowedOrigins.includes(origin) || allowedOrigins.includes("*"))) {
@@ -3733,6 +3956,9 @@ app.get(["/api/powerbi/feed/:dataset_id?", "/powerbi/feed/:dataset_id?"], requir
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.json(model);
   } catch (err: any) {
+    if (err?.message === "Dataset not found" || err?.message === "Dataset version not found") {
+      return res.status(404).json({ error: err.message });
+    }
     console.error("Power BI Feed error encountered");
     res.status(500).json({ error: "Failed to generate Power BI feed" });
   }
@@ -3743,7 +3969,8 @@ app.get(["/api/powerbi/tables/:table_name", "/powerbi/tables/:table_name"], requ
   try {
     const tableName = String(req.params.table_name).toLowerCase();
     const datasetId = req.query.dataset_id as string;
-    const model = buildPowerBIDataModel(datasetId);
+    const versionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+    const model = buildPowerBIDataModel(datasetId, versionId);
 
     let tableData: any[] = [];
     switch (tableName) {
@@ -3761,11 +3988,13 @@ app.get(["/api/powerbi/tables/:table_name", "/powerbi/tables/:table_name"], requ
         break;
       case "thematics":
       case "dim_thematics":
+      case "dim_thematicclusters":
       case "keywords":
         tableData = model.Dim_ThematicClusters;
         break;
       case "collaborations":
       case "dim_collaborations":
+      case "dim_geographiccollaborations":
       case "countries":
         tableData = model.Dim_GeographicCollaborations;
         break;
@@ -3788,18 +4017,26 @@ app.get(["/api/powerbi/tables/:table_name", "/powerbi/tables/:table_name"], requ
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.json(tableData);
   } catch (err: any) {
+    if (err?.message === "Dataset not found" || err?.message === "Dataset version not found") {
+      return res.status(404).json({ error: err.message });
+    }
     console.error("Power BI table endpoint error encountered");
     res.status(500).json({ error: "Failed to generate table data" });
   }
 });
 
-// 3. Download Native Power BI Data Source File (.pbids)
-app.get(["/api/powerbi/download-pbids", "/powerbi/download-pbids"], (req, res) => {
+// 3. Download a Web connector definition. Never embed credentials or trust request Host headers.
+app.get(["/api/powerbi/download-pbids", "/powerbi/download-pbids"], requireApiToken, (req, res) => {
   try {
-    const datasetId = req.query.dataset_id as string;
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-    const host = req.get("host") || "localhost:3000";
-    const feedUrl = `${protocol}://${host}/api/powerbi/feed${datasetId ? `/${datasetId}` : ""}`;
+    const datasetId = typeof req.query.dataset_id === "string" ? req.query.dataset_id : undefined;
+    const versionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
+    const model = buildPowerBIDataModel(datasetId, versionId);
+    const configuredOrigin = process.env.APP_URL && process.env.APP_URL !== "MY_APP_URL" ? process.env.APP_URL : null;
+    const origin = configuredOrigin ? new URL(configuredOrigin).origin : isLoopbackHost() ? `http://localhost:${PORT}` : null;
+    if (!origin || (!isLoopbackHost() && !origin.startsWith("https://"))) {
+      return res.status(503).json({ error: "Configure an HTTPS APP_URL before exporting a remote connector" });
+    }
+    const feedUrl = `${origin}/api/powerbi/feed/${encodeURIComponent(model.feedMetadata.dataset_id)}${versionId ? `?version_id=${encodeURIComponent(versionId)}` : ""}`;
 
     const pbidsContent = {
       version: "0.1",
@@ -3817,54 +4054,34 @@ app.get(["/api/powerbi/download-pbids", "/powerbi/download-pbids"], (req, res) =
       ],
     };
 
-    const filename = `SciAI_PowerBI_${datasetId || "LiveFeed"}.pbids`;
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const filename = `SciAI_PowerBI_${model.feedMetadata.dataset_id.replace(/[^a-zA-Z0-9_-]/g, "_")}.pbids`;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(JSON.stringify(pbidsContent, null, 2));
   } catch (err: any) {
+    if (err?.message === "Dataset not found" || err?.message === "Dataset version not found") {
+      return res.status(404).json({ error: err.message });
+    }
     console.error("PBIDS download error:", err);
     res.status(500).json({ error: "Failed to generate PBIDS file" });
   }
 });
 
-// 4. Simulate Live Streaming Ingestion for Power BI Direct Refresh
+// Compatibility endpoint: inspect the current immutable import version without modifying research data.
 app.post(["/api/powerbi/simulate-live-refresh", "/powerbi/simulate-live-refresh"], requireApiToken, (req, res) => {
-  try {
-    const { dataset_id } = req.body;
-    let targetDs = dataset_id ? datasets.get(dataset_id) : Array.from(datasets.values())[0];
-    if (!targetDs) {
-      return res.status(404).json({ error: "Dataset not found" });
-    }
-
-    const versions = Array.from(datasetVersions.values()).filter((v) => v.dataset_id === targetDs!.id);
-    const latestVer = versions[versions.length - 1];
-    const docs = latestVer ? versionDocuments.get(latestVer.id) || [] : [];
-
-    // Simulate streaming update: add citations to high-velocity papers
-    let totalUpdated = 0;
-    docs.slice(0, 10).forEach((d) => {
-      const boost = Math.floor(Math.random() * 5) + 1;
-      d.citations = (d.citations || 0) + boost;
-      totalUpdated += boost;
-    });
-
-    if (latestVer) {
-      setVersionDocuments(latestVer.id, docs);
-    }
-
-    res.json({
-      success: true,
-      message: "Simulated live streaming update synchronized to Power BI live feed",
-      citations_incremented: totalUpdated,
-      dataset_id: targetDs.id,
-      refreshed_at: new Date().toISOString(),
-      feed_status: "SYNCHRONIZED_WITH_POWER_BI",
-    });
-  } catch (err: any) {
-    console.error("Live refresh simulation error:", err);
-    res.status(500).json({ error: "Failed to simulate live refresh" });
-  }
+  const datasetId = typeof req.body?.dataset_id === "string" ? req.body.dataset_id : undefined;
+  const targetDs = datasetId ? datasets.get(datasetId) : Array.from(datasets.values())[0];
+  if (!targetDs) return res.status(404).json({ error: "Dataset not found" });
+  const version = getLatestDatasetVersion(targetDs.id);
+  res.json({
+    success: true,
+    message: "No data was changed. Re-import source data to create a new version; refresh your Power BI import separately.",
+    citations_incremented: 0,
+    dataset_id: targetDs.id,
+    dataset_version_id: version?.id || null,
+    refreshed_at: version?.created_at || null,
+    feed_status: "SNAPSHOT_AVAILABLE",
+  });
 });
 
 
@@ -4089,7 +4306,7 @@ const getAiRequestOptions = (body: Record<string, unknown>) => ({
 
 const handleAiEndpointError = (res: express.Response, err: unknown, safeMessage: string) => {
   if (err instanceof AiProviderError && err.code === "invalid_provider") {
-    return res.status(400).json({ error: "Invalid AI provider. Use gemini, claude, or openai." });
+    return res.status(400).json({ error: "Invalid AI provider. Use ollama, gemini, claude, or openai." });
   }
   console.error(safeMessage);
   return res.status(500).json({ error: safeMessage });
@@ -4788,7 +5005,7 @@ async function startServer() {
 }
 
 const isDirectExecution =
-  Boolean(process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js")));
+  Boolean(process.argv[1] && (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || process.argv[1].endsWith("server.cjs")));
 
 const isTestMode =
   process.env.NODE_ENV === "test" ||

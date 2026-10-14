@@ -47,9 +47,17 @@ SciAI uses a controlled vocabulary for scientific and product-facing language:
 
 ## AI provider configuration
 
-SciAI supports a server-side AI provider router for Gemini, Claude, and OpenAI. Deterministic SciAI code remains authoritative for scientometric metrics; AI providers are used only for explanation, summarization, labeling, narrative drafting, and research suggestions grounded in supplied data. Unsupported values must be shown as `unavailable`, not invented.
+SciAI supports a server-side AI provider router for local Ollama and optional cloud providers (Gemini, Claude, and OpenAI). Deterministic SciAI code remains authoritative for scientometric metrics; AI providers are used only for explanation, summarization, labeling, narrative drafting, and research suggestions grounded in supplied data. Unsupported values must be shown as `unavailable`, not invented.
 
-Provider keys are server-only secrets:
+For local use, install [Ollama](https://ollama.com/), pull the default model, and make sure its local service is running:
+
+```bash
+ollama pull qwen2.5:7b-instruct
+```
+
+Ollama normally starts its service automatically; otherwise run `ollama serve`. The default endpoint is `http://127.0.0.1:11434`. Pulling the model requires internet access and running it requires sufficient local memory. You can select another installed model with `SCIAI_OLLAMA_MODEL`. The server accepts only plain HTTP loopback URLs in `SCIAI_OLLAMA_URL` (no remote Ollama endpoints). Ollama needs no API key. Its configured status does not prove that the service or model is available: connection failures and missing models are reported as unavailable, not replaced with invented output.
+
+Optional cloud provider keys are server-only secrets:
 
 - `GEMINI_API_KEY`
 - `ANTHROPIC_API_KEY`
@@ -57,20 +65,47 @@ Provider keys are server-only secrets:
 
 Never expose provider keys through `VITE_*` variables, frontend code, browser storage, rendered HTML, query strings, or public capability endpoints. AI routes remain protected by `SCIAI_API_TOKEN`; public upload mode does not make AI routes public.
 
-Routing is configured with:
+Local-first routing is configured with:
 
 ```env
-SCIAI_AI_DEFAULT_PROVIDER="gemini"
-SCIAI_AI_PROVIDER_ORDER="gemini,claude,openai"
+SCIAI_OLLAMA_ENABLED="true"
+SCIAI_OLLAMA_URL="http://127.0.0.1:11434"
+SCIAI_OLLAMA_MODEL="qwen2.5:7b-instruct"
+SCIAI_OLLAMA_TIMEOUT_MS="180000"
+SCIAI_AI_DEFAULT_PROVIDER="ollama"
+SCIAI_AI_PROVIDER_ORDER="ollama,gemini,claude,openai"
 SCIAI_AI_ALLOW_FALLBACK="true"
 SCIAI_GEMINI_MODEL="gemini-flash-latest"
 SCIAI_CLAUDE_MODEL="claude-opus-5"
 SCIAI_OPENAI_MODEL="gpt-4.1-mini"
 ```
 
+Cloud providers are optional. If a cloud key is set and fallback is allowed, an Ollama failure can send the research prompt to that cloud provider; disable fallback in the AI selector or set `SCIAI_AI_ALLOW_FALLBACK="false"` to keep requests local. Without cloud keys, the unavailable state is returned if Ollama cannot respond. The `render.yaml` deployment explicitly selects Gemini/cloud providers rather than local Ollama, which is normally unavailable in hosted deployments.
+
 Protected AI responses include `ai_provenance` with the provider/model used, attempted fallback path, timestamp, and limitations explaining that AI output is interpretive only.
 
-The AI workspace also provides an in-memory provider selector with `Server default`, Gemini, Claude, and OpenAI choices plus an optional fallback toggle. `Server default` follows the deployment configuration above; the selector only sends the chosen provider preference to protected AI routes. Provider keys remain server-managed and are never sent to or stored in the browser.
+The AI workspace also provides an in-memory provider selector with `Server default`, Ollama (local), Gemini, Claude, and OpenAI choices plus an optional fallback toggle. `Server default` follows the deployment configuration above; the selector only sends the chosen provider preference to protected AI routes. Provider keys and local settings remain server-managed and are never sent to or stored in the browser.
+
+## Power BI Research Intelligence export
+
+The existing `/api/powerbi/feed/:dataset_id` and `/api/powerbi/tables/:table_name` JSON Web feeds remain available for bibliometric imports. They are **not** OData, streaming, or DirectQuery. Use Power BI Desktop Web Import and refresh the import explicitly after a new SciAI dataset version is created. Pass `version_id` to pin a bibliometric version; a nonexistent dataset or unrelated version returns 404. The PBIDS file contains a URL, never credentials, and its download requires authentication. `APP_URL` must be a trusted HTTPS origin on hosted deployments; do not derive connector URLs from request Host headers.
+
+The separate `/api/powerbi/v2` routes support **operator-declared aggregate** organizational and external reference snapshots on a private, single-operator loopback installation:
+
+- `POST /sources`: register an immutable source with `name`, `owner`, `description`, optional `license`, `kind` (`internal_aggregate` or `external_reference`), `provenance` (`publisher`, `dataset`, `reference`), `aggregateOnly: true`, and approved `columns` (`name`, `type`, `role`). Internal tables require a numeric `group_size` column and every row must represent at least five observations.
+- `POST /sources/:id/snapshots`: submit `{ "format": "csv", "content": "...", "asOf": "YYYY-MM-DD" }` (JSON row arrays are also accepted). Each import creates an immutable, numbered snapshot with a canonical content hash and provenance. The limit is 1 MiB, 5,000 rows, and 24 columns. CSV headers/JSON fields must exactly match the approved schema. Invalid imports leave no partial snapshot.
+- `GET /sources`, `GET /sources/:id/snapshots`, `GET /manifest/:snapshot_id`, and `GET /tables/:snapshot_id?offset=0&limit=100`: authenticated catalog, schema manifest, and stable paginated table data. Follow `next_offset` until null. Sources are independent of bibliometric datasets; **no inferred joins** are provided. Validate a shared key before combining tables in Power BI.
+
+These routes require the existing token guard **and** an explicit local development setup (`HOST` loopback, `SCIAI_DEV_AUTH_BYPASS="true"`, no configured API token, no public uploads). A valid shared API token alone cannot enable v2 routes; hosted access and Power BI Service refresh are unsupported. Never expose a local-bypass server through a reverse proxy or tunnel: a loopback bind address cannot prove the installation is private. Source category, provenance, `aggregateOnly`, and column approval are operator assertions; basic PII checks and minimum group sizes cannot certify privacy or prevent deliberate misclassification. Import only non-sensitive aggregates. Individual HR, student, patient, financial/personnel identifiers, confidential notes, and sensitive data are **not supported**. A multi-user deployment needs identity, per-source authorization, auditing, retention, and a credential-aware gateway before organizational connectors can be enabled. Use Anonymous Web Import only on that private local server; never put credentials in PBIDS, M scripts, URLs, or browser storage.
+
+The opt-in `/api/powerbi/v3` routes build a **pinned combined evidence model** on top of v2 snapshots. They remain local-only under the same guards and are not hosted organizational connectors:
+
+- `POST/GET /profiles` and `POST/GET /mappings` create immutable, versioned aggregate contracts. A mapping explicitly declares one approved dimension, one bibliometric group field (`publication_year`, `country`, `journal_source`, or `keyword`), and deterministic normalization.
+- `POST /combined-models` requires `dataset_id`, `dataset_version_id`, `snapshot_id`, `profile_id`, and `mapping_id`; it never selects a latest or unrelated version. The server validates source ownership, rejects duplicate aggregate keys, materializes only matched aggregate groups, and persists the model hash, input hashes, coverage, limitations, and evidence records.
+- `GET /combined-models/:id`, `/manifest`, `/evidence`, and `/tables/combined_aggregate` expose the immutable model and bounded rows. `POST /combined-models/:id/refresh` records a deterministic inspection run only; it does not fetch URLs or mutate research data. Refresh status is a durable local record, not Power BI Service scheduling.
+
+The combined model reports unmatched groups explicitly and preserves `available`, `not_collected`, `not_applicable`, and `unavailable` coverage states. It does not infer person-, author-, document-, student-, or patient-level relationships, and an evidence metric is not a causal claim. The Power BI Studio's **Combined Evidence Model** tab provides the same profile/mapping/build workflow. Real CRIS/HR/funding connectors, tenant authorization, and hosted refresh require a separate identity and governance implementation.
+
 
 ## Upload API
 

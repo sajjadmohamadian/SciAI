@@ -269,21 +269,27 @@ export function StatisticalTextClassifierStudio({ dataset }: Props) {
           </div>
 
           {/* Max TF-IDF Features */}
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center justify-between">
-              <span>Feature Dimension (TF-IDF Vocabulary)</span>
-              <span className="font-black text-indigo-600">{maxFeatures} Terms</span>
+          <div className="min-w-0">
+            <label className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+              Feature Dimension (TF-IDF Vocabulary)
             </label>
-            <select
-              value={maxFeatures}
-              onChange={(e) => setMaxFeatures(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
-            >
-              <option value={80}>80 Top Salient Features (Fast)</option>
-              <option value={120}>120 Top Salient Features</option>
-              <option value={160}>160 Top Salient Features (Recommended)</option>
-              <option value={220}>220 Top Salient Features (Dense)</option>
-            </select>
+
+            <div className="relative">
+              <select
+                value={maxFeatures}
+                onChange={(e) => setMaxFeatures(Number(e.target.value))}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-3 text-xs font-bold text-slate-800 shadow-2xs focus:border-indigo-500 focus:outline-hidden"
+              >
+                <option value={80}>80 Top Salient Features (Fast)</option>
+                <option value={120}>120 Top Salient Features</option>
+                <option value={160}>160 Top Salient Features (Recommended)</option>
+                <option value={220}>220 Top Salient Features (Dense)</option>
+              </select>
+            </div>
+
+            <div className="mt-1 text-[10px] font-bold text-indigo-600">
+              Current: {maxFeatures} Terms
+            </div>
           </div>
 
           {/* N-Gram Configuration */}

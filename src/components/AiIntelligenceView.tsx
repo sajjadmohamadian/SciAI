@@ -112,9 +112,10 @@ You can ask me questions such as:
       setLastAiProvenance(data.ai_provenance || null);
       setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateResearchGapMatrixResponse(data);
-      if (val.success && val.data) {
+      if (val.success && val.isComplete && val.data) {
         setGapMatrixData(val.data);
       } else {
+        setGapMatrixData(null);
         setGapMatrixError(val.error || "Research gap matrix output is incomplete or malformed.");
       }
     } catch (err) {
@@ -143,9 +144,10 @@ You can ask me questions such as:
       setLastAiProvenance(data.ai_provenance || null);
       setLastAiWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       const val = validateCorpusDiscrepancyResponse(data);
-      if (val.success && val.data) {
+      if (val.success && val.isComplete && val.data) {
         setDiscrepancyData(val.data);
       } else {
+        setDiscrepancyData(null);
         setDiscrepancyError(val.error || "Multi-corpus discrepancy metrics are incomplete.");
       }
     } catch (err) {
@@ -669,8 +671,8 @@ You can ask me questions such as:
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs text-indigo-950 flex items-start gap-3 shadow-2xs">
                 <Lightbulb className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold">Thematic Landscape Insight: </span>
-                  {gapMatrixData.thematicSummary}
+                  <span className="font-bold">Recommended Grant Proposal: </span>
+                  {gapMatrixData.matrixSummary.recommendedTopGrantProposal}
                 </div>
               </div>
 
@@ -679,10 +681,10 @@ You can ask me questions such as:
                 <span className="text-[11px] font-bold text-slate-400 uppercase mr-1">Filter Quadrant:</span>
                 {[
                   { id: "all", label: "All Quadrants" },
-                  { id: "Moonshot", label: "🚀 High Novelty / Challenging" },
-                  { id: "Strategic Opportunity", label: "⭐ High Novelty / High Feasibility" },
-                  { id: "Low-Hanging Fruit", label: "🎯 Moderate Novelty / Immediate Feasibility" },
-                  { id: "Incremental Expansion", label: "📈 Incremental Extension" },
+                  { id: "High Novelty / Low Feasibility", label: "🚀 High-Risk Moonshot" },
+                  { id: "High Novelty / High Feasibility", label: "⭐ Gold Standard Grant" },
+                  { id: "Low Novelty / High Feasibility", label: "🎯 Low-Hanging Fruit" },
+                  { id: "Low Novelty / Low Feasibility", label: "📈 Deprioritized" },
                 ].map((q) => (
                   <button
                     key={q.id}
@@ -701,7 +703,7 @@ You can ask me questions such as:
 
               {/* Proposals Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {gapMatrixData.matrix
+                {gapMatrixData.proposals
                   .filter((item) => selectedQuadrantFilter === "all" || item.quadrant.includes(selectedQuadrantFilter))
                   .map((item, idx) => (
                     <div
@@ -712,11 +714,11 @@ You can ask me questions such as:
                         <div className="flex items-start justify-between gap-3">
                           <span
                             className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                              item.quadrant.includes("Moonshot")
+                              item.quadrant === "High Novelty / Low Feasibility"
                                 ? "bg-purple-100 text-purple-800"
-                                : item.quadrant.includes("Opportunity")
+                                : item.quadrant === "High Novelty / High Feasibility"
                                 ? "bg-emerald-100 text-emerald-800"
-                                : item.quadrant.includes("Low-Hanging")
+                                : item.quadrant === "Low Novelty / High Feasibility"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800"
                             }`}
@@ -724,12 +726,12 @@ You can ask me questions such as:
                             {item.quadrant}
                           </span>
                           <span className="text-[10px] font-mono text-slate-400">
-                            {item.timeHorizon}
+                            {item.estimatedCompletionHorizon}
                           </span>
                         </div>
 
                         <h3 className="text-sm font-black text-slate-900 leading-snug">
-                          {item.proposalTitle}
+                          {item.title}
                         </h3>
 
                         <p className="text-xs text-slate-600 leading-relaxed">
@@ -743,12 +745,12 @@ You can ask me questions such as:
                           <div>
                             <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
                               <span>Novelty</span>
-                              <span className="text-purple-700">{item.noveltyScore}/10</span>
+                              <span className="text-purple-700">{item.noveltyScore}/100</span>
                             </div>
                             <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                               <div
                                 className="h-full bg-purple-600 rounded-full"
-                                style={{ width: `${item.noveltyScore * 10}%` }}
+                                style={{ width: `${item.noveltyScore}%` }}
                               />
                             </div>
                           </div>
@@ -756,12 +758,12 @@ You can ask me questions such as:
                           <div>
                             <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
                               <span>Feasibility</span>
-                              <span className="text-emerald-700">{item.feasibilityScore}/10</span>
+                              <span className="text-emerald-700">{item.feasibilityScore}/100</span>
                             </div>
                             <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                               <div
                                 className="h-full bg-emerald-600 rounded-full"
-                                style={{ width: `${item.feasibilityScore * 10}%` }}
+                                style={{ width: `${item.feasibilityScore}%` }}
                               />
                             </div>
                           </div>
@@ -770,11 +772,11 @@ You can ask me questions such as:
                         <div className="pt-2 flex flex-col gap-1 text-[11px] text-slate-500 font-mono">
                           <div>
                             <span className="font-bold font-sans text-slate-700">Approach: </span>
-                            {item.recommendedMethodology}
+                            {item.methodologicalApproach}
                           </div>
                           <div>
-                            <span className="font-bold font-sans text-slate-700">Target Grants/Journals: </span>
-                            {item.targetFundingOrJournals}
+                            <span className="font-bold font-sans text-slate-700">Target Degree: </span>
+                            {item.targetDegreeLevel}
                           </div>
                         </div>
                       </div>
@@ -865,94 +867,62 @@ You can ask me questions such as:
             </div>
           ) : discrepancyData ? (
             <div className="space-y-6">
-              {/* Primary Discrepancy KPI Cards */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-900">
+                <strong>Unique records across databases:</strong> {discrepancyData.totalUniqueUnionDocs.toLocaleString()}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {discrepancyData.corpusDiscrepancies.map((c, idx) => (
-                  <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-black text-slate-900">{c.corpusName}</h3>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-600 font-bold">
-                        Lag: {c.citationLagMonths} mo
-                      </span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-500">Source Coverage:</span>
-                        <span className="font-bold text-indigo-700">{c.coverageEstimatePercent}%</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-600 rounded-full"
-                          style={{ width: `${c.coverageEstimatePercent}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 pt-1 text-xs">
-                      <div>
-                        <span className="font-bold text-slate-700">Primary Coverage Pattern: </span>
-                        <span className="text-rose-700 font-semibold">{c.primaryBias}</span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-700">Strength: </span>
-                        <span className="text-slate-600">{c.strength}</span>
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-700">Language Inclusivity: </span>
-                        <span className="text-slate-600">{c.languageInclusivity}</span>
-                      </div>
+                {discrepancyData.databaseMetrics.map((metric) => (
+                  <div key={metric.database} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
+                    <h3 className="text-base font-black text-slate-900">{metric.database}</h3>
+                    <div className="space-y-1 text-xs text-slate-700">
+                      <p>Indexed records: {metric.docCount.toLocaleString()}</p>
+                      <p>Exclusive records: {metric.exclusiveDocCount.toLocaleString()} ({metric.exclusiveRatio}%)</p>
+                      <p>Coverage of union: {metric.coverageRatio}%</p>
+                      <p>Average recorded citations: {metric.avgCitationsRecorded}</p>
+                      <p>Open access coverage: {metric.openAccessCoveragePct}%</p>
+                      <p>Author disambiguation: {metric.authorDisambiguationQuality}</p>
+                      <p>Funding information: {metric.fundingInformationCoveragePct}%</p>
+                      <p>Abstract completeness: {metric.abstractCompletenessPct}%</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Systematic Indexing Coverage Gaps */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
+                <h3 className="text-sm font-black text-slate-900">Database Intersections</h3>
+                <div className="grid gap-2 text-xs text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(discrepancyData.vennIntersections).map(([intersection, count]) => (
+                    <p key={intersection}>{intersection.replace(/([A-Z])/g, " $1")}: {count.toLocaleString()}</p>
+                  ))}
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
-                  <h3 className="text-sm font-black text-slate-900">
-                    Indexing Coverage Gaps & Omissions
-                  </h3>
+                  <h3 className="text-sm font-black text-slate-900">Subject Coverage Biases</h3>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {discrepancyData.systematicBlindspots.map((b, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-3.5 space-y-1 text-xs"
-                    >
-                      <div className="font-bold text-amber-900">{b.category}</div>
-                      <div className="text-slate-600">{b.description}</div>
-                      <div className="text-[11px] font-mono text-amber-800 pt-1">
-                        <span className="font-bold">Risk: </span>{b.impactRisk}
-                      </div>
+                  {discrepancyData.fieldBiases.map((bias) => (
+                    <div key={bias.categoryName} className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-3.5 space-y-1 text-xs">
+                      <div className="font-bold text-amber-900">{bias.categoryName}</div>
+                      <p>WoS: {bias.wosSharePct}% · Scopus: {bias.scopusSharePct}% · PubMed: {bias.pubmedSharePct}%</p>
+                      <p className="text-slate-600">{bias.discrepancyBiasVerdict}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Recommended Cross-Database Synthesis Protocol */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3 text-xs text-slate-700">
                 <div className="flex items-center gap-2">
                   <Award className="h-5 w-5 text-indigo-600" />
-                  <h3 className="text-sm font-black text-slate-900">
-                    Recommended Multi-Source Deduplication & Normalization Workflow
-                  </h3>
+                  <h3 className="text-sm font-black text-slate-900">Cross-Database Synthesis</h3>
                 </div>
-
-                <ol className="list-decimal list-inside space-y-2 text-xs text-slate-700">
-                  {discrepancyData.recommendedTriangulationProtocol.map((step, idx) => (
-                    <li key={idx} className="leading-relaxed">
-                      {step}
-                    </li>
-                  ))}
-                </ol>
-
-                <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 text-xs text-slate-600 space-y-1">
-                  <div className="font-bold text-slate-800">Summary Synthesis:</div>
-                  <p>{discrepancyData.synthesisNote}</p>
-                </div>
+                <p><strong>Citation coverage:</strong> {discrepancyData.synthesizedReport.citationInflationLeader}</p>
+                <p><strong>Clinical depth:</strong> {discrepancyData.synthesizedReport.clinicalDepthLeader}</p>
+                <p><strong>Selective indexing:</strong> {discrepancyData.synthesizedReport.eliteSelectivityLeader}</p>
+                <p><strong>Recommended strategy:</strong> {discrepancyData.synthesizedReport.recommendedIndexingStrategy}</p>
+                <p className="text-amber-800"><strong>Systematic review caution:</strong> {discrepancyData.synthesizedReport.systematicReviewWarning}</p>
               </div>
             </div>
           ) : (

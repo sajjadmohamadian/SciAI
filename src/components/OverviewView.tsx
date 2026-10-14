@@ -644,12 +644,12 @@ export function OverviewView({
     },
     {
       id: "powerbi.connector",
-      title: "Power BI Live Connector",
+      title: "Power BI Research Intelligence Export",
       category: "delivery",
-      methodology: "OData / REST feed",
-      desc: "Exposes analysis-ready structures for enterprise dashboards and Power BI-style reporting workflows.",
+      methodology: "Versioned JSON Web Import",
+      desc: "Exports bibliometric snapshots and approved aggregate organizational or external reference tables for Power BI Desktop.",
       limitation:
-        "Downstream refresh depends on local server availability and connector configuration.",
+        "Internal data requires a local installation; Power BI refresh, relationships and remote credentials need separate configuration.",
       icon: <BarChart3 className="h-4 w-4 text-amber-600" />,
       tagColor:
         "text-amber-700 bg-amber-50 border-amber-200",
