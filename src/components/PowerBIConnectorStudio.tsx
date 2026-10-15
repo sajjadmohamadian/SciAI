@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Dataset, Analysis } from "../types.js";
 import { PowerBIDataSources } from "./PowerBIDataSources.js";
 import { PowerBICombinedEvidence } from "./PowerBICombinedEvidence.js";
+import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
 import {
   BarChart3,
   Copy,
@@ -982,6 +983,7 @@ in
             <div className="text-[11px] text-slate-400 text-right">
               Showing the first 10 records in this dataset version.
             </div>
+            {!loadingModel && selectedVersionId && Array.isArray(powerBiData?.[selectedTableTab]) && <ContextualExportToolbar payload={{ title: selectedTableTab, rows: powerBiData[selectedTableTab], provenance: { ...powerBiData.feedMetadata }, metadata: { export_scope: "complete selected Power BI table" } }} />}
           </div>
         </div>
       )}

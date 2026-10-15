@@ -28,6 +28,7 @@ import { MachineLearningStudio } from "./components/MachineLearningStudio.js";
 import { ComparativeBenchmarkingStudio } from "./components/ComparativeBenchmarkingStudio.js";
 import { PowerBIConnectorStudio } from "./components/PowerBIConnectorStudio.js";
 import { apiJson, getApiErrorMessage } from "./utils/apiClient.js";
+import { StudioExportBoundary } from "./components/StudioExportBoundary.js";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>("overview");
@@ -171,6 +172,8 @@ export default function App() {
               </button>
             </div>
           )}
+
+          <StudioExportBoundary key={activeTab} studio={activeTab}>
 
           {/* VIEW: OVERVIEW */}
           {activeTab === "overview" && (
@@ -340,6 +343,7 @@ export default function App() {
             <AiIntelligenceView datasets={datasets} analyses={analyses} />
           )}
 
+          </StudioExportBoundary>
         </main>
       </div>
 

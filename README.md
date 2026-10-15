@@ -107,7 +107,16 @@ The opt-in `/api/powerbi/v3` routes build a **pinned combined evidence model** o
 The combined model reports unmatched groups explicitly and preserves `available`, `not_collected`, `not_applicable`, and `unavailable` coverage states. It does not infer person-, author-, document-, student-, or patient-level relationships, and an evidence metric is not a causal claim. The Power BI Studio's **Combined Evidence Model** tab provides the same profile/mapping/build workflow. Real CRIS/HR/funding connectors, tenant authorization, and hosted refresh require a separate identity and governance implementation.
 
 
+## Contextual exports across studios
+
+Every studio has an **Export an output from this tab** selector for its displayed tables, SVG figures, and preformatted results. No analysis from another tab or dataset is silently substituted. Displayed-output exports contain only displayed rows/labels (including filters and pagination), explicitly marked in provenance; a figure's labels are not its underlying dataset. SVG/PNG/JPG exports capture the actual selected SVG and computed styles. Maps rendered as SVG use the same image path; canvas/raster map capture is not supported.
+
+Analysis result panels additionally export the complete computed records, scalar metrics, parameters, and analysis/dataset-version identifiers. Network Studio exports its computed topology as Pajek `.net`, GEXF, or GraphML as well as figures. Power BI table exports include all loaded rows with feed version metadata; aggregate snapshot exports paginate the complete pinned snapshot, and combined model exports retain their manifest and evidence.
+
+Formats are CSV, JSON, LaTeX, native OOXML Word `.docx`, Excel `.xlsx`, PowerPoint `.pptx`, and browser print (**Save as PDF**). Office files are dependency-free ZIP/XML data snapshots, not renamed HTML; they retain provenance, rows, metadata, and optional graph data. They do not contain native editable charts or embedded figure images; use the image actions for figures. Office limits reject excessive inputs with an error rather than truncating. Missing/null cells are distinct, and formula-looking spreadsheet values stay text. PDF opens a print dialog; it is not an automatic PDF-file download. Legacy corpus report endpoints retain their existing compatibility formats.
+
 ## Upload API
+
 
 - Health check: `GET /api/health`
 - Dataset upload: `POST /api/datasets/upload`

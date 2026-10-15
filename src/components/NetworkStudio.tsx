@@ -43,6 +43,7 @@ import {
   DownloadCloud,
 } from "lucide-react";
 import { Dataset, Analysis } from "../types.js";
+import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
 
 export type NetworkCategory =
   | "citation_documents"
@@ -831,6 +832,7 @@ export function NetworkStudio({
 
   // Dynamic document fetching from backend for exact, real-time scientometric metrics
   const [datasetDocuments, setDatasetDocuments] = useState<Record<string, any[]>>({});
+  const [datasetReadMetadata, setDatasetReadMetadata] = useState<Record<string, { version_id: string | null; total: number | null }>>({});
   const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
 
   useEffect(() => {
@@ -853,6 +855,7 @@ export function NetworkStudio({
       .then((data) => {
         if (!isMounted) return;
         const docs = Array.isArray(data) ? data : (data.documents || data.records || []);
+        setDatasetReadMetadata((prev) => ({ ...prev, [activeDatasetId]: { version_id: typeof data.version_id === "string" ? data.version_id : null, total: typeof data.total === "number" ? data.total : null } }));
         setDatasetDocuments((prev) => ({ ...prev, [activeDatasetId]: docs }));
       })
       .catch((err) => {
@@ -890,7 +893,16 @@ export function NetworkStudio({
     );
   }, [currentRecords, networkType, maxNodes, minWeight, normalization, clusteringAlgorithm, clusterCount]);
 
-  // Universal CSV/Text file downloader helper
+  const contextualNetworkPayload = {
+    title: `${currentDataset?.name || "Research"} ${networkType} network`,
+    provenance: { dataset_id: activeDatasetId || null, dataset_version_id: (currentDataset as any)?.raw_records?.length ? null : datasetReadMetadata[activeDatasetId]?.version_id ?? null, network_type: networkType, normalization, max_nodes: maxNodes, min_weight: minWeight, clustering_algorithm: clusteringAlgorithm },
+    rows: networkReport.nodes.map((node) => ({ ...node })),
+    metadata: { macro: networkReport.macro, clusters: networkReport.clusters, export_scope: "complete current computed network", input_records_loaded: currentRecords.length, input_records_available: datasetReadMetadata[activeDatasetId]?.total ?? null, limitations: "Network includes only records loaded by this view and the selected node/weight limits. Algorithmic approximations remain those of the network view; export does not validate or recompute them." },
+    graph: {
+      nodes: networkReport.nodes.map((node) => ({ id: node.id, label: node.label, ...node })),
+      edges: networkReport.links.map((link) => ({ source: typeof link.source === "string" ? link.source : link.source.id, target: typeof link.target === "string" ? link.target : link.target.id, weight: link.raw_weight })),
+    },
+  };
   const triggerDownload = (filename: string, content: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -2619,6 +2631,11 @@ export function NetworkStudio({
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {!isLoadingDocs && networkReport.nodes.length > 0 && (
+        <div data-export-actions className="mt-6">
+          <ContextualExportToolbar payload={contextualNetworkPayload} svgElementRef={svgRef} />
         </div>
       )}
     </div>

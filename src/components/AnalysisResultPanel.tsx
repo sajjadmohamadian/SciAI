@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Analysis, ResultRecord } from "../types.js";
 import { SectionHeader, StatusBadge, EmptyState } from "./CommonUI.js";
 import { VisualizerChart } from "./VisualizerChart.js";
@@ -6,6 +6,7 @@ import { NetworkGraph } from "./NetworkGraph.js";
 import { Download, Sparkles, RefreshCw, FileText, BarChart3, Network, Table } from "lucide-react";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
 import { useAiProvider } from "../context/AiProviderContext.js";
+import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
 
 interface Props {
   analysis: Analysis | null;
@@ -22,6 +23,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
   const [aiInsight, setAiInsight] = useState<string | null>(
     analysis?.result?.ai_interpretation || null
   );
+  const visualRef = useRef<HTMLDivElement | null>(null);
 
   if (!analysis) return null;
 
@@ -48,21 +50,6 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
     );
   });
 
-  const exportCSV = () => {
-    if (records.length === 0) return;
-    const headerRow = columns.join(",");
-    const rows = records.map((r) =>
-      columns.map((c) => JSON.stringify(r[c] ?? "")).join(",")
-    );
-    const csvContent = "data:text/csv;charset=utf-8," + [headerRow, ...rows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${capabilityId}_results.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const handleGenerateAiInsight = async () => {
     try {
@@ -102,6 +89,24 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
   };
 
   const isCoAuthorship = capabilityId === "author.co_authorship";
+  const graphRows = records.filter((record) => record.author_1 != null && record.author_2 != null);
+  const contextualGraph = graphRows.length > 0 ? {
+    nodes: Array.from(new Set(graphRows.flatMap((record) => [String(record.author_1), String(record.author_2)]))).map((id) => ({ id, label: id })),
+    edges: graphRows.map((record) => ({ source: String(record.author_1), target: String(record.author_2), weight: Number(record.co_authored_documents || record.weight || record.count || 1) })),
+  } : undefined;
+  const contextualPayload = {
+    title: analysis.name || capabilityId,
+    provenance: {
+      analysis_id: analysis.id,
+      capability_id: capabilityId,
+      dataset_id: analysis.dataset_id || null,
+      dataset_version_id: analysis.dataset_version_id || null,
+      status: analysis.status || "completed",
+    },
+    rows: filterQuery ? filteredRecords : records,
+    metadata: { ...metadata, scalar_entries: scalarEntries, parameters: analysis.parameters || {}, export_scope: filterQuery ? "filtered computed result" : "complete computed result", filter_query: filterQuery || null, ai_interpretation: activeTab === "ai" ? aiInsight : null, ai_is_partial: activeTab === "ai" ? aiIsPartial : null },
+    ...(contextualGraph ? { graph: contextualGraph } : {}),
+  };
 
   return (
     <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
@@ -129,14 +134,6 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
           >
             <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
             {isGeneratingAi ? "Synthesizing..." : "AI Research Synthesis"}
-          </button>
-          <button
-            type="button"
-            onClick={exportCSV}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
           </button>
         </div>
       </div>
@@ -214,7 +211,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
 
       {/* Tab 1: Visual Analytics */}
       {activeTab === "visual" && (
-        <div className="mt-4">
+        <div ref={visualRef} className="mt-4">
           {isCoAuthorship ? (
             <NetworkGraph records={records} />
           ) : (
@@ -330,6 +327,11 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             {JSON.stringify(metadata, null, 2)}
           </pre>
         </details>
+      )}
+      {(records.length > 0 || scalarEntries.length > 0 || !!aiInsight) && !["running", "queued", "pending", "failed", "error"].includes(analysis.status || "") && (
+        <div className="mt-6" data-export-actions>
+          <ContextualExportToolbar payload={contextualPayload} getSvgElement={activeTab === "visual" ? () => visualRef.current?.querySelector("svg") || null : undefined} compact />
+        </div>
       )}
     </section>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { GitMerge, RefreshCw, ShieldCheck } from "lucide-react";
+import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
 
 type Column = { name: string; type: "string" | "number" | "boolean" | "date"; role: "dimension" | "metric" | "group_size" };
 type Source = { id: string; name: string; kind: string; columns: Column[]; classification: string; provenance: { publisher: string; dataset: string; reference: string } };
@@ -113,5 +114,6 @@ export function PowerBICombinedEvidence({ datasetId, datasetVersionId }: Props) 
       </section>
     </div>
     {model && <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="flex items-center gap-2 font-bold"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Evidence metrics</h3><div className="mt-3 space-y-2">{model.evidence.map((item) => <div key={item.id || item.metric} className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs"><div className="flex justify-between gap-3"><span className="font-bold">{item.metric}</span><span className="font-mono">{String(item.value ?? "unavailable")}</span></div><p className="mt-1 text-slate-500">{item.interpretation_boundary}</p></div>)}</div></section><section className="rounded-2xl border border-slate-200 bg-white p-4"><h3 className="font-bold">Combined aggregate preview</h3><pre className="mt-3 max-h-72 overflow-auto rounded-xl bg-slate-950 p-3 text-[10px] text-slate-100">{JSON.stringify(model.rows.slice(0, 10), null, 2)}</pre><ul className="mt-3 list-disc space-y-1 pl-4 text-[11px] text-amber-800">{model.manifest.limitations.map((item) => <li key={item}>{item}</li>)}</ul></section></div>}
+    {model && !busy && <ContextualExportToolbar payload={{ title: "Combined portfolio evidence", rows: model.rows, provenance: { ...model.manifest }, metadata: { evidence: model.evidence, limitations: model.manifest.limitations } }} />}
   </div>;
 }

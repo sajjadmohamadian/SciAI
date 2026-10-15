@@ -28,6 +28,8 @@ const testFiles = [
   path.resolve("tests/powerbi_snapshots.test.ts"),
   path.resolve("tests/powerbi_profiles.test.ts"),
   path.resolve("tests/powerbi_v3_api.test.ts"),
+  path.resolve("tests/contextual_export.test.ts"),
+  path.resolve("tests/office_export.test.ts"),
   path.resolve("tests/capability_catalog.test.ts"),
   path.resolve("tests/parsers_scientific.test.ts"),
   path.resolve("tests/side_effects.test.ts"),

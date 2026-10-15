@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Database, Copy, Upload, ShieldCheck } from "lucide-react";
+import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
 
 type Column = { name: string; type: "string" | "number" | "boolean" | "date"; role: "dimension" | "metric" | "group_size" };
 type Source = {
@@ -165,6 +166,18 @@ export function PowerBIDataSources() {
         <pre className="max-h-64 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(preview?.snapshot.id === selectedSnapshot.id ? preview.rows : [], null, 2)}</pre>
         <div className="flex flex-wrap gap-2"><button type="button" onClick={() => navigator.clipboard.writeText(tableUrl)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs"><Copy className="h-3.5 w-3.5" /> Copy table URL</button><button type="button" onClick={() => navigator.clipboard.writeText(mScript)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs"><Copy className="h-3.5 w-3.5" /> Copy Power Query M</button></div>
         <p className="text-xs text-amber-800">The generated query paginates this immutable snapshot on a private loopback installation. Choose Anonymous only with the explicit local bypass; remote connections and Power BI Service refresh are not supported. Never put tokens in M scripts or URLs.</p>
+        {selectedSource && preview?.snapshot.id === selectedSnapshot.id && <ContextualExportToolbar payload={{ title: `${selectedSource.name} snapshot v${selectedSnapshot.version}`, rows: [], provenance: selectedSnapshot }} getPayload={async () => {
+          const rows: Record<string, unknown>[] = [];
+          let offset: number | null = 0;
+          while (offset !== null) {
+            const page = await request<Page>(`/api/powerbi/v2/tables/${encodeURIComponent(selectedSnapshot.id)}?limit=100&offset=${offset}`);
+            if (page.snapshot.id !== selectedSnapshot.id || rows.length + page.rows.length > 5000 || (page.next_offset !== null && page.next_offset <= offset)) throw new Error("Invalid snapshot export page");
+            rows.push(...page.rows);
+            offset = page.next_offset;
+          }
+          if (rows.length !== selectedSnapshot.row_count) throw new Error("Snapshot row count changed during export");
+          return { title: `${selectedSource.name} snapshot v${selectedSnapshot.version}`, rows, provenance: { ...selectedSnapshot, source: selectedSource.provenance, license: selectedSource.license ?? null }, metadata: { columns: selectedSource.columns, scope: "complete pinned aggregate snapshot" } };
+        }} />}
       </div>}
     </div>
   );
