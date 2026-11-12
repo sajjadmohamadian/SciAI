@@ -4,27 +4,27 @@ import {
   History,
   GitFork,
   Activity,
-  Layers,
-  Sparkles,
   Download,
-  Filter,
   Calendar,
   Search,
-  ExternalLink,
-  ChevronRight,
-  TrendingUp,
   Award,
   BookOpen,
-  Info,
   RefreshCw,
-  Sliders,
-  CheckCircle2,
   AlertCircle,
-  Clock,
   Zap,
 } from "lucide-react";
-import { Dataset, HistCiteOutput, HistCiteNode, RPYSOutput, RPYSSpectroscopyPoint } from "../types.js";
-import { validateHistCiteResponse, validateRpysResponse } from "../utils/responseValidation.js";
+import {
+  Dataset,
+  HistCiteOutput,
+  HistCiteNode,
+  RPYSOutput,
+  RPYSSpectroscopyPoint,
+} from "../types.js";
+import {
+  validateHistCiteResponse,
+  validateRpysResponse,
+} from "../utils/responseValidation.js";
+import { Button, Card } from "./CommonUI.js";
 
 interface Props {
   datasets: Dataset[];
@@ -32,15 +32,24 @@ interface Props {
   onSelectDataset?: (datasetId: string) => void;
 }
 
-export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelectDataset }: Props) {
-  const [activeDataset, setActiveDataset] = useState<string>(selectedDatasetId || (datasets[0]?.id ?? ""));
+export function HistoricalGenealogyStudio({
+  datasets,
+  selectedDatasetId,
+  onSelectDataset,
+}: Props) {
+  const [activeDataset, setActiveDataset] = useState<string>(
+    selectedDatasetId || (datasets[0]?.id ?? "")
+  );
 
   useEffect(() => {
     if (selectedDatasetId && selectedDatasetId !== activeDataset) {
       setActiveDataset(selectedDatasetId);
     }
   }, [selectedDatasetId]);
-  const [subTab, setSubTab] = useState<"histcite" | "rpys" | "mainpath">("histcite");
+
+  const [subTab, setSubTab] = useState<"histcite" | "rpys" | "mainpath">(
+    "histcite"
+  );
 
   // HistCite State
   const [histData, setHistData] = useState<HistCiteOutput | null>(null);
@@ -55,19 +64,13 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
   const [rpysData, setRpysData] = useState<RPYSOutput | null>(null);
   const [rpysLoading, setRpysLoading] = useState<boolean>(true);
   const [rpysError, setRpysError] = useState<string | null>(null);
-  const [selectedBreakoutYear, setSelectedBreakoutYear] = useState<number | null>(null);
-  const [showOnlyPeaks, setShowOnlyPeaks] = useState<boolean>(false);
+  const [selectedBreakoutYear, setSelectedBreakoutYear] = useState<
+    number | null
+  >(null);
 
   // SVG Refs
   const histSvgRef = useRef<SVGSVGElement | null>(null);
   const rpysSvgRef = useRef<SVGSVGElement | null>(null);
-
-  // Synchronize when parent prop changes
-  useEffect(() => {
-    if (selectedDatasetId && selectedDatasetId !== activeDataset) {
-      setActiveDataset(selectedDatasetId);
-    }
-  }, [selectedDatasetId]);
 
   // Fetch HistCite
   const fetchHistCite = async (dsId: string, minLcs: number) => {
@@ -151,12 +154,18 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     });
   }, [histData, onlyMainPath, searchQuery]);
 
-  const filteredNodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
+  const filteredNodeIds = useMemo(
+    () => new Set(filteredNodes.map((n) => n.id)),
+    [filteredNodes]
+  );
 
   const filteredLinks = useMemo(() => {
     if (!histData) return [];
     return histData.links.filter(
-      (l) => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target) && (!onlyMainPath || l.isMainPath)
+      (l) =>
+        filteredNodeIds.has(l.source) &&
+        filteredNodeIds.has(l.target) &&
+        (!onlyMainPath || l.isMainPath)
     );
   }, [histData, filteredNodeIds, onlyMainPath]);
 
@@ -179,33 +188,36 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Group nodes by year
-    const years: number[] = Array.from(new Set<number>(filteredNodes.map((n) => Number(n.year)))).sort((a, b) => a - b);
+    const years: number[] = Array.from(
+      new Set<number>(filteredNodes.map((n) => Number(n.year)))
+    ).sort((a, b) => a - b);
     if (years.length === 0) return;
 
     const minYear = Math.min(...years);
     const maxYear = Math.max(...years);
 
-    // X scale: Chronological Year Progression
     const xScale = d3
       .scaleLinear()
       .domain([minYear - 0.5, maxYear + 0.5])
       .range([0, innerWidth]);
 
-    // Calculate vertical distribution per year
     const nodesByYear = new Map<number, HistCiteNode[]>();
     years.forEach((y: number) => nodesByYear.set(y, []));
     filteredNodes.forEach((n) => nodesByYear.get(n.year)?.push(n));
 
-    // Sort nodes in same year by LCS descending
-    nodesByYear.forEach((list) => list.sort((a, b) => b.lcs - a.lcs || b.gcs - a.gcs));
+    nodesByYear.forEach((list) =>
+      list.sort((a, b) => b.lcs - a.lcs || b.gcs - a.gcs)
+    );
 
     const nodePositions = new Map<string, { x: number; y: number }>();
     nodesByYear.forEach((list, year) => {
       const x = xScale(year);
       const total = list.length;
       list.forEach((n, i) => {
-        const y = total === 1 ? innerHeight / 2 : ((i + 1) / (total + 1)) * innerHeight;
+        const y =
+          total === 1
+            ? innerHeight / 2
+            : ((i + 1) / (total + 1)) * innerHeight;
         nodePositions.set(n.id, { x, y });
       });
     });
@@ -220,7 +232,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("x2", x)
         .attr("y1", 0)
         .attr("y2", innerHeight)
-        .attr("stroke", "#e2e8f0")
+        .attr("stroke", "#d8ddd8")
         .attr("stroke-dasharray", "3,3");
 
       yearGrid
@@ -230,7 +242,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("text-anchor", "middle")
         .attr("font-size", "12px")
         .attr("font-weight", "600")
-        .attr("fill", "#64748b")
+        .attr("fill", "#5a6570")
         .text(String(y));
     });
 
@@ -247,7 +259,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#dc2626");
+      .attr("fill", "#E11D48");
 
     defs
       .append("marker")
@@ -260,9 +272,9 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#94a3b8");
+      .attr("fill", "#828d98");
 
-    // Draw Links (Directed Bezier Curves from Citing -> Cited, flowing right to left)
+    // Draw Links
     const linksGroup = g.append("g").attr("class", "links");
 
     filteredLinks.forEach((link) => {
@@ -271,7 +283,6 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
       if (!src || !tgt) return;
 
       const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
       const cx1 = src.x + dx * 0.4;
       const cy1 = src.y;
       const cx2 = tgt.x - dx * 0.4;
@@ -283,10 +294,13 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .append("path")
         .attr("d", pathData)
         .attr("fill", "none")
-        .attr("stroke", link.isMainPath ? "#dc2626" : "#cbd5e1")
+        .attr("stroke", link.isMainPath ? "#E11D48" : "#bcc4bc")
         .attr("stroke-width", link.isMainPath ? 2.5 : 1.2)
-        .attr("stroke-opacity", link.isMainPath ? 0.9 : 0.6)
-        .attr("marker-end", link.isMainPath ? "url(#arrow-mainpath)" : "url(#arrow-normal)");
+        .attr("stroke-opacity", link.isMainPath ? 0.9 : 0.65)
+        .attr(
+          "marker-end",
+          link.isMainPath ? "url(#arrow-mainpath)" : "url(#arrow-normal)"
+        );
     });
 
     // Draw Nodes
@@ -305,34 +319,31 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("cursor", "pointer")
         .on("click", () => setSelectedNode(node));
 
-      // Main path pulse ring
       if (node.isMainPath) {
         nodeG
           .append("circle")
           .attr("r", radius + 4)
           .attr("fill", "none")
-          .attr("stroke", "#dc2626")
+          .attr("stroke", "#E11D48")
           .attr("stroke-width", 1.5)
           .attr("stroke-dasharray", "3,2")
           .attr("opacity", 0.85);
       }
 
-      // Selection ring
       if (isSelected) {
         nodeG
           .append("circle")
           .attr("r", radius + 6)
           .attr("fill", "none")
-          .attr("stroke", "#2563eb")
+          .attr("stroke", "#315C7C")
           .attr("stroke-width", 2.5);
       }
 
-      // Main Node Circle
-      let fillColor = "#64748b";
-      if (node.isMainPath) fillColor = "#dc2626";
-      else if (node.isRootAncestor) fillColor = "#059669";
-      else if (node.isTerminalNode) fillColor = "#7c3aed";
-      else if (node.lcs > 2) fillColor = "#2563eb";
+      let fillColor = "#64748B";
+      if (node.isMainPath) fillColor = "#E11D48";
+      else if (node.isRootAncestor) fillColor = "#0D9488";
+      else if (node.isTerminalNode) fillColor = "#6366F1";
+      else if (node.lcs > 2) fillColor = "#315C7C";
 
       nodeG
         .append("circle")
@@ -342,7 +353,6 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("stroke-width", 2)
         .attr("class", "transition-all duration-150 hover:scale-110");
 
-      // Label inside circle (nodeIndex)
       nodeG
         .append("text")
         .attr("text-anchor", "middle")
@@ -352,7 +362,6 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("fill", "#ffffff")
         .text(node.nodeIndex);
 
-      // Author & Year Text Label
       nodeG
         .append("text")
         .attr("x", 0)
@@ -360,14 +369,19 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
         .attr("text-anchor", "middle")
         .attr("font-size", "10px")
         .attr("font-weight", node.isMainPath ? "700" : "500")
-        .attr("fill", node.isMainPath ? "#991b1b" : "#334155")
+        .attr("fill", node.isMainPath ? "#be123c" : "#27313c")
         .text(`${node.firstAuthor} '${String(node.year).slice(-2)}`);
     });
   }, [histData, filteredNodes, filteredLinks, selectedNode]);
 
   // ================= D3 RPYS SPECTROSCOPY CHART =================
   useEffect(() => {
-    if (!rpysSvgRef.current || !rpysData || rpysData.spectroscopy_points.length === 0) return;
+    if (
+      !rpysSvgRef.current ||
+      !rpysData ||
+      rpysData.spectroscopy_points.length === 0
+    )
+      return;
 
     const svg = d3.select(rpysSvgRef.current);
     svg.selectAll("*").remove();
@@ -395,37 +409,39 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     const yMaxDev = Math.max(20, ...points.map((p) => p.deviation));
 
     const xScale = d3.scaleLinear().domain(xDomain).range([0, innerWidth]);
-    const yScaleNCR = d3.scaleLinear().domain([0, yMaxNCR * 1.1]).range([innerHeight, 0]);
-    const yScaleDev = d3.scaleLinear().domain([yMinDev, yMaxDev * 1.15]).range([innerHeight, 0]);
+    const yScaleNCR = d3
+      .scaleLinear()
+      .domain([0, yMaxNCR * 1.1])
+      .range([innerHeight, 0]);
+    const yScaleDev = d3
+      .scaleLinear()
+      .domain([yMinDev, yMaxDev * 1.15])
+      .range([innerHeight, 0]);
 
-    // X Axis
     const xAxis = d3.axisBottom(xScale).tickFormat((d) => `${d}`).ticks(12);
     g.append("g")
       .attr("transform", `translate(0,${innerHeight})`)
       .call(xAxis)
-      .attr("color", "#94a3b8")
+      .attr("color", "#828d98")
       .selectAll("text")
       .attr("font-size", "11px");
 
-    // Y Axis (Deviation from median)
     const yAxisDev = d3.axisLeft(yScaleDev).ticks(6);
     g.append("g")
       .call(yAxisDev)
-      .attr("color", "#94a3b8")
+      .attr("color", "#828d98")
       .selectAll("text")
       .attr("font-size", "11px");
 
-    // Zero Line for Deviation
     g.append("line")
       .attr("x1", 0)
       .attr("x2", innerWidth)
       .attr("y1", yScaleDev(0))
       .attr("y2", yScaleDev(0))
-      .attr("stroke", "#cbd5e1")
+      .attr("stroke", "#bcc4bc")
       .attr("stroke-width", 1.5)
       .attr("stroke-dasharray", "4,4");
 
-    // Area generator for positive deviation peaks
     const areaDev = d3
       .area<RPYSSpectroscopyPoint>()
       .x((d) => xScale(d.year))
@@ -435,10 +451,9 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
 
     g.append("path")
       .datum(points)
-      .attr("fill", "rgba(239, 68, 68, 0.15)")
+      .attr("fill", "rgba(225, 29, 72, 0.14)")
       .attr("d", areaDev);
 
-    // Deviation Line (Red)
     const lineDev = d3
       .line<RPYSSpectroscopyPoint>()
       .x((d) => xScale(d.year))
@@ -448,11 +463,10 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     g.append("path")
       .datum(points)
       .attr("fill", "none")
-      .attr("stroke", "#dc2626")
+      .attr("stroke", "#E11D48")
       .attr("stroke-width", 2.2)
       .attr("d", lineDev);
 
-    // NCR Reference count line (Slate dashed)
     const lineNCR = d3
       .line<RPYSSpectroscopyPoint>()
       .x((d) => xScale(d.year))
@@ -462,13 +476,12 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     g.append("path")
       .datum(points)
       .attr("fill", "none")
-      .attr("stroke", "#64748b")
+      .attr("stroke", "#315C7C")
       .attr("stroke-width", 1.5)
       .attr("stroke-dasharray", "3,3")
-      .attr("opacity", 0.6)
+      .attr("opacity", 0.65)
       .attr("d", lineNCR);
 
-    // Interactive Peak Points
     points.forEach((pt) => {
       const isSelected = selectedBreakoutYear === pt.year;
       const isPeak = pt.isPeak;
@@ -477,13 +490,16 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
 
       const circleG = g
         .append("g")
-        .attr("transform", `translate(${xScale(pt.year)},${yScaleDev(pt.deviation)})`)
+        .attr(
+          "transform",
+          `translate(${xScale(pt.year)},${yScaleDev(pt.deviation)})`
+        )
         .attr("cursor", "pointer")
         .on("click", () => setSelectedBreakoutYear(pt.year));
 
-      let peakColor = "#dc2626";
-      if (pt.peakSignificance === "extreme") peakColor = "#b91c1c";
-      else if (pt.peakSignificance === "strong") peakColor = "#ea580c";
+      let peakColor = "#E11D48";
+      if (pt.peakSignificance === "extreme") peakColor = "#be123c";
+      else if (pt.peakSignificance === "strong") peakColor = "#D97706";
 
       circleG
         .append("circle")
@@ -505,11 +521,12 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
     });
   }, [rpysData, selectedBreakoutYear]);
 
-  // Active Breakout Data
   const currentBreakout = useMemo(() => {
     if (!rpysData || !selectedBreakoutYear) return null;
     return (
-      rpysData.milestone_breakouts.find((b) => b.year === selectedBreakoutYear) ||
+      rpysData.milestone_breakouts.find(
+        (b) => b.year === selectedBreakoutYear
+      ) ||
       rpysData.spectroscopy_points.find((p) => p.year === selectedBreakoutYear)
     );
   }, [rpysData, selectedBreakoutYear]);
@@ -517,33 +534,40 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
   return (
     <div id="historical-genealogy-studio" className="space-y-6">
       {/* Header Banner */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+      <Card padding="lg">
         <div className="flex flex-col gap-5">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-status-warning-border bg-status-warning-bg px-2.5 py-1 text-xs font-semibold text-status-warning-text">
                 <History className="h-3.5 w-3.5 shrink-0" />
-                Historical Epistemology & Origins
+                Historical Epistemology &amp; Origins
               </span>
-              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 whitespace-nowrap">
-                HistCite™ & RPYS
+              <span className="whitespace-nowrap rounded-md border border-border-default bg-surface-subtle px-2.5 py-1 text-xs font-medium text-ink-secondary">
+                HistCite™ &amp; RPYS
               </span>
             </div>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-ink-primary">
               Historical Citation Genealogy &amp; Spectroscopy
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-500">
-              Algorithmic historiography tracking direct citation paths (Garfield / HistCite) and reference publication year spectroscopy (Marx &amp; Bornmann) to uncover foundational intellectual roots.
+            <p className="mt-2 max-w-3xl text-sm text-ink-muted">
+              Algorithmic historiography tracking direct citation paths
+              (Garfield / HistCite) and reference publication year spectroscopy
+              (Marx &amp; Bornmann) to uncover foundational intellectual roots.
             </p>
           </div>
 
           {/* Dataset Selector */}
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex min-w-0 flex-col">
-              <label className="text-xs font-medium text-slate-500">Target Dataset</label>
+              <label
+                htmlFor="historical-dataset-select"
+                className="text-xs font-medium text-ink-muted"
+              >
+                Target Dataset
+              </label>
               <select
                 id="historical-dataset-select"
-                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 sm:w-80"
+                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-xl border border-border-default bg-surface-canvas px-3 py-2 text-sm font-medium text-ink-primary shadow-card focus:border-brand-500 focus:outline-none sm:w-80"
                 value={activeDataset}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -560,85 +584,93 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                 ))}
               </select>
             </div>
-            <button
+            <Button
+              type="button"
               id="refresh-historical-btn"
+              variant="secondary"
+              size="md"
               onClick={() => {
                 if (activeDataset) {
                   fetchHistCite(activeDataset, minLcsFilter);
                   fetchRPYS(activeDataset);
                 }
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer transition"
+              icon={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              <RefreshCw className="h-3.5 w-3.5" />
               Recalculate
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Subtab navigation */}
-        <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2">
           <button
+            type="button"
             id="tab-histcite"
             onClick={() => setSubTab("histcite")}
-            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
               subTab === "histcite"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <GitFork className="h-4 w-4" />
             Algorithmic Historiography (HistCite)
           </button>
           <button
+            type="button"
             id="tab-rpys"
             onClick={() => setSubTab("rpys")}
-            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
               subTab === "rpys"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <Activity className="h-4 w-4" />
             RPYS Citation Spectroscopy (Foundations)
           </button>
           <button
+            type="button"
             id="tab-mainpath"
             onClick={() => setSubTab("mainpath")}
-            className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+            className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
               subTab === "mainpath"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <Zap className="h-4 w-4" />
             Main Path Analysis (Search Path Link Count)
           </button>
         </div>
-      </div>
+      </Card>
 
       {/* ================= TAB 1: HISTCITE GENEALOGY ================= */}
       {subTab === "histcite" && (
         <div className="space-y-6">
           {/* Controls Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+          <Card
+            padding="sm"
+            className="flex flex-wrap items-center justify-between gap-4"
+          >
             <div className="flex flex-wrap items-center gap-4">
-              {/* Search Filter */}
               <div className="relative w-64">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-ink-subtle" />
                 <input
                   id="histcite-search-input"
                   type="text"
                   placeholder="Filter by author, title..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-xl border border-border-default bg-surface-subtle py-1.5 pl-9 pr-3 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:bg-surface-canvas focus:outline-none"
                 />
               </div>
 
-              {/* Min LCS Filter */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-600">Min LCS:</span>
+                <span className="text-xs font-medium text-ink-secondary">
+                  Min LCS:
+                </span>
                 <input
                   type="range"
                   min="0"
@@ -646,132 +678,168 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                   step="1"
                   value={minLcsFilter}
                   onChange={(e) => setMinLcsFilter(Number(e.target.value))}
-                  className="h-1.5 w-24 accent-amber-600"
+                  className="h-1.5 w-24 accent-brand-500"
                 />
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-700">
+                <span className="tabular-metrics rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 font-mono text-xs font-bold text-ink-primary">
                   {minLcsFilter}
                 </span>
               </div>
 
-              {/* Main Path Toggle */}
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-ink-secondary">
                 <input
                   type="checkbox"
                   checked={onlyMainPath}
                   onChange={(e) => setOnlyMainPath(e.target.checked)}
-                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                  className="rounded border-border-default accent-brand-500"
                 />
                 <span>Highlight Main Epistemic Path Only</span>
               </label>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="flex items-center gap-3 text-xs text-slate-600">
-              <span className="font-semibold text-slate-900">{filteredNodes.length}</span> nodes visible /{" "}
-              <span className="font-semibold text-slate-900">{filteredLinks.length}</span> internal citations
+            <div className="tabular-metrics flex items-center gap-1.5 text-xs text-ink-muted">
+              <span className="font-semibold text-ink-primary">
+                {filteredNodes.length}
+              </span>{" "}
+              nodes visible /{" "}
+              <span className="font-semibold text-ink-primary">
+                {filteredLinks.length}
+              </span>{" "}
+              internal citations
             </div>
-          </div>
+          </Card>
 
           {/* Visualization & Side Inspector */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             {/* D3 Graph Canvas */}
-            <div className="lg:col-span-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <div className="mb-3 flex items-center justify-between">
+            <Card padding="md" className="lg:col-span-8">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">Direct Citation Historiograph</h3>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                  <h3 className="text-sm font-bold text-ink-primary">
+                    Direct Citation Historiograph
+                  </h3>
+                  <span className="rounded-full border border-border-default bg-surface-subtle px-2 py-0.5 text-[10px] font-semibold text-ink-secondary">
                     Chronological Left → Right
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-ink-muted">
                   <span className="flex items-center gap-1">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> Root Ancestor
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#0D9488]" />{" "}
+                    Root Ancestor
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-2.5 w-2.5 rounded-full bg-red-600"></span> Main Path
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#E11D48]" />{" "}
+                    Main Path
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span> High LCS
+                    <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />{" "}
+                    High LCS
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-2.5 w-2.5 rounded-full bg-purple-600"></span> Terminal Frontier
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#6366F1]" />{" "}
+                    Terminal Frontier
                   </span>
                 </div>
               </div>
 
               {histLoading ? (
                 <div className="flex h-96 items-center justify-center">
-                  <div className="flex flex-col items-center gap-2 text-slate-500 text-xs">
-                    <RefreshCw className="h-6 w-6 animate-spin text-amber-600" />
+                  <div className="flex flex-col items-center gap-2 text-xs text-ink-muted">
+                    <RefreshCw className="h-6 w-6 animate-spin text-brand-500" />
                     Calculating genealogy network and local citation scores...
                   </div>
                 </div>
               ) : histError ? (
-                <div className="flex h-96 items-center justify-center text-red-600 text-xs">
+                <div className="flex h-96 items-center justify-center text-xs text-status-danger-text">
                   <AlertCircle className="mr-2 h-4 w-4" /> {histError}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <svg ref={histSvgRef} className="w-full h-auto select-none" />
+                  <svg ref={histSvgRef} className="h-auto w-full select-none" />
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Document Details & LCS Inspector */}
-            <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+            <Card
+              padding="md"
+              className="flex flex-col justify-between lg:col-span-4"
+            >
               {selectedNode ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                      <span className="tabular-metrics flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white">
                         {selectedNode.nodeIndex}
                       </span>
-                      <span className="text-xs font-bold text-slate-700">Document Inspector</span>
+                      <span className="text-xs font-bold text-ink-secondary">
+                        Document Inspector
+                      </span>
                     </div>
                     {selectedNode.isMainPath && (
-                      <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                      <span className="rounded border border-status-danger-border bg-status-danger-bg px-2 py-0.5 text-[10px] font-bold text-status-danger-text">
                         ★ Main Path Anchor
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-bold leading-snug text-slate-900">
+                    <h4 className="text-sm font-bold leading-snug text-ink-primary">
                       {selectedNode.title}
                     </h4>
-                    <p className="mt-1 text-xs text-slate-500 font-medium">
-                      {selectedNode.firstAuthor} et al. • <span className="text-slate-700 font-bold">{selectedNode.year}</span>
+                    <p className="mt-1 text-xs font-medium text-ink-muted">
+                      {selectedNode.firstAuthor} et al. •{" "}
+                      <span className="tabular-metrics font-bold text-ink-primary">
+                        {selectedNode.year}
+                      </span>
                     </p>
-                    <p className="mt-0.5 text-xs italic text-slate-400">
+                    <p className="mt-0.5 text-xs italic text-ink-subtle">
                       {selectedNode.source}
                     </p>
                   </div>
 
                   {/* Scientometric LCS & GCS KPIs */}
-                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-50 p-3 text-center">
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-border-subtle bg-surface-subtle p-3 text-center">
                     <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">LCS (Local)</div>
-                      <div className="text-lg font-black text-amber-600">{selectedNode.lcs}</div>
-                      <div className="text-[9px] text-slate-400">in-corpus cites</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">GCS (Global)</div>
-                      <div className="text-lg font-black text-slate-800">{selectedNode.gcs}</div>
-                      <div className="text-[9px] text-slate-400">total cites</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">LCS/GCS</div>
-                      <div className="text-lg font-black text-indigo-600">
-                        {selectedNode.gcs > 0 ? `${Math.round((selectedNode.lcs / selectedNode.gcs) * 100)}%` : "0%"}
+                      <div className="sciai-kicker text-[10px]!">
+                        LCS (Local)
                       </div>
-                      <div className="text-[9px] text-slate-400">internal impact</div>
+                      <div className="tabular-metrics text-lg font-black text-status-warning-text">
+                        {selectedNode.lcs}
+                      </div>
+                      <div className="text-[9px] text-ink-subtle">
+                        in-corpus cites
+                      </div>
+                    </div>
+                    <div>
+                      <div className="sciai-kicker text-[10px]!">
+                        GCS (Global)
+                      </div>
+                      <div className="tabular-metrics text-lg font-black text-ink-primary">
+                        {selectedNode.gcs}
+                      </div>
+                      <div className="text-[9px] text-ink-subtle">
+                        total cites
+                      </div>
+                    </div>
+                    <div>
+                      <div className="sciai-kicker text-[10px]!">LCS/GCS</div>
+                      <div className="tabular-metrics text-lg font-black text-brand-600">
+                        {selectedNode.gcs > 0
+                          ? `${Math.round((selectedNode.lcs / selectedNode.gcs) * 100)}%`
+                          : "0%"}
+                      </div>
+                      <div className="text-[9px] text-ink-subtle">
+                        internal impact
+                      </div>
                     </div>
                   </div>
 
                   {selectedNode.abstractSnippet && (
-                    <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
-                      <div className="text-[10px] font-bold text-slate-600 uppercase">Abstract Summary</div>
-                      <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                    <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+                      <div className="sciai-kicker text-[10px]!">
+                        Abstract Summary
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
                         {selectedNode.abstractSnippet}
                       </p>
                     </div>
@@ -779,22 +847,29 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
 
                   {/* Direct Epistemic Linkages */}
                   <div className="space-y-2 pt-2">
-                    <div className="text-xs font-semibold text-slate-700">
-                      Direct In-Corpus References ({selectedNode.citedNodes.length}):
+                    <div className="tabular-metrics text-xs font-semibold text-ink-secondary">
+                      Direct In-Corpus References (
+                      {selectedNode.citedNodes.length}):
                     </div>
                     {selectedNode.citedNodes.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 italic">No previous internal papers cited (Epistemic Root).</p>
+                      <p className="text-[11px] italic text-ink-subtle">
+                        No previous internal papers cited (Epistemic Root).
+                      </p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {selectedNode.citedNodes.map((id) => {
-                          const target = histData?.nodes.find((n) => n.id === id);
+                          const target = histData?.nodes.find(
+                            (n) => n.id === id
+                          );
                           return (
                             <button
+                              type="button"
                               key={id}
                               onClick={() => target && setSelectedNode(target)}
-                              className="rounded bg-slate-100 hover:bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                              className="cursor-pointer rounded-md border border-border-default bg-surface-subtle px-2 py-0.5 text-[10px] font-semibold text-ink-secondary transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                             >
-                              ← #{target?.nodeIndex} {target?.firstAuthor} ({target?.year})
+                              ← #{target?.nodeIndex} {target?.firstAuthor} (
+                              {target?.year})
                             </button>
                           );
                         })}
@@ -803,71 +878,98 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                  Select a node on the historiograph to inspect its citation links.
+                <div className="flex h-full items-center justify-center text-xs text-ink-subtle">
+                  Select a node on the historiograph to inspect its citation
+                  links.
                 </div>
               )}
 
               {/* HistCite Export Action */}
-              <div className="mt-4 border-t border-slate-100 pt-3 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">Historiography Matrix Ready</span>
-                <button
+              <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3">
+                <span className="text-[11px] text-ink-muted">
+                  Historiography Matrix Ready
+                </span>
+                <Button
+                  type="button"
                   id="export-histcite-json-btn"
+                  variant="primary"
+                  size="sm"
                   onClick={() => {
                     if (!histData) return;
-                    const blob = new Blob([JSON.stringify(histData, null, 2)], { type: "application/json" });
+                    const blob = new Blob([JSON.stringify(histData, null, 2)], {
+                      type: "application/json",
+                    });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = `HistCite_${histData.dataset_id}.json`;
                     a.click();
                   }}
-                  className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-800"
+                  icon={<Download className="h-3 w-3" />}
                 >
-                  <Download className="h-3 w-3" /> Export JSON
-                </button>
+                  Export JSON
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Top LCS Ranking Table */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Award className="h-4 w-4 text-amber-600" />
-              Highest Local Citation Score (LCS) Literature - Core Intellectual Foundation
+          <Card padding="lg">
+            <h3 className="flex items-center gap-2 text-base font-bold text-ink-primary">
+              <Award className="h-4 w-4 text-status-warning-text" />
+              Highest Local Citation Score (LCS) Literature - Core Intellectual
+              Foundation
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Papers with high LCS represent internal keystones that drive subsequent work in this specific community, irrespective of broad generic citations.
+            <p className="mt-1 text-xs text-ink-muted">
+              Papers with high LCS represent internal keystones that drive
+              subsequent work in this specific community, irrespective of broad
+              generic citations.
             </p>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+              <table className="w-full text-left text-xs text-ink-secondary">
+                <thead className="border-b border-border-default bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                   <tr>
-                    <th className="py-2.5 px-3">Node #</th>
-                    <th className="py-2.5 px-3">Author & Year</th>
-                    <th className="py-2.5 px-3">Document Title</th>
-                    <th className="py-2.5 px-3 text-center">LCS (Local)</th>
-                    <th className="py-2.5 px-3 text-center">GCS (Global)</th>
-                    <th className="py-2.5 px-3 text-center">LCS Ratio</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
+                    <th className="px-3 py-2.5">Node #</th>
+                    <th className="px-3 py-2.5">Author &amp; Year</th>
+                    <th className="px-3 py-2.5">Document Title</th>
+                    <th className="px-3 py-2.5 text-center">LCS (Local)</th>
+                    <th className="px-3 py-2.5 text-center">GCS (Global)</th>
+                    <th className="px-3 py-2.5 text-center">LCS Ratio</th>
+                    <th className="px-3 py-2.5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border-subtle">
                   {histData?.top_lcs_papers.map((p, idx) => {
                     const node = histData.nodes.find((n) => n.id === p.id);
                     return (
-                      <tr key={p.id} className="hover:bg-amber-50/50">
-                        <td className="py-2 px-3 font-bold text-slate-900">#{node?.nodeIndex || idx + 1}</td>
-                        <td className="py-2 px-3 font-semibold text-slate-800">{p.authorYear}</td>
-                        <td className="py-2 px-3 max-w-md truncate font-medium text-slate-700">{p.title}</td>
-                        <td className="py-2 px-3 text-center font-bold text-amber-700">{p.lcs}</td>
-                        <td className="py-2 px-3 text-center text-slate-600">{p.gcs}</td>
-                        <td className="py-2 px-3 text-center font-semibold text-indigo-600">{p.lcsRatio}%</td>
-                        <td className="py-2 px-3 text-right">
+                      <tr
+                        key={p.id}
+                        className="transition-colors hover:bg-surface-subtle/70"
+                      >
+                        <td className="tabular-metrics px-3 py-2 font-mono font-bold text-ink-primary">
+                          #{node?.nodeIndex || idx + 1}
+                        </td>
+                        <td className="px-3 py-2 font-semibold text-ink-primary">
+                          {p.authorYear}
+                        </td>
+                        <td className="max-w-md truncate px-3 py-2 font-medium text-ink-secondary">
+                          {p.title}
+                        </td>
+                        <td className="tabular-metrics px-3 py-2 text-center font-bold text-status-warning-text">
+                          {p.lcs}
+                        </td>
+                        <td className="tabular-metrics px-3 py-2 text-center text-ink-muted">
+                          {p.gcs}
+                        </td>
+                        <td className="tabular-metrics px-3 py-2 text-center font-semibold text-brand-600">
+                          {p.lcsRatio}%
+                        </td>
+                        <td className="px-3 py-2 text-right">
                           <button
+                            type="button"
                             onClick={() => node && setSelectedNode(node)}
-                            className="rounded bg-slate-100 hover:bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700"
+                            className="cursor-pointer rounded-md border border-border-default bg-surface-subtle px-2 py-1 text-[10px] font-semibold text-ink-secondary transition-colors hover:bg-surface-muted hover:text-ink-primary"
                           >
                             Locate
                           </button>
@@ -878,7 +980,7 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                 </tbody>
               </table>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -886,60 +988,71 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
       {subTab === "rpys" && (
         <div className="space-y-6">
           {/* Header Info */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between">
+          <Card
+            padding="sm"
+            className="flex flex-wrap items-center justify-between gap-4"
+          >
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-status-danger-border bg-status-danger-bg text-status-danger-text">
                 <Activity className="h-4 w-4" />
               </span>
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-primary">
                   Reference Publication Year Spectroscopy (RPYS)
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Marx & Bornmann spectroscopic curve mapping historical cited references across time (1950 - present) to locate paradigm shifts.
+                <p className="text-xs text-ink-muted">
+                  Marx &amp; Bornmann spectroscopic curve mapping historical
+                  cited references across time (1950 - present) to locate
+                  paradigm shifts.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-red-600"></span>
-                <span className="font-semibold text-slate-700">Deviation (Δ Median)</span>
+                <span className="h-3 w-3 rounded-full bg-status-danger-text" />
+                <span className="font-semibold text-ink-secondary">
+                  Deviation (Δ Median)
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 border-t-2 border-dashed border-slate-400"></span>
-                <span className="text-slate-500">Total NCR Volume</span>
+                <span className="h-0.5 w-4 border-t-2 border-dashed border-brand-500" />
+                <span className="text-ink-muted">Total NCR Volume</span>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* D3 RPYS Chart Canvas */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold text-slate-600">
-                Spectroscopic Peaks indicate historical breakthrough years where foundational papers were published.
+          <Card padding="md">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-semibold text-ink-muted">
+                Spectroscopic Peaks indicate historical breakthrough years
+                where foundational papers were published.
               </div>
-              <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                {rpysData?.milestone_breakouts.length || 0} Historical Breakout Peaks Detected
+              <span className="tabular-metrics rounded border border-status-warning-border bg-status-warning-bg px-2 py-0.5 text-[10px] font-bold text-status-warning-text">
+                {rpysData?.milestone_breakouts.length || 0} Historical Breakout
+                Peaks Detected
               </span>
             </div>
 
             {rpysLoading ? (
               <div className="flex h-80 items-center justify-center">
-                <RefreshCw className="h-6 w-6 animate-spin text-amber-600" />
+                <RefreshCw className="h-6 w-6 animate-spin text-brand-500" />
               </div>
             ) : rpysError ? (
-              <div className="flex h-80 items-center justify-center text-red-600 text-xs">{rpysError}</div>
+              <div className="flex h-80 items-center justify-center text-xs text-status-danger-text">
+                {rpysError}
+              </div>
             ) : (
-              <svg ref={rpysSvgRef} className="w-full h-auto select-none" />
+              <svg ref={rpysSvgRef} className="h-auto w-full select-none" />
             )}
-          </div>
+          </Card>
 
           {/* Milestone Breakouts Details */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-            <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-amber-600" />
+            <Card padding="md" className="lg:col-span-5">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-ink-primary">
+                <Calendar className="h-4 w-4 text-status-warning-text" />
                 Historical Breakout Years (Ranked by Spectroscopic Peak)
               </h4>
               <div className="mt-4 space-y-2">
@@ -951,55 +1064,81 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
                       onClick={() => setSelectedBreakoutYear(m.year)}
                       className={`cursor-pointer rounded-xl border p-3 transition-all ${
                         isSelected
-                          ? "border-red-500 bg-red-50/50 shadow-xs"
-                          : "border-slate-200 bg-slate-50/50 hover:bg-slate-100"
+                          ? "border-brand-500 bg-brand-50/60 shadow-card"
+                          : "border-border-default bg-surface-subtle hover:bg-surface-muted/70"
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-slate-900">{m.year}</span>
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                            m.significance === "extreme" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"
-                          }`}>
+                          <span className="tabular-metrics text-base font-black text-ink-primary">
+                            {m.year}
+                          </span>
+                          <span
+                            className={`tabular-metrics rounded border px-1.5 py-0.5 text-[10px] font-bold ${
+                              m.significance === "extreme"
+                                ? "border-status-danger-border bg-status-danger-bg text-status-danger-text"
+                                : "border-status-warning-border bg-status-warning-bg text-status-warning-text"
+                            }`}
+                          >
                             +{m.deviation} Peak Deviation
                           </span>
                         </div>
-                        <span className="text-[11px] font-medium text-slate-500">{m.ncr} Cited Refs</span>
+                        <span className="tabular-metrics text-[11px] font-medium text-ink-muted">
+                          {m.ncr} Cited Refs
+                        </span>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600 line-clamp-1">{m.historicalContext}</p>
+                      <p className="mt-1 line-clamp-1 text-xs text-ink-secondary">
+                        {m.historicalContext}
+                      </p>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </Card>
 
             {/* Breakthrough Works in Selected Year */}
-            <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-indigo-600" />
+            <Card padding="md" className="lg:col-span-7">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <h4 className="flex items-center gap-2 text-sm font-bold text-ink-primary">
+                  <BookOpen className="h-4 w-4 text-brand-500" />
                   Landmark Publications in Year {selectedBreakoutYear || "—"}
                 </h4>
-                <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                  {currentBreakout?.landmarkCitations?.length || currentBreakout?.breakoutWorks?.length || 0} Landmark Papers
+                <span className="tabular-metrics rounded border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">
+                  {currentBreakout?.landmarkCitations?.length ||
+                    currentBreakout?.breakoutWorks?.length ||
+                    0}{" "}
+                  Landmark Papers
                 </span>
               </div>
 
               <div className="mt-4 space-y-3">
-                {(currentBreakout?.landmarkCitations || currentBreakout?.breakoutWorks || []).map((work: any, i: number) => (
-                  <div key={i} className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
+                {(
+                  currentBreakout?.landmarkCitations ||
+                  currentBreakout?.breakoutWorks ||
+                  []
+                ).map((work: any, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-border-default bg-surface-subtle p-3.5"
+                  >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="font-bold text-xs text-slate-900">{work.authorYear}</div>
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                      <div className="text-xs font-bold text-ink-primary">
+                        {work.authorYear}
+                      </div>
+                      <span className="rounded-full border border-status-warning-border bg-status-warning-bg px-2 py-0.5 text-[10px] font-bold text-status-warning-text">
                         {work.historicalRole}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs font-medium text-slate-800">{work.title}</div>
-                    <div className="mt-1 text-[11px] italic text-slate-500">{work.source} • {work.citations} historical citations</div>
+                    <div className="mt-1 text-xs font-medium text-ink-primary">
+                      {work.title}
+                    </div>
+                    <div className="tabular-metrics mt-1 text-[11px] italic text-ink-muted">
+                      {work.source} • {work.citations} historical citations
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       )}
@@ -1007,56 +1146,67 @@ export function HistoricalGenealogyStudio({ datasets, selectedDatasetId, onSelec
       {/* ================= TAB 3: MAIN PATH ANALYSIS ================= */}
       {subTab === "mainpath" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+          <Card padding="lg">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-700">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-status-danger-border bg-status-danger-bg text-status-danger-text">
                 <Zap className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Main Path Analysis (Hummon & Doreian SPC)</h3>
-                <p className="text-xs text-slate-500">
-                  Main Path analysis identifies the critical structural backbone of scientific communication, filtering out peripheral citations to reveal the undeniable chain of ideas that gave rise to the current frontier.
+                <h3 className="text-base font-bold text-ink-primary">
+                  Main Path Analysis (Hummon &amp; Doreian SPC)
+                </h3>
+                <p className="text-xs text-ink-muted">
+                  Main Path analysis identifies the critical structural backbone
+                  of scientific communication, filtering out peripheral
+                  citations to reveal the undeniable chain of ideas that gave
+                  rise to the current frontier.
                 </p>
               </div>
             </div>
 
-            {/* Main Path Flow Timeline */}
             <div className="mt-6 space-y-4">
-              <div className="relative pl-6 border-l-2 border-red-500 space-y-6">
+              <div className="relative space-y-6 border-l-2 border-brand-500 pl-6">
                 {histData?.nodes
                   .filter((n) => n.isMainPath)
                   .sort((a, b) => a.year - b.year)
                   .map((n, idx) => (
-                    <div key={n.id} className="relative group">
-                      {/* Step Circle */}
-                      <span className="absolute -left-[31px] top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold shadow-xs">
+                    <div key={n.id} className="group relative">
+                      <span className="tabular-metrics absolute -left-[31px] top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white shadow-xs">
                         {idx + 1}
                       </span>
 
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition-all hover:bg-white hover:shadow-xs">
-                        <div className="flex items-center justify-between">
+                      <div className="rounded-xl border border-border-default bg-surface-subtle p-4 transition-all hover:bg-surface-canvas hover:shadow-card">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-black text-white">
+                            <span className="tabular-metrics rounded bg-ink-primary px-2 py-0.5 text-xs font-black text-white">
                               {n.year}
                             </span>
-                            <span className="text-xs font-bold text-slate-800">{n.firstAuthor} et al.</span>
-                            <span className="text-xs text-slate-400">• {n.source}</span>
+                            <span className="text-xs font-bold text-ink-primary">
+                              {n.firstAuthor} et al.
+                            </span>
+                            <span className="text-xs text-ink-muted">
+                              • {n.source}
+                            </span>
                           </div>
-                          <span className="rounded bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                          <span className="tabular-metrics rounded border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                             LCS: {n.lcs} / GCS: {n.gcs}
                           </span>
                         </div>
 
-                        <div className="mt-1.5 text-sm font-bold text-slate-900">{n.title}</div>
+                        <div className="mt-1.5 text-sm font-bold text-ink-primary">
+                          {n.title}
+                        </div>
                         {n.abstractSnippet && (
-                          <p className="mt-1 text-xs text-slate-600 leading-relaxed">{n.abstractSnippet}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-ink-secondary">
+                            {n.abstractSnippet}
+                          </p>
                         )}
                       </div>
                     </div>
                   ))}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

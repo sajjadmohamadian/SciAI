@@ -6,14 +6,12 @@ import {
   BookOpen,
   Quote,
   ExternalLink,
-  Sparkles,
-  CheckCircle2,
   Layers,
   ArrowRight,
-  Database,
   Calendar,
   Users,
 } from "lucide-react";
+import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface OpenAlexWork {
   id: string;
@@ -55,7 +53,9 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
     setImportSuccess(null);
     setPage(1);
     try {
-      const res = await fetch(`/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=1`);
+      const res = await fetch(
+        `/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=1`
+      );
       const data = await res.json();
       setWorks(data.works || []);
       setTotalOnline(data.total_online || data.count || 0);
@@ -73,7 +73,9 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
     setLoadingMore(true);
     const nextPage = page + 1;
     try {
-      const res = await fetch(`/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${nextPage}`);
+      const res = await fetch(
+        `/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${nextPage}`
+      );
       const data = await res.json();
       const newWorks: OpenAlexWork[] = data.works || [];
       if (newWorks.length > 0) {
@@ -110,7 +112,9 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
       });
       const data = await res.json();
       if (data.success && data.dataset) {
-        setImportSuccess(`Dataset "${data.dataset.name}" successfully created with ${data.documents_count} documents.`);
+        setImportSuccess(
+          `Dataset "${data.dataset.name}" successfully created with ${data.documents_count} documents.`
+        );
         onDatasetCreated(data.dataset.id);
       }
     } catch (err) {
@@ -123,68 +127,67 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card padding="lg">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500 text-white shadow-xs">
                 <Globe2 className="h-4 w-4" />
               </span>
-              <h2 className="text-base font-black tracking-tight text-slate-900">
+              <h2 className="text-base font-black tracking-tight text-ink-primary">
                 OpenAlex Live Explorer & Citation Net
               </h2>
-              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+              <span className="rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                 pyBiblioNet API
               </span>
             </div>
-            <p className="text-xs text-slate-500 max-w-2xl">
-              Query over 250M+ open scientific works from the OpenAlex global knowledge graph. Inspect citation metrics, seminal referenced works (Root Set), and convert directly into a SciAI research dataset.
+            <p className="max-w-2xl text-xs leading-relaxed text-ink-muted">
+              Query over 250M+ open scientific works from the OpenAlex global knowledge graph.
+              Inspect citation metrics, seminal referenced works (Root Set), and convert directly
+              into a SciAI research dataset.
             </p>
           </div>
 
           {works.length > 0 && (
-            <button
-              onClick={handleImport}
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              loading={importing}
               disabled={importing}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer shrink-0"
+              onClick={handleImport}
+              icon={<Download className="h-4 w-4" />}
+              className="shrink-0"
             >
-              {importing ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Importing Corpus...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  <span>Import {works.length} Works as Dataset</span>
-                </>
-              )}
-            </button>
+              {importing ? "Importing Corpus..." : `Import ${works.length} Works as Dataset`}
+            </Button>
           )}
         </div>
 
         {/* Search Bar & Limit Selector */}
         <form onSubmit={handleSearch} className="mt-5 space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search scientific literature (e.g., deep learning in oncology, scientometrics, quantum computing)..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none"
+                className="w-full rounded-xl border border-border-default bg-surface-subtle py-2.5 pl-10 pr-4 text-xs font-medium text-ink-primary placeholder:text-ink-subtle transition-colors focus:border-brand-500 focus:bg-surface-canvas focus:outline-none"
               />
             </div>
 
             {/* Records Limit Dropdown */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-              <Layers className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">Fetch:</span>
+            <div className="flex items-center gap-1.5 rounded-xl border border-border-default bg-surface-subtle px-3 py-1.5">
+              <Layers className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+              <span className="whitespace-nowrap text-[11px] font-bold text-ink-secondary">
+                Fetch:
+              </span>
               <select
                 value={perPage}
                 onChange={(e) => setPerPage(Number(e.target.value))}
-                className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                className="cursor-pointer bg-transparent text-xs font-bold text-ink-primary focus:outline-none"
               >
                 <option value={15}>15 records</option>
                 <option value={25}>25 records</option>
@@ -194,98 +197,83 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
               </select>
             </div>
 
-            <button
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
+              loading={loading}
               disabled={loading}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+              icon={<Search className="h-3.5 w-3.5" />}
+              className="shrink-0"
             >
-              {loading ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Querying OpenAlex...</span>
-                </>
-              ) : (
-                <>
-                  <Search className="h-3.5 w-3.5" />
-                  <span>Search OpenAlex</span>
-                </>
-              )}
-            </button>
+              {loading ? "Querying OpenAlex..." : "Search OpenAlex"}
+            </Button>
           </div>
 
           {/* Quick presets & info badge */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-ink-muted">
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-600">Quick batch size:</span>
+              <span className="font-semibold text-ink-secondary">Quick batch size:</span>
               {[25, 50, 100, 200].map((size) => (
                 <button
                   type="button"
                   key={size}
-                  onClick={() => {
-                    setPerPage(size);
-                  }}
-                  className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold transition cursor-pointer ${
+                  onClick={() => setPerPage(size)}
+                  className={`tabular-metrics cursor-pointer rounded-md px-2 py-0.5 font-mono text-[10px] font-bold transition-colors ${
                     perPage === size
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-brand-500 text-white"
+                      : "border border-border-subtle bg-surface-subtle text-ink-secondary hover:bg-surface-muted"
                   }`}
                 >
                   {size}
                 </button>
               ))}
             </div>
-            <span className="text-slate-400 italic">
+            <span className="italic text-ink-subtle">
               Up to 200 works per query · Use "Load More" to append multi-page batches
             </span>
           </div>
         </form>
 
         {importSuccess && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-medium">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-            <span>{importSuccess}</span>
+          <div className="mt-4">
+            <AlertBanner tone="success">{importSuccess}</AlertBanner>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Results Header / Stats */}
       {works.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-          <div className="text-xs font-bold text-slate-700 flex flex-wrap items-center gap-2">
-            <span className="text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+        <div className="flex flex-col justify-between gap-2 px-1 sm:flex-row sm:items-center">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-ink-secondary">
+            <span className="tabular-metrics rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-brand-700">
               {works.length} Works Collected
             </span>
-            <span className="text-slate-400">·</span>
-            <span className="text-slate-600 font-medium">
+            <span className="text-ink-subtle">·</span>
+            <span className="tabular-metrics font-medium text-ink-muted">
               Estimated {totalOnline.toLocaleString()} global matches in OpenAlex
             </span>
             {sourceType === "openalex_live" && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800">
+              <span className="rounded-full border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[9px] font-bold text-status-success-text">
                 LIVE API Connected
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {hasMore && (
-              <button
-                onClick={handleLoadMore}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                loading={loadingMore}
                 disabled={loadingMore}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition cursor-pointer disabled:opacity-50"
+                onClick={handleLoadMore}
+                icon={<ArrowRight className="h-3.5 w-3.5" />}
               >
-                {loadingMore ? (
-                  <>
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-700 border-t-transparent" />
-                    <span>Loading Page {page + 1}...</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                    <span>Load Next {perPage} Works</span>
-                  </>
-                )}
-              </button>
+                {loadingMore ? `Loading Page ${page + 1}...` : `Load Next ${perPage} Works`}
+              </Button>
             )}
-            <span className="text-[11px] text-slate-400">
+            <span className="tabular-metrics text-[11px] text-ink-subtle">
               Page {page} · OpenAlex REST API v2
             </span>
           </div>
@@ -295,41 +283,44 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
       {/* Works List */}
       <div className="space-y-3">
         {works.map((work) => (
-          <div
+          <Card
             key={work.id}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-slate-300 space-y-2.5"
+            padding="sm"
+            className="space-y-2.5 transition-colors hover:border-border-strong"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1 flex-1">
-                <h3 className="text-xs font-bold text-slate-900 leading-snug">
-                  {work.title}
-                </h3>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                  <span className="flex items-center gap-1 font-medium text-slate-700">
-                    <Users className="h-3 w-3 text-slate-400" />
-                    {Array.isArray(work.authors) ? work.authors.slice(0, 3).join(", ") : "Unknown Author"}
-                    {Array.isArray(work.authors) && work.authors.length > 3 && ` +${work.authors.length - 3}`}
+              <div className="flex-1 space-y-1">
+                <h3 className="text-xs font-bold leading-snug text-ink-primary">{work.title}</h3>
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-muted">
+                  <span className="flex items-center gap-1 font-medium text-ink-secondary">
+                    <Users className="h-3 w-3 text-ink-subtle" />
+                    {Array.isArray(work.authors)
+                      ? work.authors.slice(0, 3).join(", ")
+                      : "Unknown Author"}
+                    {Array.isArray(work.authors) &&
+                      work.authors.length > 3 &&
+                      ` +${work.authors.length - 3}`}
                   </span>
-                  <span>•</span>
+                  <span>·</span>
                   <span className="flex items-center gap-1">
-                    <BookOpen className="h-3 w-3 text-slate-400" />
+                    <BookOpen className="h-3 w-3 text-ink-subtle" />
                     {work.source}
                   </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3 text-slate-400" />
+                  <span>·</span>
+                  <span className="tabular-metrics flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-ink-subtle" />
                     {work.year}
                   </span>
                 </div>
               </div>
 
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-mono font-bold text-slate-800">
-                  <Quote className="h-3 w-3 text-slate-400" />
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <span className="tabular-metrics inline-flex items-center gap-1 rounded-md border border-border-default bg-surface-subtle px-2 py-1 font-mono text-xs font-bold text-ink-primary">
+                  <Quote className="h-3 w-3 text-brand-500" />
                   {work.citations || 0} citations
                 </span>
                 {work.is_open_access && (
-                  <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-200">
+                  <span className="rounded-md border border-status-success-border bg-status-success-bg px-1.5 py-0.5 text-[9px] font-bold text-status-success-text">
                     Open Access
                   </span>
                 )}
@@ -341,7 +332,7 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
               {(work.keywords || []).map((kw, kIdx) => (
                 <span
                   key={kIdx}
-                  className="rounded-md bg-slate-50 border border-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                  className="rounded-md border border-border-subtle bg-surface-subtle px-2 py-0.5 text-[10px] font-medium text-ink-secondary"
                 >
                   #{kw}
                 </span>
@@ -351,79 +342,78 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
                   href={`https://doi.org/${work.doi}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-blue-600 hover:underline"
+                  className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-brand-500 hover:text-brand-700 hover:underline"
                 >
                   <span>DOI: {work.doi}</span>
                   <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               )}
             </div>
-          </div>
+          </Card>
         ))}
 
         {works.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="text-xs text-slate-600">
-              Currently accumulated <span className="font-bold text-slate-900">{works.length}</span> papers
+          <Card
+            padding="sm"
+            className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
+          >
+            <div className="tabular-metrics text-xs text-ink-muted">
+              Currently accumulated <span className="font-bold text-ink-primary">{works.length}</span>{" "}
+              papers
               {totalOnline > works.length && (
-                <span className="text-slate-400"> (of ~{totalOnline.toLocaleString()} available online)</span>
+                <span className="text-ink-subtle">
+                  {" "}
+                  (of ~{totalOnline.toLocaleString()} available online)
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {hasMore && (
-                <button
-                  onClick={handleLoadMore}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  loading={loadingMore}
                   disabled={loadingMore}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                  onClick={handleLoadMore}
+                  icon={<ArrowRight className="h-3.5 w-3.5" />}
                 >
-                  {loadingMore ? (
-                    <>
-                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-800 border-t-transparent" />
-                      <span>Loading Page {page + 1}...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                      <span>Load Next {perPage} Works</span>
-                    </>
-                  )}
-                </button>
+                  {loadingMore ? `Loading Page ${page + 1}...` : `Load Next ${perPage} Works`}
+                </Button>
               )}
-              <button
-                onClick={handleImport}
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                loading={importing}
                 disabled={importing}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
+                onClick={handleImport}
+                icon={<Download className="h-3.5 w-3.5" />}
               >
-                {importing ? (
-                  <>
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Importing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-3.5 w-3.5" />
-                    <span>Import All {works.length} Works as Dataset</span>
-                  </>
-                )}
-              </button>
+                {importing ? "Importing..." : `Import All ${works.length} Works as Dataset`}
+              </Button>
             </div>
-          </div>
+          </Card>
         )}
 
         {works.length === 0 && !loading && (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-12 text-center">
-            <Globe2 className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-            <h3 className="text-xs font-bold text-slate-700">Explore OpenAlex Knowledge Graph</h3>
-            <p className="text-[11px] text-slate-500 max-w-sm mx-auto mt-1">
-              Enter any research topic above to retrieve literature, citations, and metadata directly via the OpenAlex REST API.
+          <div className="rounded-2xl border border-dashed border-border-default bg-surface-subtle p-12 text-center">
+            <Globe2 className="mx-auto mb-2 h-8 w-8 text-brand-500" />
+            <h3 className="text-xs font-bold text-ink-primary">Explore OpenAlex Knowledge Graph</h3>
+            <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-ink-muted">
+              Enter any research topic above to retrieve literature, citations, and metadata
+              directly via the OpenAlex REST API.
             </p>
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={() => handleSearch()}
-              className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 cursor-pointer inline-flex items-center gap-1.5"
+              icon={<Search className="h-3.5 w-3.5" />}
+              className="mt-4"
             >
-              <Search className="h-3.5 w-3.5" />
-              <span>Search Data Science</span>
-            </button>
+              Search Data Science
+            </Button>
           </div>
         )}
       </div>

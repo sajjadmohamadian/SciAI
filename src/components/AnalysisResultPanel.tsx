@@ -1,9 +1,9 @@
 import React, { useRef, useState } from "react";
 import { Analysis, ResultRecord } from "../types.js";
-import { SectionHeader, StatusBadge, EmptyState } from "./CommonUI.js";
+import { AlertBanner, Button, Card, EmptyState, StatusBadge } from "./CommonUI.js";
 import { VisualizerChart } from "./VisualizerChart.js";
 import { NetworkGraph } from "./NetworkGraph.js";
-import { Download, Sparkles, RefreshCw, FileText, BarChart3, Network, Table } from "lucide-react";
+import { Sparkles, RefreshCw, BarChart3, Network, Table } from "lucide-react";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
 import { useAiProvider } from "../context/AiProviderContext.js";
 import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
@@ -13,9 +13,11 @@ interface Props {
   onRefresh?: () => void;
 }
 
-export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
+export function AnalysisResultPanel({ analysis }: Props) {
   const { getAiRequestOptions } = useAiProvider();
-  const [activeTab, setActiveTab] = useState<"visual" | "table" | "ai">("visual");
+  const [activeTab, setActiveTab] = useState<"visual" | "table" | "ai">(
+    "visual"
+  );
   const [filterQuery, setFilterQuery] = useState("");
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -28,12 +30,19 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
   if (!analysis) return null;
 
   const result = analysis.result || {};
-  const records: ResultRecord[] = (Array.isArray(result.records) ? result.records : []) as ResultRecord[];
-  const scalarEntries = (Array.isArray(result.scalarEntries) ? result.scalarEntries : []) as Array<[string, unknown]>;
-  const metadata = (result.metadata && typeof result.metadata === "object") ? (result.metadata as Record<string, unknown>) : {};
-  const capabilityId = analysis.capability_id || analysis.analysis_type || "analysis";
+  const records: ResultRecord[] = (
+    Array.isArray(result.records) ? result.records : []
+  ) as ResultRecord[];
+  const scalarEntries = (
+    Array.isArray(result.scalarEntries) ? result.scalarEntries : []
+  ) as Array<[string, unknown]>;
+  const metadata =
+    result.metadata && typeof result.metadata === "object"
+      ? (result.metadata as Record<string, unknown>)
+      : {};
+  const capabilityId =
+    analysis.capability_id || analysis.analysis_type || "analysis";
 
-  // Auto-generate columns from records
   const columns: string[] = [];
   if (records.length > 0 && records[0] && typeof records[0] === "object") {
     const keys = Object.keys(records[0]);
@@ -42,14 +51,12 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
     });
   }
 
-  // Filtered records
   const filteredRecords = records.filter((r) => {
     if (!filterQuery) return true;
     return Object.values(r).some((v) =>
       String(v).toLowerCase().includes(filterQuery.toLowerCase())
     );
   });
-
 
   const handleGenerateAiInsight = async () => {
     try {
@@ -76,12 +83,18 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
         }
         setActiveTab("ai");
       } else {
-        setAiError(val.error || "Failed to generate valid AI interpretation.");
+        setAiError(
+          val.error || "Failed to generate valid AI interpretation."
+        );
         setActiveTab("ai");
       }
     } catch (err) {
       console.error("AI Insight generation error:", err);
-      setAiError(err instanceof Error ? err.message : "Error contacting AI interpretation service");
+      setAiError(
+        err instanceof Error
+          ? err.message
+          : "Error contacting AI interpretation service"
+      );
       setActiveTab("ai");
     } finally {
       setIsGeneratingAi(false);
@@ -89,11 +102,30 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
   };
 
   const isCoAuthorship = capabilityId === "author.co_authorship";
-  const graphRows = records.filter((record) => record.author_1 != null && record.author_2 != null);
-  const contextualGraph = graphRows.length > 0 ? {
-    nodes: Array.from(new Set(graphRows.flatMap((record) => [String(record.author_1), String(record.author_2)]))).map((id) => ({ id, label: id })),
-    edges: graphRows.map((record) => ({ source: String(record.author_1), target: String(record.author_2), weight: Number(record.co_authored_documents || record.weight || record.count || 1) })),
-  } : undefined;
+  const graphRows = records.filter(
+    (record) => record.author_1 != null && record.author_2 != null
+  );
+  const contextualGraph =
+    graphRows.length > 0
+      ? {
+          nodes: Array.from(
+            new Set(
+              graphRows.flatMap((record) => [
+                String(record.author_1),
+                String(record.author_2),
+              ])
+            )
+          ).map((id) => ({ id, label: id })),
+          edges: graphRows.map((record) => ({
+            source: String(record.author_1),
+            target: String(record.author_2),
+            weight: Number(
+              record.co_authored_documents || record.weight || record.count || 1
+            ),
+          })),
+        }
+      : undefined;
+
   const contextualPayload = {
     title: analysis.name || capabilityId,
     provenance: {
@@ -104,37 +136,61 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
       status: analysis.status || "completed",
     },
     rows: filterQuery ? filteredRecords : records,
-    metadata: { ...metadata, scalar_entries: scalarEntries, parameters: analysis.parameters || {}, export_scope: filterQuery ? "filtered computed result" : "complete computed result", filter_query: filterQuery || null, ai_interpretation: activeTab === "ai" ? aiInsight : null, ai_is_partial: activeTab === "ai" ? aiIsPartial : null },
+    metadata: {
+      ...metadata,
+      scalar_entries: scalarEntries,
+      parameters: analysis.parameters || {},
+      export_scope: filterQuery
+        ? "filtered computed result"
+        : "complete computed result",
+      filter_query: filterQuery || null,
+      ai_interpretation: activeTab === "ai" ? aiInsight : null,
+      ai_is_partial: activeTab === "ai" ? aiIsPartial : null,
+    },
     ...(contextualGraph ? { graph: contextualGraph } : {}),
   };
 
   return (
-    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
+    <Card padding="lg" className="mt-8">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black tracking-tight text-slate-900">
-              {analysis.name || capabilityId.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-black tracking-tight text-ink-primary">
+              {analysis.name ||
+                capabilityId
+                  .replace(/[._]/g, " ")
+                  .replace(/\b\w/g, (l) => l.toUpperCase())}
             </h2>
             <StatusBadge status={analysis.status || "completed"} />
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Capability: <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">{capabilityId}</code> ·
-            Computation Provider: {String(result.provider || "SciAINativeProvider")} ·
-            {records.length} bibliographic records processed
+          <p className="mt-1 text-xs text-ink-muted">
+            Capability:{" "}
+            <code className="rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 font-mono text-ink-primary">
+              {capabilityId}
+            </code>{" "}
+            · Computation Provider:{" "}
+            {String(result.provider || "SciAINativeProvider")} ·{" "}
+            <span className="tabular-metrics">{records.length}</span>{" "}
+            bibliographic records processed
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
-            onClick={handleGenerateAiInsight}
+            variant="secondary"
+            size="sm"
+            loading={isGeneratingAi}
             disabled={isGeneratingAi}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition disabled:opacity-50 cursor-pointer"
+            onClick={handleGenerateAiInsight}
+            icon={
+              !isGeneratingAi ? (
+                <Sparkles className="h-3.5 w-3.5 text-brand-500" />
+              ) : undefined
+            }
           >
-            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
             {isGeneratingAi ? "Synthesizing..." : "AI Research Synthesis"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -144,12 +200,12 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
           {scalarEntries.map(([key, value]) => (
             <div
               key={key}
-              className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 transition hover:border-slate-300"
+              className="rounded-xl border border-border-default bg-surface-subtle p-4 transition-colors hover:border-border-strong"
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+              <div className="sciai-kicker truncate text-[10px]!">
                 {key.replace(/_/g, " ")}
               </div>
-              <div className="mt-1.5 text-lg font-black text-slate-900 tracking-tight truncate">
+              <div className="tabular-metrics mt-1.5 truncate text-lg font-black tracking-tight text-ink-primary">
                 {String(value)}
               </div>
             </div>
@@ -158,27 +214,31 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
       )}
 
       {/* View Switcher Tabs */}
-      <div className="mt-6 flex items-center justify-between border-b border-slate-200">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-b border-border-default">
         <div className="flex gap-4">
           <button
             type="button"
             onClick={() => setActiveTab("visual")}
-            className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition-colors ${
               activeTab === "visual"
-                ? "border-slate-950 text-slate-950"
-                : "border-transparent text-slate-400 hover:text-slate-700"
+                ? "border-brand-500 text-brand-600"
+                : "border-transparent text-ink-muted hover:text-ink-primary"
             }`}
           >
-            {isCoAuthorship ? <Network className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
+            {isCoAuthorship ? (
+              <Network className="h-4 w-4" />
+            ) : (
+              <BarChart3 className="h-4 w-4" />
+            )}
             {isCoAuthorship ? "Network Topology" : "Visual Analytics"}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("table")}
-            className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition cursor-pointer ${
+            className={`tabular-metrics inline-flex cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition-colors ${
               activeTab === "table"
-                ? "border-slate-950 text-slate-950"
-                : "border-transparent text-slate-400 hover:text-slate-700"
+                ? "border-brand-500 text-brand-600"
+                : "border-transparent text-ink-muted hover:text-ink-primary"
             }`}
           >
             <Table className="h-4 w-4" />
@@ -187,13 +247,13 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
           <button
             type="button"
             onClick={() => setActiveTab("ai")}
-            className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex cursor-pointer items-center gap-1.5 border-b-2 pb-2.5 text-xs font-bold transition-colors ${
               activeTab === "ai"
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-slate-400 hover:text-indigo-600"
+                ? "border-brand-500 text-brand-600"
+                : "border-transparent text-ink-muted hover:text-brand-600"
             }`}
           >
-            <Sparkles className="h-4 w-4 text-indigo-500" />
+            <Sparkles className="h-4 w-4 text-brand-500" />
             AI Research Synthesis {aiInsight && "•"}
           </button>
         </div>
@@ -204,7 +264,7 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             placeholder="Filter bibliographic records..."
-            className="mb-2 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs outline-none focus:border-slate-950 w-48"
+            className="mb-2 w-48 rounded-xl border border-border-default bg-surface-canvas px-3 py-1 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
           />
         )}
       </div>
@@ -224,27 +284,30 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
       {activeTab === "table" && (
         <div className="mt-4">
           {filteredRecords.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-border-default">
               <table className="min-w-full text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="border-b border-border-default bg-surface-subtle">
                   <tr>
                     {columns.map((col) => (
                       <th
                         key={col}
-                        className="whitespace-nowrap px-4 py-3 text-left font-bold uppercase tracking-wider text-slate-500 text-[10px]"
+                        className="whitespace-nowrap px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-ink-muted"
                       >
                         {col.replace(/_/g, " ")}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border-subtle">
                   {filteredRecords.slice(0, 100).map((record, rIdx) => (
-                    <tr key={rIdx} className="hover:bg-slate-50/80 transition">
+                    <tr
+                      key={rIdx}
+                      className="transition-colors hover:bg-surface-subtle/70"
+                    >
                       {columns.map((col) => (
                         <td
                           key={col}
-                          className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-700"
+                          className="whitespace-nowrap px-4 py-2.5 font-medium text-ink-secondary"
                         >
                           {String(record[col] ?? "—")}
                         </td>
@@ -254,8 +317,9 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
                 </tbody>
               </table>
               {filteredRecords.length > 100 && (
-                <div className="bg-slate-50 px-4 py-2 text-center text-xs text-slate-500">
-                  Showing first 100 of {filteredRecords.length} bibliographic records.
+                <div className="tabular-metrics bg-surface-subtle px-4 py-2 text-center text-xs text-ink-muted">
+                  Showing first 100 of {filteredRecords.length} bibliographic
+                  records.
                 </div>
               )}
             </div>
@@ -270,47 +334,59 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
 
       {/* Tab 3: AI Research Synthesis */}
       {activeTab === "ai" && (
-        <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/30 p-5">
+        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
-              <Sparkles className="h-4 w-4 text-indigo-600" />
+            <div className="flex items-center gap-2 text-sm font-bold text-ink-primary">
+              <Sparkles className="h-4 w-4 text-brand-500" />
               AI Scientometric Synthesis
             </div>
             <button
               type="button"
               onClick={handleGenerateAiInsight}
               disabled={isGeneratingAi}
-              className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1 cursor-pointer"
+              className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-600 underline hover:text-brand-800"
             >
-              <RefreshCw className={`h-3 w-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-3 w-3 ${isGeneratingAi ? "animate-spin" : ""}`}
+              />
               Re-analyze with AI
             </button>
           </div>
 
           {aiError && (
-            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-              <span className="font-bold">Interpretation Error: </span>
-              {aiError}
+            <div className="mt-3">
+              <AlertBanner tone="danger">
+                <span className="font-bold">Interpretation Error: </span>
+                {aiError}
+              </AlertBanner>
             </div>
           )}
 
           {aiIsPartial && !aiError && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 font-medium">
-              Partial Interpretation: Response was truncated or preliminary. It is not authoritative.
+            <div className="mt-3">
+              <AlertBanner tone="warning">
+                Partial Interpretation: Response was truncated or preliminary.
+                It is not authoritative.
+              </AlertBanner>
             </div>
           )}
 
-          <div className="mt-3 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap font-sans">
+          <div className="mt-3 whitespace-pre-wrap font-sans text-xs leading-relaxed text-ink-secondary">
             {aiInsight || (
-              <div className="py-6 text-center text-slate-500">
-                <p>No AI-assisted interpretation generated yet for this analysis run.</p>
-                <button
+              <div className="py-6 text-center text-ink-muted">
+                <p>
+                  No AI-assisted interpretation generated yet for this analysis
+                  run.
+                </p>
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={handleGenerateAiInsight}
-                  className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
+                  className="mt-3"
                 >
                   Generate Research Synthesis
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -319,20 +395,33 @@ export function AnalysisResultPanel({ analysis, onRefresh }: Props) {
 
       {/* Technical Metadata Inspector */}
       {Object.keys(metadata).length > 0 && (
-        <details className="mt-5 border-t border-slate-100 pt-3">
-          <summary className="cursor-pointer text-[11px] font-bold text-slate-400 hover:text-slate-600">
-            Technical Result Metadata ({Object.keys(metadata).length} attributes)
+        <details className="mt-5 border-t border-border-subtle pt-3">
+          <summary className="cursor-pointer text-[11px] font-bold text-ink-subtle hover:text-ink-secondary">
+            Technical Result Metadata ({Object.keys(metadata).length}{" "}
+            attributes)
           </summary>
-          <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-950 p-4 text-[11px] font-mono text-slate-300">
+          <pre className="mt-2 overflow-x-auto rounded-xl bg-surface-dark p-4 font-mono text-[11px] text-slate-300">
             {JSON.stringify(metadata, null, 2)}
           </pre>
         </details>
       )}
-      {(records.length > 0 || scalarEntries.length > 0 || !!aiInsight) && !["running", "queued", "pending", "failed", "error"].includes(analysis.status || "") && (
-        <div className="mt-6" data-export-actions>
-          <ContextualExportToolbar payload={contextualPayload} getSvgElement={activeTab === "visual" ? () => visualRef.current?.querySelector("svg") || null : undefined} compact />
-        </div>
-      )}
-    </section>
+
+      {(records.length > 0 || scalarEntries.length > 0 || !!aiInsight) &&
+        !["running", "queued", "pending", "failed", "error"].includes(
+          analysis.status || ""
+        ) && (
+          <div className="mt-6" data-export-actions>
+            <ContextualExportToolbar
+              payload={contextualPayload}
+              getSvgElement={
+                activeTab === "visual"
+                  ? () => visualRef.current?.querySelector("svg") || null
+                  : undefined
+              }
+              compact
+            />
+          </div>
+        )}
+    </Card>
   );
 }

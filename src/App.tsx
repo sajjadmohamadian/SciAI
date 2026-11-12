@@ -33,13 +33,27 @@ import { useAuth } from "./context/AuthContext.js";
 import { LoginView } from "./components/LoginView.js";
 import { AdminUsersView } from "./components/AdminUsersView.js";
 import { AiProviderProvider } from "./context/AiProviderContext.js";
+import { AlertBanner, Button, Input } from "./components/CommonUI.js";
+import { KeyRound } from "lucide-react";
 
 export default function App() {
   const { user, authEnabled, loading } = useAuth();
-  if (loading) return <div role="status" className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading secure session…</div>;
+  if (loading)
+    return (
+      <div
+        role="status"
+        className="flex min-h-screen items-center justify-center bg-surface-canvas text-sm font-medium text-ink-muted"
+      >
+        Loading secure session…
+      </div>
+    );
   if (authEnabled && !user) return <LoginView />;
   if (authEnabled && user?.must_change_password) return <PasswordChangeGate />;
-  return <AiProviderProvider><WorkspaceApp /></AiProviderProvider>;
+  return (
+    <AiProviderProvider>
+      <WorkspaceApp />
+    </AiProviderProvider>
+  );
 }
 
 function PasswordChangeGate() {
@@ -48,22 +62,90 @@ function PasswordChangeGate() {
   const [next, setNext] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  return <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-    <form className="w-full max-w-md rounded-3xl bg-white p-8" onSubmit={async (event) => {
-      event.preventDefault(); if (busy) return; setBusy(true); setError("");
-      try { await changePassword(current, next); setCurrent(""); setNext(""); }
-      catch (err) { setError(getApiErrorMessage(err, "Password change failed.")); }
-      finally { setBusy(false); }
-    }}>
-      <h1 className="text-xl font-black">Change your temporary password</h1>
-      <p className="mt-2 text-sm text-slate-600">Choose a new password before entering the workspace.</p>
-      <label className="mt-5 block text-sm font-semibold">Current password<input required autoComplete="current-password" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="mt-1 w-full rounded-xl border p-3" /></label>
-      <label className="mt-3 block text-sm font-semibold">New password (12+ characters)<input required minLength={12} autoComplete="new-password" type="password" value={next} onChange={(e) => setNext(e.target.value)} className="mt-1 w-full rounded-xl border p-3" /></label>
-      <button disabled={busy} className="mt-5 w-full rounded-xl bg-slate-900 p-3 font-bold text-white disabled:opacity-50">{busy ? "Updating…" : "Update password"}</button>
-      <button type="button" disabled={busy} onClick={() => void logout()} className="mt-3 w-full text-sm font-semibold text-slate-600">Sign out</button>
-      {error && <p role="alert" className="mt-3 text-xs text-rose-700">{error}</p>}
-    </form>
-  </main>;
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-surface-dark px-4 py-8">
+      <form
+        className="w-full max-w-md rounded-3xl border border-border-default bg-surface-canvas p-8 shadow-elevated"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (busy) return;
+          setBusy(true);
+          setError("");
+          try {
+            await changePassword(current, next);
+            setCurrent("");
+            setNext("");
+          } catch (err) {
+            setError(getApiErrorMessage(err, "Password change failed."));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-500/25 bg-ink-primary text-white">
+            <KeyRound className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-ink-primary">
+              Change your temporary password
+            </h1>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Choose a new password before entering the workspace.
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4">
+            <AlertBanner tone="danger">{error}</AlertBanner>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <Input
+            label="Current password"
+            required
+            autoComplete="current-password"
+            type="password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+          <Input
+            label="New password (12+ characters)"
+            required
+            minLength={12}
+            autoComplete="new-password"
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            loading={busy}
+            disabled={busy}
+            className="w-full"
+          >
+            {busy ? "Updating…" : "Update password"}
+          </Button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void logout()}
+            className="w-full cursor-pointer py-1 text-center text-xs font-semibold text-ink-muted transition-colors hover:text-brand-500 hover:underline disabled:opacity-50"
+          >
+            Sign out
+          </button>
+        </div>
+      </form>
+    </main>
+  );
 }
 
 function WorkspaceApp() {
@@ -76,14 +158,13 @@ function WorkspaceApp() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
 
-  // Modals state
   const [modal, setModal] = useState<"upload" | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
 
-  const selectedDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
+  const selectedDataset =
+    datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
 
-  // Load Dashboard Data
   const loadDashboard = async () => {
     setLoading(true);
     try {
@@ -122,7 +203,6 @@ function WorkspaceApp() {
     loadDashboard();
   }, []);
 
-  // Quick execution shortcut for specific capability
   const quickRunCapability = async (
     capabilityId: string,
     customDatasetId?: string,
@@ -139,7 +219,9 @@ function WorkspaceApp() {
     try {
       const vRes = await fetch(`/datasets/${targetDataset.id}/versions`);
       if (!vRes.ok) {
-        setMessage(`Cannot execute: failed to load versions for dataset "${targetDataset.name}".`);
+        setMessage(
+          `Cannot execute: failed to load versions for dataset "${targetDataset.name}".`
+        );
         return null;
       }
       const vData = await vRes.json();
@@ -147,7 +229,9 @@ function WorkspaceApp() {
       const version = safeList.find((v) => v.dataset_id === targetDataset.id);
 
       if (!version?.id) {
-        setMessage(`Cannot execute: dataset "${targetDataset.name}" has no snapshot versions.`);
+        setMessage(
+          `Cannot execute: dataset "${targetDataset.name}" has no snapshot versions.`
+        );
         return null;
       }
 
@@ -161,22 +245,28 @@ function WorkspaceApp() {
       const valAnalysis = validateAnalysisRunResponse(newAnalysis);
       if (valAnalysis.success && valAnalysis.data) {
         const analysis = valAnalysis.data;
-        setAnalyses((previous) => [analysis, ...previous.filter((item) => item.id !== analysis.id)]);
+        setAnalyses((previous) => [
+          analysis,
+          ...previous.filter((item) => item.id !== analysis.id),
+        ]);
         setMessage("");
         return analysis;
       }
-      setMessage(valAnalysis.error || "Execution returned invalid analysis structure.");
+      setMessage(
+        valAnalysis.error || "Execution returned invalid analysis structure."
+      );
       return null;
     } catch (err: unknown) {
       console.error("Quick run failed:", err);
-      setMessage(getApiErrorMessage(err, "Failed to execute analysis on server"));
+      setMessage(
+        getApiErrorMessage(err, "Failed to execute analysis on server")
+      );
       return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased selection:bg-slate-950 selection:text-white">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-surface-subtle/50 font-sans text-ink-primary antialiased selection:bg-brand-500 selection:text-white">
       <Sidebar
         isAdmin={authEnabled && user?.role === "admin"}
         activeTab={activeTab}
@@ -186,9 +276,7 @@ function WorkspaceApp() {
         onCloseMobile={() => setMobileNavOpen(false)}
       />
 
-      {/* Main Container */}
       <div className="w-full lg:pl-64">
-        {/* Header */}
         <Header
           activeTab={activeTab}
           onRefresh={loadDashboard}
@@ -197,16 +285,15 @@ function WorkspaceApp() {
           userRole={user?.role}
         />
 
-        {/* Page Content */}
         <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
-          {/* Notification Banner */}
           {message && (
-            <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-700 shadow-2xs">
+            <div className="mb-6 flex items-center justify-between rounded-xl border border-border-default bg-surface-canvas px-4 py-3 text-xs font-semibold text-ink-secondary shadow-card">
               <span>{message}</span>
               <button
                 type="button"
                 onClick={() => setMessage("")}
-                className="text-slate-400 hover:text-slate-600"
+                className="cursor-pointer text-ink-subtle transition-colors hover:text-ink-primary"
+                aria-label="Dismiss notification"
               >
                 ✕
               </button>
@@ -214,178 +301,179 @@ function WorkspaceApp() {
           )}
 
           <StudioExportBoundary key={activeTab} studio={activeTab}>
+            {activeTab === "overview" && (
+              <div className="space-y-8">
+                <OverviewView
+                  datasets={datasets}
+                  analyses={analyses}
+                  capabilities={capabilities}
+                  loading={loading}
+                  onQuickRun={quickRunCapability}
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    if (tab === "openalex") {
+                      setMessage(
+                        "OpenAlex Explorer launched inside Dataset & Corpus Pipeline."
+                      );
+                    } else if (tab === "merge") {
+                      setMessage(
+                        "Smart Merge Studio launched inside Dataset & Corpus Pipeline."
+                      );
+                    } else {
+                      setMessage("");
+                    }
+                  }}
+                  onOpenUpload={() => setModal("upload")}
+                />
+              </div>
+            )}
 
-          {/* VIEW: OVERVIEW */}
-          {activeTab === "overview" && (
-            <div className="space-y-8">
-              <OverviewView
+            {(activeTab === "corpus-pipeline" ||
+              activeTab === "data-hygiene" ||
+              activeTab === "datasets" ||
+              activeTab === "openalex" ||
+              activeTab === "merge") && (
+              <CorpusPipelineStudio
                 datasets={datasets}
-                analyses={analyses}
-                capabilities={capabilities}
-                loading={loading}
-                onQuickRun={quickRunCapability}
-                onNavigateTab={(tab) => {
-                  setActiveTab(tab);
-                  if (tab === "openalex") {
-                    setMessage("OpenAlex Explorer launched inside Dataset & Corpus Pipeline.");
-                  } else if (tab === "merge") {
-                    setMessage("Smart Merge Studio launched inside Dataset & Corpus Pipeline.");
-                  } else {
-                    setMessage("");
-                  }
-                }}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
                 onOpenUpload={() => setModal("upload")}
+                onOpenDescriptive={(datasetId) => {
+                  setSelectedDatasetId(datasetId);
+                  setActiveTab("descriptive");
+                }}
+                onRefreshData={loadDashboard}
+                onDatasetDeleted={(deletedIds) => {
+                  setDatasets((current) =>
+                    current.filter(
+                      (dataset) => !deletedIds.includes(dataset.id)
+                    )
+                  );
+                  setSelectedDatasetId((current) =>
+                    deletedIds.includes(current)
+                      ? datasets.find(
+                          (dataset) => !deletedIds.includes(dataset.id)
+                        )?.id || ""
+                      : current
+                  );
+                  setMessage(
+                    `${deletedIds.length} dataset${deletedIds.length === 1 ? "" : "s"} successfully deleted.`
+                  );
+                  loadDashboard();
+                }}
+                initialStep={
+                  activeTab === "openalex"
+                    ? "openalex"
+                    : activeTab === "merge"
+                      ? "merge"
+                      : activeTab === "data-hygiene"
+                        ? "hygiene"
+                        : "repository"
+                }
               />
-            </div>
-          )}
+            )}
 
-          {/* VIEW: PHASE 1 - CORPUS & DATA PIPELINE (UNIFIED) */}
-          {(activeTab === "corpus-pipeline" ||
-            activeTab === "data-hygiene" ||
-            activeTab === "datasets" ||
-            activeTab === "openalex" ||
-            activeTab === "merge") && (
-            <CorpusPipelineStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              onOpenUpload={() => setModal("upload")}
-              onOpenDescriptive={(datasetId) => {
-                setSelectedDatasetId(datasetId);
-                setActiveTab("descriptive");
-              }}
-              onRefreshData={loadDashboard}
-              onDatasetDeleted={(deletedIds) => {
-                setDatasets((current) => current.filter((dataset) => !deletedIds.includes(dataset.id)));
-                setSelectedDatasetId((current) => deletedIds.includes(current)
-                  ? datasets.find((dataset) => !deletedIds.includes(dataset.id))?.id || ""
-                  : current);
-                setMessage(`${deletedIds.length} dataset${deletedIds.length === 1 ? "" : "s"} successfully deleted.`);
-                loadDashboard();
-              }}
-              initialStep={
-                activeTab === "openalex"
-                  ? "openalex"
-                  : activeTab === "merge"
-                  ? "merge"
-                  : activeTab === "data-hygiene"
-                  ? "hygiene"
-                  : "repository"
-              }
-            />
-          )}
+            {(activeTab === "descriptive" || activeTab === "analyses") && (
+              <DescriptiveAnalyticsStudio
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+                onQuickRun={quickRunCapability}
+              />
+            )}
 
-          {/* VIEW: PHASE 2 - DESCRIPTIVE ANALYTICS */}
-          {(activeTab === "descriptive" || activeTab === "analyses") && (
-            <DescriptiveAnalyticsStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              onQuickRun={quickRunCapability}
-            />
-          )}
+            {(activeTab === "entities" ||
+              activeTab === "authors" ||
+              activeTab === "sources" ||
+              activeTab === "keywords") && (
+              <EntityExplorerStudio
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+                focusDimension={activeTab === "sources" ? "sources" : "authors"}
+                focusKey={activeTab}
+                onQuickRun={quickRunCapability}
+              />
+            )}
 
-          {/* VIEW: PHASE 3 - ENTITY EXPLORER */}
-          {(activeTab === "entities" ||
-            activeTab === "authors" ||
-            activeTab === "sources" ||
-            activeTab === "keywords") && (
-            <EntityExplorerStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              focusDimension={activeTab === "sources" ? "sources" : "authors"}
-              focusKey={activeTab}
-              onQuickRun={quickRunCapability}
-            />
-          )}
+            {activeTab === "thematic" && (
+              <ThematicEvolutionStudio
+                datasets={datasets}
+                activeDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+                onNavigateToFrontier={() => setActiveTab("frontier")}
+              />
+            )}
 
-          {/* VIEW: THEMATIC EVOLUTION & SLICING (PHASE 7) */}
-          {activeTab === "thematic" && (
-            <ThematicEvolutionStudio
-              datasets={datasets}
-              activeDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              onNavigateToFrontier={() => setActiveTab("frontier")}
-            />
-          )}
+            {activeTab === "frontier" && (
+              <FrontierDetectionStudio
+                datasets={datasets}
+                activeDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+              />
+            )}
 
-          {/* VIEW: DYNAMICS & FRONTIER DETECTION (KLEINBERG BURST & SLEEPING BEAUTIES) */}
-          {activeTab === "frontier" && (
-            <FrontierDetectionStudio
-              datasets={datasets}
-              activeDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-            />
-          )}
+            {activeTab === "historical" && (
+              <HistoricalGenealogyStudio
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+              />
+            )}
 
-          {/* VIEW: HISTCITE & RPYS (HISTORICAL GENEALOGY & SPECTROSCOPY) */}
-          {activeTab === "historical" && (
-            <HistoricalGenealogyStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-            />
-          )}
+            {activeTab === "collaboration" && (
+              <NetworkStudio
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+              />
+            )}
 
-          {/* VIEW: COLLABORATION & NETWORK STUDIO (VOSVIEWER / BIBLIOMETRIX) */}
-          {activeTab === "collaboration" && (
-            <NetworkStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-            />
-          )}
+            {activeTab === "ml" && (
+              <MachineLearningStudio
+                dataset={selectedDataset}
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+                analyses={analyses}
+                onTriggerAnalysis={async (capId) => {
+                  await quickRunCapability(capId, selectedDataset?.id);
+                }}
+              />
+            )}
 
-          {/* VIEW: MACHINE LEARNING STUDIO */}
-          {activeTab === "ml" && (
-            <MachineLearningStudio
-              dataset={selectedDataset}
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              analyses={analyses}
-              onTriggerAnalysis={async (capId) => {
-                await quickRunCapability(capId, selectedDataset?.id);
-              }}
-            />
-          )}
+            {activeTab === "benchmark" && (
+              <ComparativeBenchmarkingStudio datasets={datasets} />
+            )}
 
-          {/* VIEW: COMPARATIVE BENCHMARKING STUDIO (BIBLIUM) */}
-          {activeTab === "benchmark" && (
-            <ComparativeBenchmarkingStudio
-              datasets={datasets}
-            />
-          )}
+            {activeTab === "powerbi" && (
+              <PowerBIConnectorStudio
+                datasets={datasets}
+                selectedDatasetId={selectedDataset?.id}
+                onSelectDataset={setSelectedDatasetId}
+                analyses={analyses}
+              />
+            )}
 
-          {/* VIEW: POWER BI DIRECT LIVE CONNECTOR */}
-          {activeTab === "powerbi" && (
-            <PowerBIConnectorStudio
-              datasets={datasets}
-              selectedDatasetId={selectedDataset?.id}
-              onSelectDataset={setSelectedDatasetId}
-              analyses={analyses}
-            />
-          )}
+            {activeTab === "reports" && (
+              <ExportReportsStudio
+                dataset={selectedDataset}
+                analyses={analyses}
+                onNavigateToPowerBI={() => setActiveTab("powerbi")}
+                onNavigateToAI={() => setActiveTab("ai")}
+              />
+            )}
 
-          {/* VIEW: EXECUTIVE REPORTS & EXPORT STUDIO */}
-          {activeTab === "reports" && (
-            <ExportReportsStudio
-              dataset={selectedDataset}
-              analyses={analyses}
-              onNavigateToPowerBI={() => setActiveTab("powerbi")}
-              onNavigateToAI={() => setActiveTab("ai")}
-            />
-          )}
-
-          {/* VIEW: AI INTELLIGENCE */}
-          {activeTab === "ai" && <AiIntelligenceView datasets={datasets} analyses={analyses} />}
+            {activeTab === "ai" && (
+              <AiIntelligenceView datasets={datasets} analyses={analyses} />
+            )}
           </StudioExportBoundary>
-          {activeTab === "admin" && authEnabled && user?.role === "admin" && <AdminUsersView />}
+          {activeTab === "admin" && authEnabled && user?.role === "admin" && (
+            <AdminUsersView />
+          )}
         </main>
       </div>
 
-      {/* MODAL: UPLOAD DATASET */}
       {modal === "upload" && (
         <UploadDatasetModal
           onClose={() => setModal(null)}

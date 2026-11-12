@@ -2,48 +2,24 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
 import {
   Share2,
-  Search,
-  ZoomIn,
-  ZoomOut,
   RotateCcw,
-  Sliders,
-  Download,
-  Copy,
-  Check,
   Layers,
   Activity,
-  Award,
-  BookOpen,
-  Eye,
-  Info,
-  Play,
-  Pause,
-  Filter,
   Flame,
-  Globe,
-  Users,
-  Building2,
-  Globe2,
-  FileText,
-  Tag,
-  Maximize2,
-  RefreshCw,
   Sparkles,
-  Database,
-  BarChart2,
-  Network,
   FileSpreadsheet,
   Image as ImageIcon,
   Grid,
   ArrowUpDown,
-  ChevronDown,
   X,
   Loader2,
   PackageCheck,
   DownloadCloud,
+  Network,
 } from "lucide-react";
 import { Dataset, Analysis } from "../types.js";
 import { ContextualExportToolbar } from "./ContextualExportToolbar.js";
+import { Button, Card } from "./CommonUI.js";
 
 export type NetworkCategory =
   | "citation_documents"
@@ -71,30 +47,25 @@ export interface NetworkConfigItem {
 }
 
 export const ALL_16_NETWORKS: NetworkConfigItem[] = [
-  // 1. Direct Citation Networks (4 Levels)
   { id: "citation_documents", label: "Direct Citation (Documents / Articles)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Docs" },
   { id: "citation_authors", label: "Direct Citation (Authors)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Authors" },
   { id: "citation_institutions", label: "Direct Citation (Universities / Institutions)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Institutions" },
   { id: "citation_countries", label: "Direct Citation (Countries)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Countries" },
 
-  // 2. Co-Citation Analysis (4 Levels)
   { id: "co_citation_references", label: "Co-Citation (Cited References)", group: "2. Co-Citation Analysis", shortLabel: "Co-Citation Refs" },
   { id: "co_citation_authors", label: "Co-Citation (Cited Authors)", group: "2. Co-Citation Analysis", shortLabel: "Co-Citation Authors" },
   { id: "co_citation_institutions", label: "Co-Citation (Cited Institutions)", group: "2. Co-Citation Analysis", shortLabel: "Co-Citation Institutions" },
   { id: "co_citation_countries", label: "Co-Citation (Cited Countries)", group: "2. Co-Citation Analysis", shortLabel: "Co-Citation Countries" },
 
-  // 3. Bibliographic Coupling (4 Levels)
   { id: "coupling_documents", label: "Bibliographic Coupling (Documents)", group: "3. Bibliographic Coupling", shortLabel: "Coupling Docs" },
   { id: "coupling_authors", label: "Bibliographic Coupling (Authors)", group: "3. Bibliographic Coupling", shortLabel: "Coupling Authors" },
   { id: "coupling_institutions", label: "Bibliographic Coupling (Institutions)", group: "3. Bibliographic Coupling", shortLabel: "Coupling Institutions" },
   { id: "coupling_countries", label: "Bibliographic Coupling (Countries)", group: "3. Bibliographic Coupling", shortLabel: "Coupling Countries" },
 
-  // 4. Co-Authorship Collaboration (3 Levels)
   { id: "co_authorship_authors", label: "Co-authorship (Authors)", group: "4. Co-Authorship Collaboration", shortLabel: "Co-Author Authors" },
   { id: "co_authorship_institutions", label: "Co-authorship (Institutions)", group: "4. Co-Authorship Collaboration", shortLabel: "Co-Author Institutions" },
   { id: "co_authorship_countries", label: "Co-authorship (Countries)", group: "4. Co-Authorship Collaboration", shortLabel: "Co-Author Countries" },
 
-  // 5. Thematic Term Co-occurrence (1 Level)
   { id: "co_occurrence_keywords", label: "Keyword Co-occurrence (Descriptor Map)", group: "5. Thematic Term Co-occurrence", shortLabel: "Keyword Co-occurrence" },
 ];
 
@@ -158,7 +129,6 @@ export interface GlobalNetworkMetrics {
   connected_components: number;
 }
 
-// Helper to compute smooth rounded polygon hull path for community clusters
 function getClusterHullPath(points: [number, number][], padding: number = 28): string {
   if (!points || points.length === 0) return "";
   if (points.length === 1) {
@@ -188,7 +158,6 @@ function getClusterHullPath(points: [number, number][], padding: number = 28): s
   return d3.line().curve(d3.curveCardinalClosed.tension(0.8))(expanded) || "";
 }
 
-// Helper function to synthesize network data with comprehensive SNA metrics & cluster simulation for ANY category
 export function computeNetworkData(
   records: any[],
   category: NetworkCategory,
@@ -201,13 +170,13 @@ export function computeNetworkData(
   const nodeMap = new Map<string, { count: number; yearSum: number; citSum: number }>();
   const linkMap = new Map<string, number>();
 
+  // Design System categorical palette (6-hue sequence + harmonic extensions)
   const clusterColors = [
-    "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899",
-    "#06b6d4", "#f97316", "#14b8a6", "#6366f1", "#84cc16",
-    "#a855f7", "#0ea5e9", "#eab308", "#10b981", "#64748b"
+    "#315C7C", "#0D9488", "#D97706", "#6366F1", "#E11D48", "#64748B",
+    "#284C67", "#047857", "#B45309", "#4F46E5", "#BE123C", "#475569",
+    "#548CB8", "#14B8A6", "#F59E0B"
   ];
 
-  // Helper to extract clean country name
   const extractCountries = (raw: any): string[] => {
     if (!raw) return [];
     const text = Array.isArray(raw) ? raw.join(" ") : String(raw);
@@ -228,7 +197,6 @@ export function computeNetworkData(
     return found;
   };
 
-  // Helper to extract clean institution
   const extractInstitutions = (raw: any): string[] => {
     if (!raw) return [];
     const items = Array.isArray(raw) ? raw : String(raw).split(";");
@@ -244,7 +212,6 @@ export function computeNetworkData(
       .filter((s: string) => s && s.length > 2);
   };
 
-  // Extract entities per document based on category
   records.forEach((doc: any, docIdx: number) => {
     let entities: string[] = [];
     const year = Number(doc.year || doc.PY || 2023);
@@ -296,7 +263,6 @@ export function computeNetworkData(
         entities = rawCR.split(";").slice(0, 20).map((r: string) => r.trim().split(",")[0]?.trim() || "").filter((s: string) => s.length > 2);
       }
     } else {
-      // Thematic Term / Keywords
       const rawK = doc.keywords || doc.DE || doc.ID || "";
       if (Array.isArray(rawK)) {
         entities = rawK.map((k: any) => String(k).trim().toLowerCase()).filter((k: string) => k.length > 1);
@@ -324,7 +290,6 @@ export function computeNetworkData(
     }
   });
 
-  // For document networks (citation_documents / coupling_documents), build coupling ties based on shared attributes
   if ((category === "citation_documents" || category === "coupling_documents") && records.length > 1) {
     const docMeta: { id: string; tokens: Set<string> }[] = [];
     records.slice(0, Math.min(80, records.length)).forEach((doc: any, docIdx: number) => {
@@ -354,7 +319,6 @@ export function computeNetworkData(
     }
   }
 
-  // Graceful fallback ONLY if records are completely absent or no entities could be extracted
   if (nodeMap.size === 0) {
     const presets: Record<string, string[]> = {
       citation_authors: ["Smith J.", "Zhang L.", "Kumar A.", "Müller K.", "Mohamadian S.", "Brown R.", "Li W.", "Garcia M.", "Wang Y."],
@@ -436,7 +400,6 @@ export function computeNetworkData(
   const totalN = sortedNodes.length || 1;
   const nodeIds = sortedNodes.map(([k]) => k);
 
-  // 1. Exact Breadth-First Search (BFS) for all-pairs geodesic distances
   const distances: Record<string, Record<string, number>> = {};
   let totalPathLength = 0;
   let reachablePairs = 0;
@@ -469,7 +432,6 @@ export function computeNetworkData(
     }
   });
 
-  // 2. Exact Brandes' Algorithm for Betweenness Centrality
   const betweennessMap: Record<string, number> = {};
   nodeIds.forEach((id) => (betweennessMap[id] = 0));
 
@@ -524,7 +486,6 @@ export function computeNetworkData(
 
   const betweennessScale = totalN > 2 ? ((totalN - 1) * (totalN - 2)) / 2 : 1;
 
-  // 3. Exact Closeness Centrality
   const closenessMap: Record<string, number> = {};
   nodeIds.forEach((u) => {
     const reachable = Object.values(distances[u] || {}).filter((d) => d > 0);
@@ -537,7 +498,6 @@ export function computeNetworkData(
     }
   });
 
-  // 4. Power-Iteration PageRank calculation (d = 0.85, 20 iterations)
   const prMap: Record<string, number> = {};
   const dFactor = 0.85;
   nodeIds.forEach((id) => {
@@ -560,7 +520,6 @@ export function computeNetworkData(
     });
   }
 
-  // 5. Authentic Community Detection (Louvain Modularity / Label Propagation / Walktrap / Leiden)
   const nodeCommunityMap = new Map<string, number>();
 
   if (clusteringAlgorithm === "label_propagation") {
@@ -594,7 +553,6 @@ export function computeNetworkData(
       nodeCommunityMap.set(u, c);
     });
   } else {
-    // Louvain / Leiden modularity optimization passes
     nodeIds.forEach((id, idx) => nodeCommunityMap.set(id, (idx % clusterCount) + 1));
     for (let pass = 0; pass < 5; pass++) {
       let moved = false;
@@ -632,7 +590,6 @@ export function computeNetworkData(
     }
   }
 
-  // Normalize detected community IDs to 1..clusterCount
   const uniqueComms = Array.from(new Set(nodeCommunityMap.values())).sort((a, b) => a - b);
   const commRemap = new Map<number, number>();
   uniqueComms.forEach((oldC, idx) => {
@@ -643,7 +600,6 @@ export function computeNetworkData(
     nodeCommunityMap.set(id, commRemap.get(rawC) || 1);
   });
 
-  // Assemble Nodes with exact SNA metrics
   const nodes: NetworkNode[] = sortedNodes.map(([id, meta]) => {
     const deg = degreeCounts[id] || 0;
     const tls = totalLinkStrength[id] || 0;
@@ -692,7 +648,6 @@ export function computeNetworkData(
     strength_score: l.weight,
   }));
 
-  // Exact Macro SNA Metrics
   const totalPossibleEdges = (totalN * (totalN - 1)) / 2;
   const density = totalPossibleEdges > 0 ? Number((links.length / totalPossibleEdges).toFixed(4)) : 0;
   const avgDegree = Number((nodes.reduce((acc, n) => acc + n.degree, 0) / totalN).toFixed(2));
@@ -700,7 +655,6 @@ export function computeNetworkData(
   const avgPathLength = reachablePairs > 0 ? Number((totalPathLength / reachablePairs).toFixed(2)) : 0;
   const diameter = maxGeodesic;
 
-  // Exact Newman-Girvan Modularity Q: sum_c [ (e_c / 2m) - (a_c / 2m)^2 ]
   let modularityQ = 0;
   const totalM = rawLinks.reduce((acc, l) => acc + l.rawWeight, 0);
   if (totalM > 0) {
@@ -729,7 +683,6 @@ export function computeNetworkData(
   }
   const exactModularity = Number(Math.max(-0.5, Math.min(1, modularityQ)).toFixed(3));
 
-  // Clusters summary
   const clusterBuckets: Record<number, NetworkNode[]> = {};
   nodes.forEach((n) => {
     if (!clusterBuckets[n.cluster]) clusterBuckets[n.cluster] = [];
@@ -789,40 +742,32 @@ export function NetworkStudio({
     }
   }, [selectedDataset, selectedDatasetId]);
 
-  // Network type & parameters
   const [networkType, setNetworkType] = useState<NetworkCategory>("citation_authors");
   const [normalization, setNormalization] = useState<NormalizationMethod>("association_strength");
-  const [maxNodes, setMaxNodes] = useState<number>(60);
-  const [minWeight, setMinWeight] = useState<number>(1);
+  const [maxNodes] = useState<number>(60);
+  const [minWeight] = useState<number>(1);
 
-  // Clustering Controls
   const [clusteringAlgorithm, setClusteringAlgorithm] = useState<ClusteringAlgorithm>("louvain");
   const [clusterCount, setClusterCount] = useState<number>(5);
 
-  // Studio tabs
   const [activeStudioTab, setActiveStudioTab] = useState<"visualization" | "clusters" | "sna_metrics">("visualization");
   const [visMode, setVisMode] = useState<VisualizationMode>("network");
   const [overlayMetric, setOverlayMetric] = useState<"year" | "citations">("year");
 
-  // Sorting state for SNA table
   const [sortField, setSortField] = useState<keyof NetworkNode>("total_link_strength");
   const [sortAsc, setSortAsc] = useState<boolean>(false);
-  const [copiedPajek, setCopiedPajek] = useState<boolean>(false);
 
-  // Batch Export modal state
   const [showBatchExportModal, setShowBatchExportModal] = useState<boolean>(false);
   const [batchCategory, setBatchCategory] = useState<NetworkCategory | "ALL">("ALL");
   const [batchFormat, setBatchFormat] = useState<"all" | "metrics" | "matrix" | "jpg" | "pajek">("all");
   const [isExportingBatch, setIsExportingBatch] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; label: string }>({ current: 0, total: 0, label: "" });
 
-  // Interactions
   const [selectedNode, setSelectedNode] = useState<NetworkNode | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClusterFilter, setSelectedClusterFilter] = useState<number | "all">("all");
   const [showAllLabels, setShowAllLabels] = useState(true);
 
-  // D3 Refs
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simulationRef = useRef<d3.Simulation<NetworkNode, NetworkLink> | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -830,7 +775,6 @@ export function NetworkStudio({
 
   const currentDataset = datasets.find((d) => d.id === activeDatasetId) || datasets[0];
 
-  // Dynamic document fetching from backend for exact, real-time scientometric metrics
   const [datasetDocuments, setDatasetDocuments] = useState<Record<string, any[]>>({});
   const [datasetReadMetadata, setDatasetReadMetadata] = useState<Record<string, { version_id: string | null; total: number | null }>>({});
   const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
@@ -855,7 +799,13 @@ export function NetworkStudio({
       .then((data) => {
         if (!isMounted) return;
         const docs = Array.isArray(data) ? data : (data.documents || data.records || []);
-        setDatasetReadMetadata((prev) => ({ ...prev, [activeDatasetId]: { version_id: typeof data.version_id === "string" ? data.version_id : null, total: typeof data.total === "number" ? data.total : null } }));
+        setDatasetReadMetadata((prev) => ({
+          ...prev,
+          [activeDatasetId]: {
+            version_id: typeof data.version_id === "string" ? data.version_id : null,
+            total: typeof data.total === "number" ? data.total : null,
+          },
+        }));
         setDatasetDocuments((prev) => ({ ...prev, [activeDatasetId]: docs }));
       })
       .catch((err) => {
@@ -880,7 +830,6 @@ export function NetworkStudio({
     return [];
   }, [currentDataset, activeDatasetId, datasetDocuments]);
 
-  // Synthesize network data with comprehensive SNA metrics & cluster simulation
   const networkReport = useMemo(() => {
     return computeNetworkData(
       currentRecords,
@@ -895,14 +844,37 @@ export function NetworkStudio({
 
   const contextualNetworkPayload = {
     title: `${currentDataset?.name || "Research"} ${networkType} network`,
-    provenance: { dataset_id: activeDatasetId || null, dataset_version_id: (currentDataset as any)?.raw_records?.length ? null : datasetReadMetadata[activeDatasetId]?.version_id ?? null, network_type: networkType, normalization, max_nodes: maxNodes, min_weight: minWeight, clustering_algorithm: clusteringAlgorithm },
+    provenance: {
+      dataset_id: activeDatasetId || null,
+      dataset_version_id: (currentDataset as any)?.raw_records?.length
+        ? null
+        : datasetReadMetadata[activeDatasetId]?.version_id ?? null,
+      network_type: networkType,
+      normalization,
+      max_nodes: maxNodes,
+      min_weight: minWeight,
+      clustering_algorithm: clusteringAlgorithm,
+    },
     rows: networkReport.nodes.map((node) => ({ ...node })),
-    metadata: { macro: networkReport.macro, clusters: networkReport.clusters, export_scope: "complete current computed network", input_records_loaded: currentRecords.length, input_records_available: datasetReadMetadata[activeDatasetId]?.total ?? null, limitations: "Network includes only records loaded by this view and the selected node/weight limits. Algorithmic approximations remain those of the network view; export does not validate or recompute them." },
+    metadata: {
+      macro: networkReport.macro,
+      clusters: networkReport.clusters,
+      export_scope: "complete current computed network",
+      input_records_loaded: currentRecords.length,
+      input_records_available: datasetReadMetadata[activeDatasetId]?.total ?? null,
+      limitations:
+        "Network includes only records loaded by this view and the selected node/weight limits. Algorithmic approximations remain those of the network view; export does not validate or recompute them.",
+    },
     graph: {
       nodes: networkReport.nodes.map((node) => ({ id: node.id, label: node.label, ...node })),
-      edges: networkReport.links.map((link) => ({ source: typeof link.source === "string" ? link.source : link.source.id, target: typeof link.target === "string" ? link.target : link.target.id, weight: link.raw_weight })),
+      edges: networkReport.links.map((link) => ({
+        source: typeof link.source === "string" ? link.source : link.source.id,
+        target: typeof link.target === "string" ? link.target : link.target.id,
+        weight: link.raw_weight,
+      })),
     },
   };
+
   const triggerDownload = (filename: string, content: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -915,7 +887,6 @@ export function NetworkStudio({
     URL.revokeObjectURL(url);
   };
 
-  // EXPORT 1: SNA Centrality Metrics to Excel CSV (Supports specific target network or current)
   const exportMetricsExcel = (targetReport?: any, targetType?: any) => {
     const report = targetReport && Array.isArray(targetReport.nodes) ? targetReport : networkReport;
     const typeStr = typeof targetType === "string" ? targetType : networkType;
@@ -955,7 +926,6 @@ export function NetworkStudio({
     triggerDownload(`${typeStr}_centrality_metrics.csv`, csvContent, "text/csv;charset=utf-8;");
   };
 
-  // EXPORT 2: Network Adjacency Matrix to Excel CSV (Supports specific target network or current)
   const exportMatrixExcel = (targetReport?: any, targetType?: any) => {
     const report = targetReport && Array.isArray(targetReport.nodes) ? targetReport : networkReport;
     const typeStr = typeof targetType === "string" ? targetType : networkType;
@@ -987,18 +957,15 @@ export function NetworkStudio({
     triggerDownload(`${typeStr}_adjacency_matrix.csv`, csvContent, "text/csv;charset=utf-8;");
   };
 
-  // Renders a high-resolution SVG string for any networkReport dataset
-  const renderSvgForReport = (report: ReturnType<typeof computeNetworkData>, labelTitle: string): string => {
+  const renderSvgForReport = (report: ReturnType<typeof computeNetworkData>): string => {
     const w = 1920;
     const h = 1080;
     const reportNodes = report?.nodes || [];
     const reportClusters = report?.clusters || [];
     const reportLinks = report?.links || [];
-    const n = reportNodes.length || 1;
     const cx = w / 2;
     const cy = h / 2;
 
-    // Node layout positions using radial community positioning
     const positions = new Map<string, { x: number; y: number; r: number }>();
     const clusterCenters = new Map<number, { cx: number; cy: number }>();
     const totalClusters = Math.max(1, reportClusters.length);
@@ -1014,7 +981,7 @@ export function NetworkStudio({
 
     reportNodes.forEach((node, idx) => {
       const cCenter = clusterCenters.get(node.cluster) || { cx, cy };
-      const jitterAngle = (idx * 2.39996) % (2 * Math.PI); // golden ratio dispersal
+      const jitterAngle = (idx * 2.39996) % (2 * Math.PI);
       const jitterDist = 35 + (idx % 8) * 28;
       const r = Math.max(6, Math.min(28, Math.sqrt(node.total_link_strength || 1) * 3.5 + 4));
       positions.set(node.id, {
@@ -1024,7 +991,6 @@ export function NetworkStudio({
       });
     });
 
-    // Generate links SVG
     let linksSvg = "";
     reportLinks.forEach((l) => {
       const sId = typeof l.source === "string" ? l.source : (l.source as NetworkNode).id;
@@ -1033,11 +999,10 @@ export function NetworkStudio({
       const p2 = positions.get(tId);
       if (p1 && p2) {
         const strokeW = Math.max(1, Math.min(6, (l.raw_weight || 1) * 1.2));
-        linksSvg += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="#94a3b8" stroke-width="${strokeW}" stroke-opacity="0.45" />`;
+        linksSvg += `<line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="#828d98" stroke-width="${strokeW}" stroke-opacity="0.45" />`;
       }
     });
 
-    // Generate nodes SVG
     let nodesSvg = "";
     reportNodes.forEach((node) => {
       const pos = positions.get(node.id);
@@ -1045,18 +1010,17 @@ export function NetworkStudio({
       nodesSvg += `
         <g transform="translate(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})">
           <circle r="${pos.r.toFixed(1)}" fill="${node.color}" stroke="#ffffff" stroke-width="2.5" />
-          <text y="${(pos.r + 14).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#0f172a" stroke="#ffffff" stroke-width="3.5" paint-order="stroke fill">${(node.label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").slice(0, 26)}</text>
+          <text y="${(pos.r + 14).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#101820" stroke="#ffffff" stroke-width="3.5" paint-order="stroke fill">${(node.label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").slice(0, 26)}</text>
         </g>
       `;
     });
 
     return `
       <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-        <rect width="${w}" height="${h}" fill="#f8fafc" />
-        <!-- Subtle grid background -->
+        <rect width="${w}" height="${h}" fill="#f7f8f6" />
         <defs>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.8" opacity="0.6"/>
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#d8ddd8" stroke-width="0.8" opacity="0.6"/>
           </pattern>
         </defs>
         <rect width="${w}" height="${h}" fill="url(#grid)" />
@@ -1066,7 +1030,6 @@ export function NetworkStudio({
     `;
   };
 
-  // EXPORT 3: High-Resolution (1920x1080 / 2K) JPG Image of Graph with Software Watermark
   const exportGraphAsJPG = (targetType?: any, customReport?: ReturnType<typeof computeNetworkData>): Promise<void> => {
     return new Promise<void>((resolve) => {
       const typeStr = typeof targetType === "string" ? targetType : networkType;
@@ -1075,12 +1038,10 @@ export function NetworkStudio({
       const networkTitle = targetConfig?.label || (typeof typeStr === "string" ? typeStr.replace(/_/g, " ").toUpperCase() : "NETWORK GRAPH");
 
       if (!customReport && typeStr === networkType && svgRef.current) {
-        // Clone and serialize the live interactive SVG
         svgString = new XMLSerializer().serializeToString(svgRef.current);
       } else {
-        // Render crisp standalone layout for batch/custom export
         const reportToUse = customReport || (typeStr === networkType ? networkReport : computeNetworkData(currentRecords, typeStr, maxNodes, minWeight, clusteringAlgorithm, clusterCount, normalization));
-        svgString = renderSvgForReport(reportToUse, networkTitle);
+        svgString = renderSvgForReport(reportToUse);
       }
 
       const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
@@ -1088,7 +1049,6 @@ export function NetworkStudio({
       const image = new Image();
 
       image.onload = () => {
-        // Standalone target resolution: 1920x1080 high definition
         const exportWidth = 1920;
         const exportHeight = 1080;
 
@@ -1102,27 +1062,21 @@ export function NetworkStudio({
           return;
         }
 
-        // 1. Clean background
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#f7f8f6";
         ctx.fillRect(0, 0, exportWidth, exportHeight);
-
-        // 2. Draw graph image scaled cleanly
         ctx.drawImage(image, 0, 0, exportWidth, exportHeight);
 
-        // 3. Render Software Watermark Badge in bottom-left corner
         const badgeX = 36;
         const badgeY = exportHeight - 88;
         const badgeW = 340;
         const badgeH = 56;
         const radius = 14;
 
-        // Shadow
         ctx.save();
-        ctx.shadowColor = "rgba(15, 23, 42, 0.12)";
+        ctx.shadowColor = "rgba(16, 24, 32, 0.12)";
         ctx.shadowBlur = 16;
         ctx.shadowOffsetY = 4;
 
-        // Rounded badge container
         ctx.beginPath();
         ctx.moveTo(badgeX + radius, badgeY);
         ctx.lineTo(badgeX + badgeW - radius, badgeY);
@@ -1138,18 +1092,16 @@ export function NetworkStudio({
         ctx.fill();
         ctx.restore();
 
-        // Badge border
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = "#e2e8f0";
+        ctx.strokeStyle = "#d8ddd8";
         ctx.stroke();
 
-        // Software Logo Icon (S emblem inside rounded square)
         const iconX = badgeX + 10;
         const iconY = badgeY + 10;
         const iconSize = 36;
         const iconRadius = 9;
 
-        ctx.fillStyle = "#020617"; // slate-950
+        ctx.fillStyle = "#101820";
         ctx.beginPath();
         ctx.moveTo(iconX + iconRadius, iconY);
         ctx.lineTo(iconX + iconSize - iconRadius, iconY);
@@ -1163,36 +1115,32 @@ export function NetworkStudio({
         ctx.closePath();
         ctx.fill();
 
-        // Icon Letter "S"
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 20px system-ui, -apple-system, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("S", iconX + iconSize / 2, iconY + iconSize / 2 + 1);
 
-        // Software Brand Typography
         ctx.textAlign = "left";
-        ctx.fillStyle = "#0f172a"; // slate-900
+        ctx.fillStyle = "#101820";
         ctx.font = "bold 15px system-ui, -apple-system, sans-serif";
         ctx.fillText("SciAI Studio", iconX + iconSize + 12, badgeY + 23);
 
-        ctx.fillStyle = "#64748b"; // slate-500
+        ctx.fillStyle = "#5a6570";
         ctx.font = "500 11px system-ui, -apple-system, sans-serif";
         ctx.fillText("Scientometrics & Network Analysis", iconX + iconSize + 12, badgeY + 41);
 
-        // Version pill badge inside watermark
-        ctx.fillStyle = "#f1f5f9";
+        ctx.fillStyle = "#eff5f9";
         ctx.beginPath();
         const pillX = iconX + iconSize + 105;
         const pillY = badgeY + 11;
         ctx.roundRect ? ctx.roundRect(pillX, pillY, 38, 16, 4) : ctx.rect(pillX, pillY, 38, 16);
         ctx.fill();
-        ctx.fillStyle = "#475569";
+        ctx.fillStyle = "#315C7C";
         ctx.font = "bold 9px system-ui, -apple-system, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("v0.1", pillX + 19, pillY + 11);
 
-        // 4. Render Network Category Title & Corpus Metadata Badge in top-left
         const titleBadgeX = 36;
         const titleBadgeY = 36;
         const titleBadgeW = Math.max(380, ctx.measureText(networkTitle).width + 60);
@@ -1200,7 +1148,7 @@ export function NetworkStudio({
 
         ctx.save();
         ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
+        ctx.shadowColor = "rgba(16, 24, 32, 0.08)";
         ctx.shadowBlur = 12;
         ctx.shadowOffsetY = 2;
         ctx.beginPath();
@@ -1209,20 +1157,19 @@ export function NetworkStudio({
         ctx.restore();
 
         ctx.lineWidth = 1;
-        ctx.strokeStyle = "#e2e8f0";
+        ctx.strokeStyle = "#d8ddd8";
         ctx.stroke();
 
         ctx.textAlign = "left";
-        ctx.fillStyle = "#0f172a";
+        ctx.fillStyle = "#101820";
         ctx.font = "bold 15px system-ui, -apple-system, sans-serif";
         ctx.fillText(networkTitle, titleBadgeX + 16, titleBadgeY + 22);
 
-        ctx.fillStyle = "#64748b";
+        ctx.fillStyle = "#5a6570";
         ctx.font = "500 11px system-ui, -apple-system, sans-serif";
         const dsName = currentDataset?.name || "Scientific Corpus";
         ctx.fillText(`Dataset: ${dsName}  •  Algorithm: ${clusteringAlgorithm.toUpperCase()}`, titleBadgeX + 16, titleBadgeY + 39);
 
-        // 5. Download JPG file
         const jpgUrl = canvas.toDataURL("image/jpeg", 0.96);
         const downloadLink = document.createElement("a");
         downloadLink.download = `${typeStr}_graph_SciAI.jpg`;
@@ -1239,7 +1186,6 @@ export function NetworkStudio({
     });
   };
 
-  // EXPORT 4: Pajek Network (.net) File (Supports specific target network or current)
   const exportPajekNet = (targetReport?: any, targetType?: any) => {
     const report = targetReport && Array.isArray(targetReport.nodes) ? targetReport : networkReport;
     const typeStr = typeof targetType === "string" ? targetType : networkType;
@@ -1268,7 +1214,6 @@ export function NetworkStudio({
     triggerDownload(`${typeStr}_pajek.net`, netText, "text/plain;charset=utf-8;");
   };
 
-  // Executes Batch Export across all 16 networks or a specific chosen network
   const handleExecuteBatchExport = async (categoryChoice: NetworkCategory | "ALL", formatChoice: "all" | "metrics" | "matrix" | "jpg" | "pajek") => {
     setIsExportingBatch(true);
     const records = currentRecords;
@@ -1283,10 +1228,8 @@ export function NetworkStudio({
         label: catItem?.label || cat,
       });
 
-      // Compute data for this specific network category with real dataset records
       const report = computeNetworkData(records, cat, maxNodes, minWeight, clusteringAlgorithm, clusterCount, normalization);
 
-      // Export based on format
       if (formatChoice === "all" || formatChoice === "metrics") {
         exportMetricsExcel(report, cat);
       }
@@ -1300,7 +1243,6 @@ export function NetworkStudio({
         await exportGraphAsJPG(cat, report);
       }
 
-      // Small pacing delay to allow browser downloads to process smoothly
       await new Promise((res) => setTimeout(res, 220));
     }
 
@@ -1309,31 +1251,6 @@ export function NetworkStudio({
     setShowBatchExportModal(false);
   };
 
-  const copyPajekToClipboard = () => {
-    const nodeIndexMap = new Map<string, number>();
-    let netText = `*Vertices ${networkReport.nodes.length}\n`;
-    networkReport.nodes.forEach((n, idx) => {
-      const nodeNum = idx + 1;
-      nodeIndexMap.set(n.id, nodeNum);
-      netText += `${nodeNum} "${n.label.replace(/"/g, "'")}"\n`;
-    });
-    netText += `*Edges\n`;
-    networkReport.links.forEach((l) => {
-      const sId = typeof l.source === "string" ? l.source : (l.source as NetworkNode).id;
-      const tId = typeof l.target === "string" ? l.target : (l.target as NetworkNode).id;
-      const sNum = nodeIndexMap.get(sId);
-      const tNum = nodeIndexMap.get(tId);
-      if (sNum && tNum) {
-        netText += `${sNum} ${tNum} ${l.raw_weight}\n`;
-      }
-    });
-
-    navigator.clipboard.writeText(netText);
-    setCopiedPajek(true);
-    setTimeout(() => setCopiedPajek(false), 2000);
-  };
-
-  // VOSviewer Continuous Color Scale for Overlay
   const overlayScale = useMemo(() => {
     if (overlayMetric === "year") {
       const years = networkReport.nodes.map((n) => n.avg_pub_year);
@@ -1348,7 +1265,6 @@ export function NetworkStudio({
     }
   }, [networkReport, overlayMetric]);
 
-  // D3 FORCE SIMULATION & RENDERING (Network, Overlay & Density)
   useEffect(() => {
     if (!svgRef.current || activeStudioTab !== "visualization") return;
 
@@ -1390,12 +1306,10 @@ export function NetworkStudio({
         };
       });
 
-    // Proportional node radius strictly scaled to Total Link Strength (TLS)
     const maxStrength = Math.max(...nodes.map((n) => n.total_link_strength), 1);
     const minStrength = Math.min(...nodes.map((n) => n.total_link_strength), 0);
     const radiusScale = d3.scaleSqrt().domain([Math.max(0, minStrength), maxStrength]).range([6, 32]);
 
-    // Proportional link width and opacity strictly scaled to tie weight
     const maxW = Math.max(...links.map((l) => l.raw_weight), 1);
     const minW = Math.min(...links.map((l) => l.raw_weight), 1);
     const linkWidthScale = d3.scaleLinear().domain([minW, maxW]).range([1.2, 8.0]);
@@ -1415,7 +1329,6 @@ export function NetworkStudio({
       .force("center", d3.forceCenter(0, 0))
       .force("collision", d3.forceCollide<NetworkNode>().radius((d) => radiusScale(d.total_link_strength) + 9));
 
-    // Community attraction force for Clustering View mode
     if (visMode === "clusters") {
       simulation.force("clusterGravity", (alpha) => {
         const centroids: Record<number, { x: number; y: number; count: number }> = {};
@@ -1444,7 +1357,6 @@ export function NetworkStudio({
 
     simulationRef.current = simulation;
 
-    // Clustering View Hull Envelopes Layer
     let hullElements: d3.Selection<SVGPathElement, any, any, any> | null = null;
     let badgeElements: d3.Selection<SVGGElement, any, any, any> | null = null;
 
@@ -1477,14 +1389,14 @@ export function NetworkStudio({
         .attr("rx", 6)
         .attr("ry", 6)
         .attr("fill", "#ffffff")
-        .attr("fill-opacity", 0.9)
+        .attr("fill-opacity", 0.92)
         .attr("stroke", (c: any) => c.color)
         .attr("stroke-width", 1.5)
         .attr("x", -65)
         .attr("y", -14)
         .attr("width", 130)
         .attr("height", 24)
-        .attr("filter", "drop-shadow(0px 2px 4px rgba(0,0,0,0.1))");
+        .attr("filter", "drop-shadow(0px 2px 4px rgba(16,24,32,0.08))");
 
       badgeElements
         .append("text")
@@ -1492,23 +1404,22 @@ export function NetworkStudio({
         .attr("y", 2)
         .attr("font-size", "10px")
         .attr("font-weight", "bold")
-        .attr("fill", "#0f172a")
+        .attr("fill", "#101820")
         .text((c: any) => `Cluster #${c.cluster_id} (${c.node_count})`);
     }
 
-    // Density Heatmap Layer (VOSviewer style)
     if (visMode === "density") {
       const defs = svg.append("defs");
-      nodes.forEach((n, idx) => {
+      nodes.forEach((_, idx) => {
         const grad = defs
           .append("radialGradient")
           .attr("id", `density-blob-${idx}`)
           .attr("cx", "50%")
           .attr("cy", "50%")
           .attr("r", "50%");
-        grad.append("stop").attr("offset", "0%").attr("stop-color", "#ef4444").attr("stop-opacity", 0.7);
-        grad.append("stop").attr("offset", "40%").attr("stop-color", "#f59e0b").attr("stop-opacity", 0.4);
-        grad.append("stop").attr("offset", "80%").attr("stop-color", "#3b82f6").attr("stop-opacity", 0.15);
+        grad.append("stop").attr("offset", "0%").attr("stop-color", "#E11D48").attr("stop-opacity", 0.65);
+        grad.append("stop").attr("offset", "40%").attr("stop-color", "#D97706").attr("stop-opacity", 0.35);
+        grad.append("stop").attr("offset", "80%").attr("stop-color", "#315C7C").attr("stop-opacity", 0.15);
         grad.append("stop").attr("offset", "100%").attr("stop-color", "#ffffff").attr("stop-opacity", 0);
       });
 
@@ -1527,7 +1438,6 @@ export function NetworkStudio({
       });
     }
 
-    // Links Layer (Proportional to tie weight)
     const linkElements = g
       .append("g")
       .attr("class", "links")
@@ -1535,7 +1445,7 @@ export function NetworkStudio({
       .data(links)
       .enter()
       .append("line")
-      .attr("stroke", "#94a3b8")
+      .attr("stroke", "#828d98")
       .attr("stroke-opacity", (d) => linkOpacityScale(d.raw_weight))
       .attr("stroke-width", (d) => linkWidthScale(d.raw_weight));
 
@@ -1545,7 +1455,6 @@ export function NetworkStudio({
       return `${s} ↔ ${t}\nWeight: ${d.raw_weight}`;
     });
 
-    // Nodes Layer (Proportional to Total Link Strength)
     const nodeElements = g
       .append("g")
       .attr("class", "nodes")
@@ -1579,11 +1488,11 @@ export function NetworkStudio({
       .attr("fill", (d) => {
         if (visMode === "network" || visMode === "clusters") return d.color;
         if (visMode === "overlay") return overlayScale(overlayMetric === "year" ? d.avg_pub_year : d.avg_citations);
-        return "#f97316";
+        return "#D97706";
       })
       .attr("stroke", "#ffffff")
       .attr("stroke-width", 2.2)
-      .attr("filter", "drop-shadow(0px 2px 5px rgba(0,0,0,0.15))");
+      .attr("filter", "drop-shadow(0px 2px 5px rgba(16,24,32,0.14))");
 
     nodeElements.append("title").text(
       (d) =>
@@ -1598,7 +1507,7 @@ export function NetworkStudio({
       .attr("text-anchor", "middle")
       .attr("font-size", "10px")
       .attr("font-weight", "bold")
-      .attr("fill", "#0f172a")
+      .attr("fill", "#101820")
       .attr("stroke", "#ffffff")
       .attr("stroke-width", 3)
       .attr("paint-order", "stroke fill")
@@ -1621,14 +1530,12 @@ export function NetworkStudio({
       nodeElements.attr("transform", (d) => `translate(${d.x || 0},${d.y || 0})`);
 
       if (visMode === "clusters" && hullElements && badgeElements) {
-        // Update cluster hulls
         hullElements.attr("d", (c) => {
           const clusterNodes = nodes.filter((n) => n.cluster === c.cluster_id);
           const points: [number, number][] = clusterNodes.map((n) => [n.x || 0, n.y || 0]);
           return getClusterHullPath(points, 32);
         });
 
-        // Update cluster centroid badge positions
         badgeElements.attr("transform", (c) => {
           const clusterNodes = nodes.filter((n) => n.cluster === c.cluster_id);
           if (clusterNodes.length === 0) return "translate(0,0)";
@@ -1647,27 +1554,32 @@ export function NetworkStudio({
   return (
     <div className="space-y-6">
       {/* 1. Header with View Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col justify-between gap-4 border-b border-border-default pb-5 md:flex-row md:items-center">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">
-              VOSviewer & SNA Matrix Engine
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+              VOSviewer &amp; SNA Matrix Engine
             </span>
-            <span className="text-[11px] font-semibold text-slate-400">
-              Direct Citation, Co-citation, Coupling & Thematic Clusters
+            <span className="text-[11px] font-semibold text-ink-subtle">
+              Direct Citation, Co-citation, Coupling &amp; Thematic Clusters
             </span>
           </div>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            Scientific Network Analysis & SNA Studio
+          <h1 className="mt-1.5 text-2xl font-black tracking-tight text-ink-primary">
+            Scientific Network Analysis &amp; SNA Studio
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Structural Topology Snapshot, 4-level citation networks, coupling, co-citation, co-authorship, keyword co-occurrence, and SNA centrality metrics.
+          <p className="mt-1 text-xs text-ink-muted">
+            Structural Topology Snapshot, 4-level citation networks, coupling,
+            co-citation, co-authorship, keyword co-occurrence, and SNA
+            centrality metrics.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <label htmlFor="network-ds" className="text-xs font-bold text-slate-500">
+            <label
+              htmlFor="network-ds"
+              className="text-xs font-bold text-ink-muted"
+            >
               Corpus:
             </label>
             <select
@@ -1678,7 +1590,7 @@ export function NetworkStudio({
                 setActiveDatasetId(val);
                 if (onSelectDataset) onSelectDataset(val);
               }}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-hidden"
+              className="rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 text-xs font-semibold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none"
             >
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -1687,24 +1599,26 @@ export function NetworkStudio({
               ))}
             </select>
             {isLoadingDocs ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 animate-pulse border border-blue-200">
-                <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="inline-flex animate-pulse items-center gap-1.5 rounded-full border border-status-info-border bg-status-info-bg px-2.5 py-1 text-[11px] font-semibold text-status-info-text">
+                <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Loading corpus...</span>
               </span>
             ) : currentRecords.length > 0 ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <PackageCheck className="w-3 h-3 text-emerald-600" />
+              <span className="tabular-metrics inline-flex items-center gap-1.5 rounded-full border border-status-success-border bg-status-success-bg px-2.5 py-1 text-[11px] font-semibold text-status-success-text">
+                <PackageCheck className="h-3 w-3" />
                 <span>{currentRecords.length.toLocaleString()} papers loaded</span>
               </span>
             ) : null}
           </div>
 
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <div className="inline-flex rounded-xl border border-border-default bg-surface-subtle p-1">
             <button
               type="button"
               onClick={() => setActiveStudioTab("visualization")}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                activeStudioTab === "visualization" ? "bg-white text-blue-600 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                activeStudioTab === "visualization"
+                  ? "bg-brand-500 text-white shadow-xs"
+                  : "text-ink-secondary hover:text-ink-primary"
               }`}
             >
               Interactive Graph (D3)
@@ -1712,17 +1626,21 @@ export function NetworkStudio({
             <button
               type="button"
               onClick={() => setActiveStudioTab("clusters")}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                activeStudioTab === "clusters" ? "bg-white text-blue-600 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                activeStudioTab === "clusters"
+                  ? "bg-brand-500 text-white shadow-xs"
+                  : "text-ink-secondary hover:text-ink-primary"
               }`}
             >
-              Clusters & Modularity
+              Clusters &amp; Modularity
             </button>
             <button
               type="button"
               onClick={() => setActiveStudioTab("sna_metrics")}
-              className={`px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                activeStudioTab === "sna_metrics" ? "bg-white text-blue-600 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                activeStudioTab === "sna_metrics"
+                  ? "bg-brand-500 text-white shadow-xs"
+                  : "text-ink-secondary hover:text-ink-primary"
               }`}
             >
               SNA Centrality Matrix
@@ -1731,73 +1649,114 @@ export function NetworkStudio({
         </div>
       </div>
 
-      {/* 2. Full Network Categories (Direct Citation in 4 levels, Co-Citation, Coupling, Keywords) */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. Full Network Categories */}
+      <Card padding="sm" className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+            <label className="mb-1.5 block text-[11px] font-bold text-ink-secondary">
               Network Typology (Citation, Coupling, Co-Citation)
             </label>
             <select
               value={networkType}
-              onChange={(e) => setNetworkType(e.target.value as NetworkCategory)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-hidden"
+              onChange={(e) =>
+                setNetworkType(e.target.value as NetworkCategory)
+              }
+              className="w-full rounded-xl border border-border-default bg-surface-subtle px-3 py-2 text-xs font-bold text-ink-primary focus:border-brand-500 focus:bg-surface-canvas focus:outline-none"
             >
               <optgroup label="1. Direct Citation Networks (4 Levels)">
-                <option value="citation_documents">Direct Citation (Documents / Articles)</option>
-                <option value="citation_authors">Direct Citation (Authors)</option>
-                <option value="citation_institutions">Direct Citation (Universities / Institutions)</option>
-                <option value="citation_countries">Direct Citation (Countries)</option>
+                <option value="citation_documents">
+                  Direct Citation (Documents / Articles)
+                </option>
+                <option value="citation_authors">
+                  Direct Citation (Authors)
+                </option>
+                <option value="citation_institutions">
+                  Direct Citation (Universities / Institutions)
+                </option>
+                <option value="citation_countries">
+                  Direct Citation (Countries)
+                </option>
               </optgroup>
               <optgroup label="2. Co-Citation Analysis">
-                <option value="co_citation_references">Co-Citation (Cited References)</option>
-                <option value="co_citation_authors">Co-Citation (Cited Authors)</option>
-                <option value="co_citation_institutions">Co-Citation (Cited Institutions)</option>
-                <option value="co_citation_countries">Co-Citation (Cited Countries)</option>
+                <option value="co_citation_references">
+                  Co-Citation (Cited References)
+                </option>
+                <option value="co_citation_authors">
+                  Co-Citation (Cited Authors)
+                </option>
+                <option value="co_citation_institutions">
+                  Co-Citation (Cited Institutions)
+                </option>
+                <option value="co_citation_countries">
+                  Co-Citation (Cited Countries)
+                </option>
               </optgroup>
               <optgroup label="3. Bibliographic Coupling">
-                <option value="coupling_documents">Bibliographic Coupling (Documents)</option>
-                <option value="coupling_authors">Bibliographic Coupling (Authors)</option>
-                <option value="coupling_institutions">Bibliographic Coupling (Institutions)</option>
-                <option value="coupling_countries">Bibliographic Coupling (Countries)</option>
+                <option value="coupling_documents">
+                  Bibliographic Coupling (Documents)
+                </option>
+                <option value="coupling_authors">
+                  Bibliographic Coupling (Authors)
+                </option>
+                <option value="coupling_institutions">
+                  Bibliographic Coupling (Institutions)
+                </option>
+                <option value="coupling_countries">
+                  Bibliographic Coupling (Countries)
+                </option>
               </optgroup>
               <optgroup label="4. Co-Authorship Collaboration">
-                <option value="co_authorship_authors">Co-authorship (Authors)</option>
-                <option value="co_authorship_institutions">Co-authorship (Institutions)</option>
-                <option value="co_authorship_countries">Co-authorship (Countries)</option>
+                <option value="co_authorship_authors">
+                  Co-authorship (Authors)
+                </option>
+                <option value="co_authorship_institutions">
+                  Co-authorship (Institutions)
+                </option>
+                <option value="co_authorship_countries">
+                  Co-authorship (Countries)
+                </option>
               </optgroup>
               <optgroup label="5. Thematic Term Co-occurrence">
-                <option value="co_occurrence_keywords">Keyword Co-occurrence (Descriptor Map)</option>
+                <option value="co_occurrence_keywords">
+                  Keyword Co-occurrence (Descriptor Map)
+                </option>
               </optgroup>
             </select>
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+            <label className="mb-1.5 block text-[11px] font-bold text-ink-secondary">
               Normalization Method
             </label>
             <select
               value={normalization}
-              onChange={(e) => setNormalization(e.target.value as NormalizationMethod)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-800 focus:outline-hidden"
+              onChange={(e) =>
+                setNormalization(e.target.value as NormalizationMethod)
+              }
+              className="w-full rounded-xl border border-border-default bg-surface-subtle px-3 py-2 text-xs font-medium text-ink-primary focus:border-brand-500 focus:bg-surface-canvas focus:outline-none"
             >
-              <option value="association_strength">Association Strength (VOSviewer Standard)</option>
-              <option value="salton_cosine">Salton's Cosine / Inclusion Index</option>
+              <option value="association_strength">
+                Association Strength (VOSviewer Standard)
+              </option>
+              <option value="salton_cosine">
+                Salton's Cosine / Inclusion Index
+              </option>
               <option value="jaccard">Jaccard Similarity Index</option>
               <option value="equivalence">Equivalence Index</option>
               <option value="raw">Raw Co-occurrence Counts</option>
             </select>
           </div>
 
-          {/* Clustering Algorithm Selection */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+            <label className="mb-1.5 block text-[11px] font-bold text-ink-secondary">
               Clustering Algorithm
             </label>
             <select
               value={clusteringAlgorithm}
-              onChange={(e) => setClusteringAlgorithm(e.target.value as ClusteringAlgorithm)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden"
+              onChange={(e) =>
+                setClusteringAlgorithm(e.target.value as ClusteringAlgorithm)
+              }
+              className="w-full rounded-xl border border-border-default bg-surface-subtle px-3 py-2 text-xs font-bold text-ink-primary focus:border-brand-500 focus:bg-surface-canvas focus:outline-none"
             >
               <option value="louvain">Louvain Modularity (Standard)</option>
               <option value="leiden">Leiden Community Detection</option>
@@ -1806,11 +1765,14 @@ export function NetworkStudio({
             </select>
           </div>
 
-          {/* Cluster Count Slider */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-bold text-slate-700">Cluster Count / Resolution</label>
-              <span className="font-mono text-xs font-black text-blue-600">{clusterCount}</span>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-[11px] font-bold text-ink-secondary">
+                Cluster Count / Resolution
+              </label>
+              <span className="tabular-metrics font-mono text-xs font-black text-brand-500">
+                {clusterCount}
+              </span>
             </div>
             <input
               type="range"
@@ -1818,55 +1780,65 @@ export function NetworkStudio({
               max="12"
               value={clusterCount}
               onChange={(e) => setClusterCount(Number(e.target.value))}
-              className="w-full cursor-pointer accent-blue-600"
+              className="w-full cursor-pointer accent-brand-500"
             />
           </div>
         </div>
 
-        {/* 4 Visual Modes: Network, Clusters, Overlay, Density */}
+        {/* 4 Visual Modes */}
         {activeStudioTab === "visualization" && (
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500">Visualization Mode:</span>
-              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border-subtle pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-ink-muted">
+                Visualization Mode:
+              </span>
+              <div className="inline-flex flex-wrap rounded-xl border border-border-default bg-surface-subtle p-0.5">
                 <button
                   type="button"
                   onClick={() => setVisMode("network")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                    visMode === "network" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                    visMode === "network"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:text-ink-primary"
                   }`}
                 >
-                  <Share2 className="h-3.5 w-3.5 text-blue-600" />
+                  <Share2 className="h-3.5 w-3.5" />
                   <span>Network</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisMode("clusters")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                    visMode === "clusters" ? "bg-white text-purple-900 shadow-2xs" : "text-slate-600"
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                    visMode === "clusters"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:text-ink-primary"
                   }`}
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                  <Sparkles className="h-3.5 w-3.5" />
                   <span>Clusters (Envelopes)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisMode("overlay")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                    visMode === "overlay" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                    visMode === "overlay"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:text-ink-primary"
                   }`}
                 >
-                  <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                  <Layers className="h-3.5 w-3.5" />
                   <span>Overlay</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setVisMode("density")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-md transition cursor-pointer ${
-                    visMode === "density" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600"
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
+                    visMode === "density"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:text-ink-primary"
                   }`}
                 >
-                  <Flame className="h-3.5 w-3.5 text-amber-500" />
+                  <Flame className="h-3.5 w-3.5" />
                   <span>Density (Heatmap)</span>
                 </button>
               </div>
@@ -1874,135 +1846,166 @@ export function NetworkStudio({
 
             {visMode === "overlay" && (
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold text-slate-500">Overlay Metric:</span>
+                <span className="font-bold text-ink-muted">
+                  Overlay Metric:
+                </span>
                 <select
                   value={overlayMetric}
-                  onChange={(e) => setOverlayMetric(e.target.value as "year" | "citations")}
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700"
+                  onChange={(e) =>
+                    setOverlayMetric(e.target.value as "year" | "citations")
+                  }
+                  className="rounded-lg border border-border-default bg-surface-canvas px-2.5 py-1 text-xs font-bold text-ink-primary"
                 >
-                  <option value="year">Publication Year Gradient (Viridis)</option>
-                  <option value="citations">Citation Volume Gradient (Warm)</option>
+                  <option value="year">
+                    Publication Year Gradient (Viridis)
+                  </option>
+                  <option value="citations">
+                    Citation Volume Gradient (Warm)
+                  </option>
                 </select>
               </div>
             )}
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* 3. Structural Topology Snapshot & Group Macro SNA Metrics Row */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* 3. Structural Topology Snapshot & Macro SNA Metrics Row */}
+      <Card padding="md">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-black tracking-tight text-slate-900">
+            <h2 className="text-sm font-black tracking-tight text-ink-primary">
               Structural Topology Snapshot
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              A network-level summary for the selected typology, including density, clustering, path structure, modularity, and active node/tie counts.
+            <p className="mt-1 text-xs text-ink-muted">
+              A network-level summary for the selected typology, including
+              density, clustering, path structure, modularity, and active
+              node/tie counts.
             </p>
           </div>
-          <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-700">
-            {ALL_16_NETWORKS.find((item) => item.id === networkType)?.shortLabel || "Active Network"}
+          <span className="rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700">
+            {ALL_16_NETWORKS.find((item) => item.id === networkType)
+              ?.shortLabel || "Active Network"}
           </span>
         </div>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Network Density</span>
-          <div className="text-lg font-black text-slate-900 mt-0.5">{networkReport.macro.density}</div>
-          <span className="text-[10px] text-slate-500">Completeness ratio</span>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Clustering</span>
-          <div className="text-lg font-black text-blue-600 mt-0.5">{networkReport.macro.avg_clustering_coefficient}</div>
-          <span className="text-[10px] text-slate-500">Triadic closure</span>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Path Length</span>
-          <div className="text-lg font-black text-emerald-600 mt-0.5">{networkReport.macro.avg_path_length}</div>
-          <span className="text-[10px] text-slate-500">Small-world metric</span>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Diameter</span>
-          <div className="text-lg font-black text-purple-600 mt-0.5">{networkReport.macro.diameter}</div>
-          <span className="text-[10px] text-slate-500">Max geodesic distance</span>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Modularity (Q)</span>
-          <div className="text-lg font-black text-amber-600 mt-0.5">{networkReport.macro.modularity_q}</div>
-          <span className="text-[10px] text-slate-500">{clusteringAlgorithm}</span>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Nodes & Ties</span>
-          <div className="text-lg font-black text-slate-900 mt-0.5">
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Network Density</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-ink-primary">
+            {networkReport.macro.density}
+          </div>
+          <span className="text-[10px] text-ink-muted">Completeness ratio</span>
+        </Card>
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Avg Clustering</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-brand-500">
+            {networkReport.macro.avg_clustering_coefficient}
+          </div>
+          <span className="text-[10px] text-ink-muted">Triadic closure</span>
+        </Card>
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Avg Path Length</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-status-success-text">
+            {networkReport.macro.avg_path_length}
+          </div>
+          <span className="text-[10px] text-ink-muted">Small-world metric</span>
+        </Card>
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Diameter</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-brand-600">
+            {networkReport.macro.diameter}
+          </div>
+          <span className="text-[10px] text-ink-muted">
+            Max geodesic distance
+          </span>
+        </Card>
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Modularity (Q)</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-status-warning-text">
+            {networkReport.macro.modularity_q}
+          </div>
+          <span className="text-[10px] text-ink-muted">
+            {clusteringAlgorithm}
+          </span>
+        </Card>
+        <Card padding="sm">
+          <span className="sciai-kicker text-[10px]!">Nodes &amp; Ties</span>
+          <div className="tabular-metrics mt-0.5 text-lg font-black text-ink-primary">
             {networkReport.macro.total_nodes} / {networkReport.macro.total_links}
           </div>
-          <span className="text-[10px] text-slate-500">Active topology</span>
-        </div>
+          <span className="text-[10px] text-ink-muted">Active topology</span>
+        </Card>
       </div>
 
       {/* 4. Tab 1: Interactive D3 Graph View */}
       {activeStudioTab === "visualization" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           <div
             ref={containerRef}
-            className="lg:col-span-3 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs relative"
+            className="sciai-card relative overflow-hidden lg:col-span-3"
           >
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-white/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-xl border border-border-default bg-surface-canvas/90 p-1.5 shadow-card backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => simulationRef.current?.alpha(0.3).restart()}
-                className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="cursor-pointer rounded-lg p-1.5 text-ink-secondary transition-colors hover:bg-surface-subtle hover:text-ink-primary"
                 title="Restart Layout Physics"
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
-              <div className="h-4 w-px bg-slate-200" />
+              <div className="h-4 w-px bg-border-default" />
               <button
                 type="button"
                 onClick={() => setShowAllLabels((v) => !v)}
-                className={`px-2 py-1 text-[11px] font-bold rounded-lg cursor-pointer ${
-                  showAllLabels ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                className={`cursor-pointer rounded-lg px-2 py-1 text-[11px] font-bold transition-colors ${
+                  showAllLabels
+                    ? "bg-brand-500 text-white"
+                    : "bg-surface-subtle text-ink-secondary"
                 }`}
               >
                 Labels
               </button>
-              <div className="h-4 w-px bg-slate-200" />
+              <div className="h-4 w-px bg-border-default" />
               <button
                 type="button"
                 onClick={() => exportGraphAsJPG()}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold rounded-lg cursor-pointer bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border-default bg-surface-canvas px-2 py-1 text-[11px] font-bold text-ink-primary transition-colors hover:bg-surface-subtle"
                 title="Download High-Resolution JPG of Graph"
               >
-                <ImageIcon className="h-3 w-3 text-slate-600" />
+                <ImageIcon className="h-3 w-3 text-ink-muted" />
                 <span>JPG</span>
               </button>
               <button
                 type="button"
                 onClick={() => exportPajekNet()}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-bold rounded-lg cursor-pointer bg-white text-purple-700 hover:bg-purple-50 border border-purple-200"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 transition-colors hover:bg-brand-100"
                 title="Download Pajek .net file"
               >
-                <Network className="h-3 w-3 text-purple-600" />
+                <Network className="h-3 w-3 text-brand-500" />
                 <span>Pajek .net</span>
               </button>
             </div>
 
-            <svg ref={svgRef} className="w-full h-[560px] bg-slate-50/50 cursor-grab active:cursor-grabbing" />
+            <svg
+              ref={svgRef}
+              className="h-[560px] w-full cursor-grab bg-surface-subtle/60 active:cursor-grabbing"
+            />
           </div>
 
           {/* Node Inspector */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between">
+          <Card padding="md" className="flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <Activity className="h-4 w-4 text-blue-600" />
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink-primary">
+                  <Activity className="h-4 w-4 text-brand-500" />
                   <span>Node SNA Inspector</span>
                 </h3>
                 {selectedNode && (
                   <button
                     type="button"
                     onClick={() => setSelectedNode(null)}
-                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="cursor-pointer text-[10px] font-bold text-ink-subtle hover:text-ink-primary"
                   >
                     Clear
                   </button>
@@ -2012,112 +2015,149 @@ export function NetworkStudio({
               {selectedNode ? (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Entity
-                    </span>
-                    <h4 className="text-base font-black text-slate-900 leading-snug">
+                    <span className="sciai-kicker text-[10px]!">Entity</span>
+                    <h4 className="text-base font-black leading-snug text-ink-primary">
                       {selectedNode.label}
                     </h4>
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-blue-50 text-[10px] font-bold text-blue-700">
+                    <span className="mt-1 inline-block rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                       Cluster #{selectedNode.cluster} ({clusteringAlgorithm})
                     </span>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                  <div className="tabular-metrics space-y-2 border-t border-border-subtle pt-2 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Degree:</span>
-                      <strong className="text-slate-900">{selectedNode.degree}</strong>
+                      <span className="text-ink-muted">Degree:</span>
+                      <strong className="text-ink-primary">
+                        {selectedNode.degree}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Total Link Strength:</span>
-                      <strong className="text-slate-900">{selectedNode.total_link_strength}</strong>
+                      <span className="text-ink-muted">
+                        Total Link Strength:
+                      </span>
+                      <strong className="text-ink-primary">
+                        {selectedNode.total_link_strength}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">PageRank (Authority):</span>
-                      <strong className="text-indigo-600 font-bold">{selectedNode.pagerank}</strong>
+                      <span className="text-ink-muted">
+                        PageRank (Authority):
+                      </span>
+                      <strong className="font-bold text-brand-600">
+                        {selectedNode.pagerank}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Betweenness (Brokerage):</span>
-                      <strong className="text-blue-600">{selectedNode.betweenness}</strong>
+                      <span className="text-ink-muted">
+                        Betweenness (Brokerage):
+                      </span>
+                      <strong className="text-brand-500">
+                        {selectedNode.betweenness}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Closeness:</span>
-                      <strong className="text-emerald-600">{selectedNode.closeness}</strong>
+                      <span className="text-ink-muted">Closeness:</span>
+                      <strong className="text-status-success-text">
+                        {selectedNode.closeness}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Eigenvector (Prestige):</span>
-                      <strong className="text-purple-600">{selectedNode.eigenvector}</strong>
+                      <span className="text-ink-muted">
+                        Eigenvector (Prestige):
+                      </span>
+                      <strong className="text-status-info-text">
+                        {selectedNode.eigenvector}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Clustering Coefficient:</span>
-                      <strong className="text-amber-600">{selectedNode.clustering_coefficient}</strong>
+                      <span className="text-ink-muted">
+                        Clustering Coefficient:
+                      </span>
+                      <strong className="text-status-warning-text">
+                        {selectedNode.clustering_coefficient}
+                      </strong>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="mt-12 text-center text-slate-400 py-6">
-                  <Share2 className="h-8 w-8 mx-auto stroke-1 text-slate-300 mb-2" />
-                  <p className="text-xs font-medium">Click on any node in the dynamic graph to inspect micro-level centralities.</p>
+                <div className="mt-12 py-6 text-center text-ink-subtle">
+                  <Share2 className="mx-auto mb-2 h-8 w-8 stroke-1 text-border-strong" />
+                  <p className="text-xs font-medium text-ink-muted">
+                    Click on any node in the dynamic graph to inspect
+                    micro-level centralities.
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="pt-4 border-t border-slate-100 text-[11px] text-slate-500">
-              Drag nodes to rearrange physics. Switch between Network, Overlay, and Density modes above.
+            <div className="border-t border-border-subtle pt-4 text-[11px] text-ink-muted">
+              Drag nodes to rearrange physics. Switch between Network, Overlay,
+              and Density modes above.
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* 4. Tab 2: Dedicated Thematic Clusters & Modularity View */}
       {activeStudioTab === "clusters" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div className="flex items-center justify-between border-b border-border-default pb-2">
             <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Community Partitions ({networkReport.clusters.length} Clusters Detected)
+              <h3 className="text-base font-bold text-ink-primary">
+                Community Partitions ({networkReport.clusters.length} Clusters
+                Detected)
               </h3>
-              <p className="text-xs text-slate-500">
-                Segmented via <strong className="text-blue-600">{clusteringAlgorithm.toUpperCase()}</strong> with resolution set to {clusterCount}.
+              <p className="text-xs text-ink-muted">
+                Segmented via{" "}
+                <strong className="text-brand-600">
+                  {clusteringAlgorithm.toUpperCase()}
+                </strong>{" "}
+                with resolution set to {clusterCount}.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {networkReport.clusters.map((c) => (
-              <div
-                key={c.cluster_id}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs space-y-3"
-              >
+              <Card key={c.cluster_id} padding="sm" className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: c.color }} />
-                    <h4 className="text-sm font-bold text-slate-900">{c.name}</h4>
+                    <div
+                      className="h-3.5 w-3.5 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                    />
+                    <h4 className="text-sm font-bold text-ink-primary">
+                      {c.name}
+                    </h4>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-bold text-slate-600">
+                  <span className="tabular-metrics rounded-md border border-border-default bg-surface-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary">
                     {c.node_count} nodes
                   </span>
                 </div>
 
-                <div className="text-xs text-slate-500">
+                <div className="tabular-metrics text-xs text-ink-muted">
                   <span>Total Cluster Strength: </span>
-                  <strong className="text-slate-900">{c.total_strength}</strong>
+                  <strong className="text-ink-primary">
+                    {c.total_strength}
+                  </strong>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Core Leading Members:</span>
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <span className="sciai-kicker text-[10px]!">
+                    Core Leading Members:
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {c.top_members.map((m, i) => (
                       <span
                         key={i}
-                        className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-50 text-slate-700 border border-slate-200"
+                        className="rounded-md border border-border-default bg-surface-subtle px-2 py-0.5 text-[11px] font-semibold text-ink-secondary"
                       >
                         {m}
                       </span>
                     ))}
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -2125,18 +2165,21 @@ export function NetworkStudio({
 
       {/* 4. Tab 3: SNA Centrality Matrix Table */}
       {activeStudioTab === "sna_metrics" && (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden space-y-0">
-          {/* Table Toolbar */}
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <Card padding="none" className="overflow-hidden">
+          <div className="flex flex-col justify-between gap-3 border-b border-border-default bg-surface-subtle p-4 md:flex-row md:items-center">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span>Social Network Analysis (SNA) Centrality & Authority Matrix</span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-ink-primary">
+                <span>
+                  Social Network Analysis (SNA) Centrality &amp; Authority
+                  Matrix
+                </span>
+                <span className="tabular-metrics rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                   {networkReport.nodes.length} Entities
                 </span>
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Micro-level centralities, PageRank authority scores, and structural brokerage metrics.
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Micro-level centralities, PageRank authority scores, and
+                structural brokerage metrics.
               </p>
             </div>
 
@@ -2146,13 +2189,17 @@ export function NetworkStudio({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search entity..."
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
+                className="rounded-lg border border-border-default bg-surface-canvas px-3 py-1.5 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
               />
 
               <select
                 value={selectedClusterFilter}
-                onChange={(e) => setSelectedClusterFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700"
+                onChange={(e) =>
+                  setSelectedClusterFilter(
+                    e.target.value === "all" ? "all" : Number(e.target.value)
+                  )
+                }
+                className="rounded-lg border border-border-default bg-surface-canvas px-2.5 py-1.5 text-xs font-bold text-ink-primary"
               >
                 <option value="all">All Clusters</option>
                 {networkReport.clusters.map((c) => (
@@ -2162,146 +2209,187 @@ export function NetworkStudio({
                 ))}
               </select>
 
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={() => exportMetricsExcel()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg shadow-2xs cursor-pointer"
+                icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
                 title="Download Centrality Table as Excel CSV"
               >
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                <span>Export Metrics (Excel)</span>
-              </button>
-              <button
+                Export Metrics (Excel)
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => exportMatrixExcel()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-2xs cursor-pointer"
+                icon={<Grid className="h-3.5 w-3.5" />}
                 title="Download Adjacency Matrix as Excel CSV"
               >
-                <Grid className="h-3.5 w-3.5" />
-                <span>Export Matrix (Excel)</span>
-              </button>
+                Export Matrix (Excel)
+              </Button>
             </div>
           </div>
 
-          <div className="overflow-x-auto max-h-[640px]">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead className="sticky top-0 bg-slate-100 z-10">
-                <tr className="border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600 select-none">
+          <div className="max-h-[640px] overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-surface-subtle">
+                <tr className="select-none border-b border-border-default text-[10px] font-bold uppercase text-ink-muted">
                   <th
                     onClick={() => {
                       if (sortField === "label") setSortAsc(!sortAsc);
-                      else { setSortField("label"); setSortAsc(true); }
+                      else {
+                        setSortField("label");
+                        setSortAsc(true);
+                      }
                     }}
-                    className="py-3 px-4 cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-4 py-3 transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center gap-1">
                       <span>Entity</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "cluster") setSortAsc(!sortAsc);
-                      else { setSortField("cluster"); setSortAsc(true); }
+                      else {
+                        setSortField("cluster");
+                        setSortAsc(true);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Cluster</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "degree") setSortAsc(!sortAsc);
-                      else { setSortField("degree"); setSortAsc(false); }
+                      else {
+                        setSortField("degree");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Degree</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
-                      if (sortField === "total_link_strength") setSortAsc(!sortAsc);
-                      else { setSortField("total_link_strength"); setSortAsc(false); }
+                      if (sortField === "total_link_strength")
+                        setSortAsc(!sortAsc);
+                      else {
+                        setSortField("total_link_strength");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>TLS (Weight)</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "pagerank") setSortAsc(!sortAsc);
-                      else { setSortField("pagerank"); setSortAsc(false); }
+                      else {
+                        setSortField("pagerank");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition bg-indigo-50/50"
+                    className="cursor-pointer bg-brand-50/70 px-3 py-3 text-center transition-colors hover:bg-brand-100/70"
                   >
-                    <div className="flex items-center justify-center gap-1 text-indigo-900">
+                    <div className="flex items-center justify-center gap-1 text-brand-700">
                       <span>PageRank</span>
-                      <ArrowUpDown className="h-3 w-3 text-indigo-500" />
+                      <ArrowUpDown className="h-3 w-3 text-brand-500" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "betweenness") setSortAsc(!sortAsc);
-                      else { setSortField("betweenness"); setSortAsc(false); }
+                      else {
+                        setSortField("betweenness");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Betweenness</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "closeness") setSortAsc(!sortAsc);
-                      else { setSortField("closeness"); setSortAsc(false); }
+                      else {
+                        setSortField("closeness");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Closeness</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
                       if (sortField === "eigenvector") setSortAsc(!sortAsc);
-                      else { setSortField("eigenvector"); setSortAsc(false); }
+                      else {
+                        setSortField("eigenvector");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Eigenvector</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                   <th
                     onClick={() => {
-                      if (sortField === "clustering_coefficient") setSortAsc(!sortAsc);
-                      else { setSortField("clustering_coefficient"); setSortAsc(false); }
+                      if (sortField === "clustering_coefficient")
+                        setSortAsc(!sortAsc);
+                      else {
+                        setSortField("clustering_coefficient");
+                        setSortAsc(false);
+                      }
                     }}
-                    className="py-3 px-3 text-center cursor-pointer hover:bg-slate-200/70 transition"
+                    className="cursor-pointer px-3 py-3 text-center transition-colors hover:bg-surface-muted"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Clustering Coeff</span>
-                      <ArrowUpDown className="h-3 w-3 text-slate-400" />
+                      <ArrowUpDown className="h-3 w-3 text-ink-subtle" />
                     </div>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border-subtle">
                 {networkReport.nodes
                   .filter((n) => {
-                    if (selectedClusterFilter !== "all" && n.cluster !== selectedClusterFilter) return false;
-                    if (searchQuery.trim() && !n.label.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+                    if (
+                      selectedClusterFilter !== "all" &&
+                      n.cluster !== selectedClusterFilter
+                    )
+                      return false;
+                    if (
+                      searchQuery.trim() &&
+                      !n.label
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())
+                    )
+                      return false;
                     return true;
                   })
                   .sort((a, b) => {
@@ -2318,243 +2406,332 @@ export function NetworkStudio({
                     <tr
                       key={node.id}
                       onClick={() => setSelectedNode(node)}
-                      className="hover:bg-blue-50/50 transition cursor-pointer"
+                      className="cursor-pointer transition-colors hover:bg-brand-50/50"
                     >
-                      <td className="py-3 px-4 font-bold text-slate-900">
+                      <td className="px-4 py-3 font-bold text-ink-primary">
                         <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: node.color }} />
+                          <div
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: node.color }}
+                          />
                           <span>{node.label}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
+                      <td className="tabular-metrics px-3 py-3 text-center">
+                        <span className="inline-block rounded-full border border-border-default bg-surface-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary">
                           #{node.cluster}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-center font-semibold text-slate-700">{node.degree}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-slate-700">{node.total_link_strength}</td>
-                      <td className="py-3 px-3 text-center font-bold text-indigo-700 bg-indigo-50/40">{node.pagerank}</td>
-                      <td className="py-3 px-3 text-center font-bold text-blue-600">{node.betweenness}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-emerald-600">{node.closeness}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-purple-600">{node.eigenvector}</td>
-                      <td className="py-3 px-3 text-center font-semibold text-amber-600">{node.clustering_coefficient}</td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-semibold text-ink-secondary">
+                        {node.degree}
+                      </td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-semibold text-ink-secondary">
+                        {node.total_link_strength}
+                      </td>
+                      <td className="tabular-metrics bg-brand-50/40 px-3 py-3 text-center font-bold text-brand-700">
+                        {node.pagerank}
+                      </td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-bold text-brand-500">
+                        {node.betweenness}
+                      </td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-semibold text-status-success-text">
+                        {node.closeness}
+                      </td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-semibold text-status-info-text">
+                        {node.eigenvector}
+                      </td>
+                      <td className="tabular-metrics px-3 py-3 text-center font-semibold text-status-warning-text">
+                        {node.clustering_coefficient}
+                      </td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* 4. Batch Export Modal (All 16 Networks & Individual Downloads) */}
+      {/* 4. Batch Export Modal */}
       {showBatchExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/80">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-dark/60 p-4 backdrop-blur-xs">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-canvas shadow-elevated">
+            <div className="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-6 py-4">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
                   <PackageCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
+                  <h3 className="text-base font-black text-ink-primary">
                     16-Network Batch Export Hub
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Export metrics, matrices, Pajek files, and 2K watermarked graphs across all 16 scientometric networks.
+                  <p className="text-xs text-ink-muted">
+                    Export metrics, matrices, Pajek files, and 2K watermarked
+                    graphs across all 16 scientometric networks.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => !isExportingBatch && setShowBatchExportModal(false)}
+                onClick={() =>
+                  !isExportingBatch && setShowBatchExportModal(false)
+                }
                 disabled={isExportingBatch}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50 transition cursor-pointer"
+                className="cursor-pointer rounded-lg p-1.5 text-ink-subtle transition-colors hover:bg-surface-muted hover:text-ink-primary disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6">
-              {/* Progress Bar (when running) */}
+            <div className="space-y-6 overflow-y-auto p-6">
               {isExportingBatch && (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 space-y-2.5">
-                  <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+                <div className="space-y-2.5 rounded-xl border border-brand-200 bg-brand-50/70 p-4">
+                  <div className="flex items-center justify-between text-xs font-bold text-brand-800">
                     <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                      <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
                       Generating: {batchProgress.label}
                     </span>
-                    <span>
+                    <span className="tabular-metrics">
                       {batchProgress.current} of {batchProgress.total} networks
                     </span>
                   </div>
-                  <div className="h-2 w-full bg-indigo-200 rounded-full overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-brand-100">
                     <div
-                      className="h-full bg-indigo-600 transition-all duration-300 rounded-full"
+                      className="h-full rounded-full bg-brand-500 transition-all duration-300"
                       style={{
                         width: `${(batchProgress.current / Math.max(1, batchProgress.total)) * 100}%`,
                       }}
                     />
                   </div>
-                  <p className="text-[11px] text-indigo-700">
-                    Files are being generated and downloaded automatically. Please keep this modal open.
+                  <p className="text-[11px] text-brand-700">
+                    Files are being generated and downloaded automatically.
+                    Please keep this modal open.
                   </p>
                 </div>
               )}
 
-              {/* Network Category Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                <label className="mb-1.5 block text-xs font-bold text-ink-primary">
                   1. Select Target Network Scope
                 </label>
                 <select
                   value={batchCategory}
-                  onChange={(e) => setBatchCategory(e.target.value as NetworkCategory | "ALL")}
+                  onChange={(e) =>
+                    setBatchCategory(e.target.value as NetworkCategory | "ALL")
+                  }
                   disabled={isExportingBatch}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-900 focus:outline-hidden focus:border-indigo-500"
+                  className="w-full rounded-xl border border-border-default bg-surface-subtle px-3.5 py-2.5 text-xs font-bold text-ink-primary focus:border-brand-500 focus:outline-none"
                 >
-                  <option value="ALL">🌟 ALL 16 NETWORKS (Full Scientometric Batch Process)</option>
+                  <option value="ALL">
+                    ALL 16 NETWORKS (Full Scientometric Batch Process)
+                  </option>
                   <optgroup label="Direct Citation Networks">
-                    <option value="citation_documents">Direct Citation (Documents / Articles)</option>
-                    <option value="citation_authors">Direct Citation (Authors)</option>
-                    <option value="citation_institutions">Direct Citation (Universities / Institutions)</option>
-                    <option value="citation_countries">Direct Citation (Countries)</option>
+                    <option value="citation_documents">
+                      Direct Citation (Documents / Articles)
+                    </option>
+                    <option value="citation_authors">
+                      Direct Citation (Authors)
+                    </option>
+                    <option value="citation_institutions">
+                      Direct Citation (Universities / Institutions)
+                    </option>
+                    <option value="citation_countries">
+                      Direct Citation (Countries)
+                    </option>
                   </optgroup>
                   <optgroup label="Co-Citation Networks">
-                    <option value="co_citation_references">Co-Citation (Cited References)</option>
-                    <option value="co_citation_authors">Co-Citation (Cited Authors)</option>
-                    <option value="co_citation_institutions">Co-Citation (Cited Institutions)</option>
-                    <option value="co_citation_countries">Co-Citation (Cited Countries)</option>
+                    <option value="co_citation_references">
+                      Co-Citation (Cited References)
+                    </option>
+                    <option value="co_citation_authors">
+                      Co-Citation (Cited Authors)
+                    </option>
+                    <option value="co_citation_institutions">
+                      Co-Citation (Cited Institutions)
+                    </option>
+                    <option value="co_citation_countries">
+                      Co-Citation (Cited Countries)
+                    </option>
                   </optgroup>
                   <optgroup label="Bibliographic Coupling Networks">
-                    <option value="coupling_documents">Bibliographic Coupling (Documents)</option>
-                    <option value="coupling_authors">Bibliographic Coupling (Authors)</option>
-                    <option value="coupling_institutions">Bibliographic Coupling (Institutions)</option>
-                    <option value="coupling_countries">Bibliographic Coupling (Countries)</option>
+                    <option value="coupling_documents">
+                      Bibliographic Coupling (Documents)
+                    </option>
+                    <option value="coupling_authors">
+                      Bibliographic Coupling (Authors)
+                    </option>
+                    <option value="coupling_institutions">
+                      Bibliographic Coupling (Institutions)
+                    </option>
+                    <option value="coupling_countries">
+                      Bibliographic Coupling (Countries)
+                    </option>
                   </optgroup>
                   <optgroup label="Collaboration & Co-Authorship">
-                    <option value="co_authorship_authors">Co-authorship (Authors)</option>
-                    <option value="co_authorship_institutions">Co-authorship (Institutions)</option>
-                    <option value="co_authorship_countries">Co-authorship (Countries)</option>
+                    <option value="co_authorship_authors">
+                      Co-authorship (Authors)
+                    </option>
+                    <option value="co_authorship_institutions">
+                      Co-authorship (Institutions)
+                    </option>
+                    <option value="co_authorship_countries">
+                      Co-authorship (Countries)
+                    </option>
                   </optgroup>
                   <optgroup label="Keyword Co-occurrence">
-                    <option value="co_occurrence_keywords">Keyword Co-occurrence (Descriptor Map)</option>
+                    <option value="co_occurrence_keywords">
+                      Keyword Co-occurrence (Descriptor Map)
+                    </option>
                   </optgroup>
                 </select>
               </div>
 
-              {/* Output Format Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-2">
+                <label className="mb-2 block text-xs font-bold text-ink-primary">
                   2. Choose Output Format
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() => setBatchFormat("all")}
-                    className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
                       batchFormat === "all"
-                        ? "border-indigo-500 bg-indigo-50/50 text-indigo-950 ring-1 ring-indigo-500"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        ? "border-brand-500 bg-brand-50/60 text-ink-primary ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
-                    <DownloadCloud className="h-5 w-5 mt-0.5 text-indigo-600 shrink-0" />
+                    <DownloadCloud className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
                     <div>
-                      <div className="text-xs font-bold">All 4 Formats Suite</div>
-                      <div className="text-[11px] text-slate-500">Excel Metrics + Matrix + 2K Watermarked JPG + Pajek (.net)</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        All 4 Formats Suite
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        Excel Metrics + Matrix + 2K Watermarked JPG + Pajek
+                        (.net)
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setBatchFormat("metrics")}
-                    className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
                       batchFormat === "metrics"
-                        ? "border-emerald-500 bg-emerald-50/50 text-emerald-950 ring-1 ring-emerald-500"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        ? "border-brand-500 bg-brand-50/60 text-ink-primary ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
-                    <FileSpreadsheet className="h-5 w-5 mt-0.5 text-emerald-600 shrink-0" />
+                    <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0 text-status-success-text" />
                     <div>
-                      <div className="text-xs font-bold">Excel Centrality Table (.csv)</div>
-                      <div className="text-[11px] text-slate-500">Degree, TLS, Betweenness, PageRank, Closeness, Eigenvector</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        Excel Centrality Table (.csv)
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        Degree, TLS, Betweenness, PageRank, Closeness,
+                        Eigenvector
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setBatchFormat("matrix")}
-                    className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
                       batchFormat === "matrix"
-                        ? "border-blue-500 bg-blue-50/50 text-blue-950 ring-1 ring-blue-500"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        ? "border-brand-500 bg-brand-50/60 text-ink-primary ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
-                    <Grid className="h-5 w-5 mt-0.5 text-blue-600 shrink-0" />
+                    <Grid className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
                     <div>
-                      <div className="text-xs font-bold">Adjacency Matrix Excel (.csv)</div>
-                      <div className="text-[11px] text-slate-500">Full symmetric co-occurrence & citation weight matrix</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        Adjacency Matrix Excel (.csv)
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        Full symmetric co-occurrence &amp; citation weight
+                        matrix
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setBatchFormat("jpg")}
-                    className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
                       batchFormat === "jpg"
-                        ? "border-slate-900 bg-slate-100 text-slate-950 ring-1 ring-slate-900"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        ? "border-brand-500 bg-brand-50/60 text-ink-primary ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
-                    <ImageIcon className="h-5 w-5 mt-0.5 text-slate-700 shrink-0" />
+                    <ImageIcon className="mt-0.5 h-5 w-5 shrink-0 text-ink-secondary" />
                     <div>
-                      <div className="text-xs font-bold">High-Res Graph JPG (with Logo)</div>
-                      <div className="text-[11px] text-slate-500">1920x1080 publication-ready image with software emblem</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        High-Res Graph JPG (with Logo)
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        1920x1080 publication-ready image with software emblem
+                      </div>
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setBatchFormat("pajek")}
-                    className={`flex items-start gap-3 p-3 rounded-xl border text-left cursor-pointer transition sm:col-span-2 ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-colors sm:col-span-2 ${
                       batchFormat === "pajek"
-                        ? "border-purple-500 bg-purple-50/50 text-purple-950 ring-1 ring-purple-500"
-                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                        ? "border-brand-500 bg-brand-50/60 text-ink-primary ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
-                    <Network className="h-5 w-5 mt-0.5 text-purple-600 shrink-0" />
+                    <Network className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
                     <div>
-                      <div className="text-xs font-bold">Pajek (.net) Network File</div>
-                      <div className="text-[11px] text-slate-500">Standard *Vertices and *Edges specification for Pajek, Gephi, and UCINET</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        Pajek (.net) Network File
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        Standard *Vertices and *Edges specification for Pajek,
+                        Gephi, and UCINET
+                      </div>
                     </div>
                   </button>
                 </div>
               </div>
 
-              {/* Active Network List Quick Downloads */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-2">
+                <label className="mb-2 block text-xs font-bold text-ink-primary">
                   3. Direct Single-Click Downloads by Network:
                 </label>
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-slate-50/50">
+                <div className="max-h-48 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-default bg-surface-subtle">
                   {ALL_16_NETWORKS.map((net) => (
-                    <div key={net.id} className="flex items-center justify-between p-2.5 hover:bg-white transition text-xs">
+                    <div
+                      key={net.id}
+                      className="flex items-center justify-between p-2.5 text-xs transition-colors hover:bg-surface-canvas"
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                        <span className="h-2 w-2 rounded-full bg-brand-500" />
                         <div>
-                          <span className="font-bold text-slate-900">{net.label}</span>
-                          <span className="ml-2 text-[10px] text-slate-400 font-semibold">{net.group}</span>
+                          <span className="font-bold text-ink-primary">
+                            {net.label}
+                          </span>
+                          <span className="ml-2 text-[10px] font-semibold text-ink-subtle">
+                            {net.group}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => {
-                            const rep = computeNetworkData((currentDataset as any)?.raw_records || [], net.id, maxNodes, minWeight, clusteringAlgorithm, clusterCount);
+                            const rep = computeNetworkData(
+                              (currentDataset as any)?.raw_records || [],
+                              net.id,
+                              maxNodes,
+                              minWeight,
+                              clusteringAlgorithm,
+                              clusterCount
+                            );
                             exportMetricsExcel(rep, net.id);
                           }}
-                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                          className="cursor-pointer rounded border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[10px] font-bold text-status-success-text hover:opacity-90"
                           title="Excel Metrics"
                         >
                           Metrics
@@ -2562,10 +2739,17 @@ export function NetworkStudio({
                         <button
                           type="button"
                           onClick={() => {
-                            const rep = computeNetworkData((currentDataset as any)?.raw_records || [], net.id, maxNodes, minWeight, clusteringAlgorithm, clusterCount);
+                            const rep = computeNetworkData(
+                              (currentDataset as any)?.raw_records || [],
+                              net.id,
+                              maxNodes,
+                              minWeight,
+                              clusteringAlgorithm,
+                              clusterCount
+                            );
                             exportMatrixExcel(rep, net.id);
                           }}
-                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                          className="cursor-pointer rounded border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 hover:bg-brand-100"
                           title="Excel Matrix"
                         >
                           Matrix
@@ -2573,7 +2757,7 @@ export function NetworkStudio({
                         <button
                           type="button"
                           onClick={() => exportGraphAsJPG(net.id)}
-                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300"
+                          className="cursor-pointer rounded border border-border-default bg-surface-canvas px-2 py-0.5 text-[10px] font-bold text-ink-primary hover:bg-surface-muted"
                           title="Graph JPG with Watermark"
                         >
                           JPG
@@ -2581,10 +2765,17 @@ export function NetworkStudio({
                         <button
                           type="button"
                           onClick={() => {
-                            const rep = computeNetworkData((currentDataset as any)?.raw_records || [], net.id, maxNodes, minWeight, clusteringAlgorithm, clusterCount);
+                            const rep = computeNetworkData(
+                              (currentDataset as any)?.raw_records || [],
+                              net.id,
+                              maxNodes,
+                              minWeight,
+                              clusteringAlgorithm,
+                              clusterCount
+                            );
                             exportPajekNet(rep, net.id);
                           }}
-                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
+                          className="cursor-pointer rounded border border-status-info-border bg-status-info-bg px-2 py-0.5 text-[10px] font-bold text-status-info-text hover:opacity-90"
                           title="Pajek File"
                         >
                           .net
@@ -2596,46 +2787,53 @@ export function NetworkStudio({
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50">
-              <span className="text-xs text-slate-500 font-medium">
-                {batchCategory === "ALL" ? "Processing all 16 networks" : `Targeting: ${ALL_16_NETWORKS.find(n => n.id === batchCategory)?.label}`}
+            <div className="flex items-center justify-between border-t border-border-subtle bg-surface-subtle px-6 py-4">
+              <span className="text-xs font-medium text-ink-muted">
+                {batchCategory === "ALL"
+                  ? "Processing all 16 networks"
+                  : `Targeting: ${ALL_16_NETWORKS.find((n) => n.id === batchCategory)?.label}`}
               </span>
               <div className="flex items-center gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setShowBatchExportModal(false)}
                   disabled={isExportingBatch}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-200 transition cursor-pointer disabled:opacity-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  onClick={() => handleExecuteBatchExport(batchCategory, batchFormat)}
+                  variant="primary"
+                  size="sm"
+                  loading={isExportingBatch}
                   disabled={isExportingBatch}
-                  className="inline-flex items-center gap-2 px-5 py-2 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50"
-                >
-                  {isExportingBatch ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Exporting ({batchProgress.current}/{batchProgress.total})...</span>
-                    </>
-                  ) : (
-                    <>
+                  onClick={() =>
+                    handleExecuteBatchExport(batchCategory, batchFormat)
+                  }
+                  icon={
+                    !isExportingBatch ? (
                       <DownloadCloud className="h-4 w-4" />
-                      <span>Execute Batch Export</span>
-                    </>
-                  )}
-                </button>
+                    ) : undefined
+                  }
+                >
+                  {isExportingBatch
+                    ? `Exporting (${batchProgress.current}/${batchProgress.total})...`
+                    : "Execute Batch Export"}
+                </Button>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {!isLoadingDocs && networkReport.nodes.length > 0 && (
         <div data-export-actions className="mt-6">
-          <ContextualExportToolbar payload={contextualNetworkPayload} svgElementRef={svgRef} />
+          <ContextualExportToolbar
+            payload={contextualNetworkPayload}
+            svgElementRef={svgRef}
+          />
         </div>
       )}
     </div>

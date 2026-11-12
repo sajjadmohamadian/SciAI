@@ -1,35 +1,29 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Dataset, BibliometricDocument, DataHealthMetrics, PrismaAIReport, PrismaFlow, DatasetVersion } from "../types.js";
+import { Dataset, DataHealthMetrics, PrismaAIReport, PrismaFlow, DatasetVersion } from "../types.js";
 import {
   ShieldCheck,
   Filter,
   Layers,
   CheckCircle2,
-  AlertTriangle,
   FileText,
   Download,
   RefreshCw,
   GitMerge,
   Search,
   Check,
-  X,
   Sparkles,
-  BarChart3,
-  Sliders,
-  HelpCircle,
   Eye,
   Copy,
   BookOpen,
-  CheckSquare,
   ListChecks,
-  ArrowDownRight,
   Award,
-  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { useAiProvider } from "../context/AiProviderContext.js";
 import { apiJson, getApiErrorMessage } from "../utils/apiClient.js";
 import { hasRecordedExclusions, usePrismaFlow, useVersionDocuments } from "../hooks/usePrismaFlow.js";
 import { PrismaFlowDiagram, PrismaManualEditor } from "./PrismaFlowDiagram.js";
+import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface PrismaDedupSummary {
   total_raw_inputs: number;
@@ -342,36 +336,36 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              Phase 1
-            </span>
-            <span className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700">
-              Data & Hygiene
-            </span>
-          </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            Dataset Management & Data Hygiene
-          </h1>
-          <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-            Audit metadata completeness, deduplicate bibliographic records, and document recorded PRISMA 2020 study-selection counts.
-          </p>
+      <div className="border-b border-border-default pb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="sciai-kicker">Phase 1</span>
+          <span className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 font-mono text-[10px] font-bold text-status-success-text">
+            Data & Hygiene
+          </span>
         </div>
+        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-ink-primary sm:text-3xl">
+          Dataset Management & Data Hygiene
+        </h1>
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-muted">
+          Audit metadata completeness, deduplicate bibliographic records, and document recorded
+          PRISMA 2020 study-selection counts.
+        </p>
       </div>
 
-      {(prisma.error || documentsError) && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{prisma.error || documentsError}</p>}
+      {(prisma.error || documentsError) && (
+        <AlertBanner tone="danger">{prisma.error || documentsError}</AlertBanner>
+      )}
+
       {/* Sub-tab Navigation */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setActiveSubTab("health")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeSubTab === "health"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -381,17 +375,23 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           <button
             type="button"
             onClick={() => setActiveSubTab("dedup")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeSubTab === "dedup"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <GitMerge className="h-3.5 w-3.5" />
             Deduplication & Bibliographic Record Merging
             {displayedDedup && displayedDedup.duplicates_resolved > 0 && (
-              <span className="ml-1 rounded-full bg-rose-500 text-white px-1.5 py-0.2 text-[10px]">
-                {displayedDedup?.duplicates_resolved}
+              <span
+                className={`tabular-metrics ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  activeSubTab === "dedup"
+                    ? "bg-white/20 text-white"
+                    : "border border-status-danger-border bg-status-danger-bg text-status-danger-text"
+                }`}
+              >
+                {displayedDedup.duplicates_resolved}
               </span>
             )}
           </button>
@@ -399,10 +399,10 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           <button
             type="button"
             onClick={() => setActiveSubTab("prisma")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeSubTab === "prisma"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <FileText className="h-3.5 w-3.5" />
@@ -412,19 +412,20 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
           <button
             type="button"
             onClick={() => setActiveSubTab("records")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`tabular-metrics inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeSubTab === "records"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                ? "bg-brand-500 text-white shadow-xs"
+                : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
-            Browse Canonical Bibliographic Records ({documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()})
+            Browse Canonical Bibliographic Records (
+            {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()})
           </button>
         </div>
 
         {isLoadingDocs && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-semibold animate-pulse">
+          <span className="inline-flex animate-pulse items-center gap-1.5 text-xs font-semibold text-brand-500">
             <RefreshCw className="h-3 w-3 animate-spin" />
             Reading bibliographic records...
           </span>
@@ -433,659 +434,800 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
 
       {/* SUB-TAB 1: METADATA HEALTH */}
       {activeSubTab === "health" && documentTotal === null && (
-        <p className="rounded-xl border border-slate-200 bg-white p-5 text-xs text-slate-600">{isLoadingDocs ? "Loading all records for the metadata audit..." : "Metadata health is not available until the dataset version loads."}</p>
+        <Card padding="md">
+          <p className="text-xs text-ink-muted">
+            {isLoadingDocs
+              ? "Loading all records for the metadata audit..."
+              : "Metadata health is not available until the dataset version loads."}
+          </p>
+        </Card>
       )}
       {activeSubTab === "health" && documentTotal !== null && (
         <div className="space-y-6">
           {/* Top Score Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Overall Health Index
-              </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <Card padding="md">
+              <div className="sciai-kicker">Overall Health Index</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
+                <span className="tabular-metrics text-3xl font-black text-ink-primary">
                   {healthMetrics.overall_score}%
                 </span>
                 <span
                   className={`text-xs font-bold ${
                     healthMetrics.overall_score >= 80
-                      ? "text-emerald-600"
+                      ? "text-status-success-text"
                       : healthMetrics.overall_score >= 60
-                      ? "text-amber-600"
-                      : "text-rose-600"
+                        ? "text-status-warning-text"
+                        : "text-status-danger-text"
                   }`}
                 >
                   {healthMetrics.overall_score >= 80
                     ? "Production Grade"
                     : healthMetrics.overall_score >= 60
-                    ? "Acceptable"
-                    : "Sparse Fields"}
+                      ? "Acceptable"
+                      : "Sparse Fields"}
                 </span>
               </div>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                 <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  className="h-full rounded-full bg-status-success-text transition-all duration-500"
                   style={{ width: `${healthMetrics.overall_score}%` }}
                 />
               </div>
-            </div>
+            </Card>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Core Scientometrics (L1)
-              </div>
+            <Card padding="md">
+              <div className="sciai-kicker">Core Scientometrics (L1)</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
+                <span className="tabular-metrics text-3xl font-black text-ink-primary">
                   {healthMetrics.level_1_score}%
                 </span>
-                <span className="text-xs text-slate-500">Weight 50%</span>
+                <span className="text-xs text-ink-muted">Weight 50%</span>
               </div>
-              <div className="mt-1 text-[11px] text-slate-500">
+              <div className="mt-1 text-[11px] text-ink-muted">
                 AU, PY, SO, Citations, References
               </div>
-            </div>
+            </Card>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Semantics & Affiliations (L2)
-              </div>
+            <Card padding="md">
+              <div className="sciai-kicker">Semantics & Affiliations (L2)</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
+                <span className="tabular-metrics text-3xl font-black text-ink-primary">
                   {healthMetrics.level_2_score}%
                 </span>
-                <span className="text-xs text-slate-500">Weight 35%</span>
+                <span className="text-xs text-ink-muted">Weight 35%</span>
               </div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                Titles, Keywords, Institutions
-              </div>
-            </div>
+              <div className="mt-1 text-[11px] text-ink-muted">Titles, Keywords, Institutions</div>
+            </Card>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Auxiliary & Identifiers (L3)
-              </div>
+            <Card padding="md">
+              <div className="sciai-kicker">Auxiliary & Identifiers (L3)</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">
+                <span className="tabular-metrics text-3xl font-black text-ink-primary">
                   {healthMetrics.level_3_score}%
                 </span>
-                <span className="text-xs text-slate-500">Weight 15%</span>
+                <span className="text-xs text-ink-muted">Weight 15%</span>
               </div>
-              <div className="mt-1 text-[11px] text-slate-500">
+              <div className="mt-1 text-[11px] text-ink-muted">
                 Abstracts, DOIs, Subject Categories
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Completeness Matrix */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-            <h2 className="text-base font-bold text-slate-900">
+          <Card padding="lg">
+            <h2 className="text-base font-bold text-ink-primary">
               Bibliographic Field Completeness Audit
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Audits the presence of essential metadata elements required for rigorous bibliometric and network modeling.
+            <p className="mt-1 text-xs text-ink-muted">
+              Audits the presence of essential metadata elements required for rigorous bibliometric
+              and network modeling.
             </p>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { name: "Authors (AU)", val: healthMetrics.field_completeness.authors, req: "Mandatory for Co-authorship & Lotka" },
-                { name: "Publication Year (PY)", val: healthMetrics.field_completeness.year, req: "Mandatory for Growth & Longitudinal" },
-                { name: "Source / Journal (SO)", val: healthMetrics.field_completeness.source, req: "Mandatory for Bradford & Sources" },
-                { name: "Times Cited (TC)", val: healthMetrics.field_completeness.citations, req: "Mandatory for H-Index & Impact" },
-                { name: "Cited References (CR)", val: healthMetrics.field_completeness.references, req: "Mandatory for RPYS & Co-citation" },
-                { name: "Title (TI)", val: healthMetrics.field_completeness.title, req: "Mandatory for Identification" },
-                { name: "Keywords (DE / ID)", val: healthMetrics.field_completeness.keywords, req: "Mandatory for Co-word & Thematic" },
-                { name: "Affiliations & Country (C1)", val: healthMetrics.field_completeness.affiliations, req: "Mandatory for Geo & Institution" },
-                { name: "Digital Object Identifier (DOI)", val: healthMetrics.field_completeness.doi, req: "Recommended for Deduplication" },
+                {
+                  name: "Authors (AU)",
+                  val: healthMetrics.field_completeness.authors,
+                  req: "Mandatory for Co-authorship & Lotka",
+                },
+                {
+                  name: "Publication Year (PY)",
+                  val: healthMetrics.field_completeness.year,
+                  req: "Mandatory for Growth & Longitudinal",
+                },
+                {
+                  name: "Source / Journal (SO)",
+                  val: healthMetrics.field_completeness.source,
+                  req: "Mandatory for Bradford & Sources",
+                },
+                {
+                  name: "Times Cited (TC)",
+                  val: healthMetrics.field_completeness.citations,
+                  req: "Mandatory for H-Index & Impact",
+                },
+                {
+                  name: "Cited References (CR)",
+                  val: healthMetrics.field_completeness.references,
+                  req: "Mandatory for RPYS & Co-citation",
+                },
+                {
+                  name: "Title (TI)",
+                  val: healthMetrics.field_completeness.title,
+                  req: "Mandatory for Identification",
+                },
+                {
+                  name: "Keywords (DE / ID)",
+                  val: healthMetrics.field_completeness.keywords,
+                  req: "Mandatory for Co-word & Thematic",
+                },
+                {
+                  name: "Affiliations & Country (C1)",
+                  val: healthMetrics.field_completeness.affiliations,
+                  req: "Mandatory for Geo & Institution",
+                },
+                {
+                  name: "Digital Object Identifier (DOI)",
+                  val: healthMetrics.field_completeness.doi,
+                  req: "Recommended for Deduplication",
+                },
               ].map((item, idx) => (
-                <div key={idx} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                <div
+                  key={idx}
+                  className="rounded-xl border border-border-subtle bg-surface-subtle p-3.5"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">{item.name}</span>
+                    <span className="text-xs font-bold text-ink-primary">{item.name}</span>
                     <span
-                      className={`text-xs font-mono font-bold ${
+                      className={`tabular-metrics font-mono text-xs font-bold ${
                         item.val >= 90
-                          ? "text-emerald-600"
+                          ? "text-status-success-text"
                           : item.val >= 60
-                          ? "text-amber-600"
-                          : "text-rose-600"
+                            ? "text-status-warning-text"
+                            : "text-status-danger-text"
                       }`}
                     >
                       {item.val}%
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         item.val >= 90
-                          ? "bg-emerald-500"
+                          ? "bg-status-success-text"
                           : item.val >= 60
-                          ? "bg-amber-500"
-                          : "bg-rose-500"
+                            ? "bg-status-warning-text"
+                            : "bg-status-danger-text"
                       }`}
                       style={{ width: `${item.val}%` }}
                     />
                   </div>
-                  <div className="mt-1.5 text-[10px] text-slate-500 truncate">
-                    {item.req}
-                  </div>
+                  <div className="mt-1.5 truncate text-[10px] text-ink-muted">{item.req}</div>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* SUB-TAB 2: DEDUPLICATION & MERGING */}
       {activeSubTab === "dedup" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <Card padding="lg">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-ink-primary">
                   Cross-Database Deduplication Engine
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Resolves exact DOI or normalized-title matches and creates a new dataset version; borderline similarities are not removed automatically.
+                <p className="mt-1 text-xs text-ink-muted">
+                  Resolves exact DOI or normalized-title matches and creates a new dataset version;
+                  borderline similarities are not removed automatically.
                 </p>
               </div>
 
-              <button
+              <Button
                 type="button"
-                onClick={runDeduplicationAudit}
+                variant="primary"
+                size="md"
+                loading={isDeduplicating}
                 disabled={isDeduplicating || !prisma.version || isLoadingDocs}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer disabled:opacity-50"
+                onClick={runDeduplicationAudit}
+                icon={!isDeduplicating ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
               >
-                {isDeduplicating ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
-                )}
                 {isDeduplicating ? "Creating Dataset Version..." : "Deduplicate and Create Version"}
-              </button>
+              </Button>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="text-[11px] font-bold uppercase text-slate-400">{dedupSummary ? "Records in Source Version" : "Recorded Raw Inputs"}</div>
-                <div className="mt-1 text-2xl font-black text-slate-900">{displayedDedup ? displayedDedup.total_raw_inputs.toLocaleString() : "Not recorded"}</div>
+            <div className="mt-6 grid grid-cols-1 gap-4 border-t border-border-subtle pt-5 sm:grid-cols-3">
+              <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
+                <div className="sciai-kicker">
+                  {dedupSummary ? "Records in Source Version" : "Recorded Raw Inputs"}
+                </div>
+                <div className="tabular-metrics mt-1 text-2xl font-black text-ink-primary">
+                  {displayedDedup ? displayedDedup.total_raw_inputs.toLocaleString() : "Not recorded"}
+                </div>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="text-[11px] font-bold uppercase text-slate-400">{dedupSummary ? "Duplicates Resolved This Run" : "Duplicates Removed in Lineage"}</div>
-                <div className="mt-1 text-2xl font-black text-rose-600">{displayedDedup ? displayedDedup.duplicates_resolved.toLocaleString() : "Not recorded"}</div>
+              <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
+                <div className="sciai-kicker">
+                  {dedupSummary ? "Duplicates Resolved This Run" : "Duplicates Removed in Lineage"}
+                </div>
+                <div className="tabular-metrics mt-1 text-2xl font-black text-status-danger-text">
+                  {displayedDedup
+                    ? displayedDedup.duplicates_resolved.toLocaleString()
+                    : "Not recorded"}
+                </div>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <div className="text-[11px] font-bold uppercase text-slate-400">Unique Canonical Records</div>
-                <div className="mt-1 text-2xl font-black text-emerald-600">
-                  {displayedDedup ? displayedDedup.final_unique_count.toLocaleString() : "Not recorded"}
+              <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
+                <div className="sciai-kicker">Unique Canonical Records</div>
+                <div className="tabular-metrics mt-1 text-2xl font-black text-status-success-text">
+                  {displayedDedup
+                    ? displayedDedup.final_unique_count.toLocaleString()
+                    : "Not recorded"}
                 </div>
               </div>
             </div>
 
             {displayedDedup && (
-              <div className="mt-5 text-xs text-slate-700">
-                <p>{dedupSummary ? "Server deduplication saved a successor version." : "Persisted deduplication provenance for this version."} {displayedDedup.duplicates_resolved} {dedupSummary ? "duplicates resolved in this run" : "duplicates removed in the version lineage"}; {displayedDedup.final_unique_count} canonical records retained.</p>
-                {displayedDedup.audit_log.length > 0 && <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
-                  {displayedDedup.audit_log.slice(0, 10).map((entry, index) => <div key={`${entry.document_id}-${index}`} className="p-3">
-                    Removed record {entry.document_id} | retained {entry.retained_id} | {entry.rule.replaceAll("_", " ")}
-                  </div>)}
-                  {displayedDedup.audit_log.length > 10 && <p className="p-3 text-slate-500">Showing 10 of {displayedDedup.audit_log.length} audit entries.</p>}
-                </div>}
+              <div className="mt-5 text-xs text-ink-secondary">
+                <p>
+                  {dedupSummary
+                    ? "Server deduplication saved a successor version."
+                    : "Persisted deduplication provenance for this version."}{" "}
+                  {displayedDedup.duplicates_resolved}{" "}
+                  {dedupSummary
+                    ? "duplicates resolved in this run"
+                    : "duplicates removed in the version lineage"}
+                  ; {displayedDedup.final_unique_count} canonical records retained.
+                </p>
+                {displayedDedup.audit_log.length > 0 && (
+                  <div className="mt-3 divide-y divide-border-subtle rounded-xl border border-border-default">
+                    {displayedDedup.audit_log.slice(0, 10).map((entry, index) => (
+                      <div key={`${entry.document_id}-${index}`} className="p-3 font-mono text-[11px]">
+                        Removed record {entry.document_id} | retained {entry.retained_id} |{" "}
+                        {entry.rule.replaceAll("_", " ")}
+                      </div>
+                    ))}
+                    {displayedDedup.audit_log.length > 10 && (
+                      <p className="p-3 text-ink-muted">
+                        Showing 10 of {displayedDedup.audit_log.length} audit entries.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
       {/* SUB-TAB 3: PRISMA 2020 FLOW DIAGRAM */}
       {activeSubTab === "prisma" && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
+          <Card padding="lg">
+            <div className="flex flex-col justify-between gap-4 border-b border-border-subtle pb-5 sm:flex-row sm:items-center">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-ink-primary">
                   PRISMA 2020 Systematic Review Flow Diagram
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Standardized flow chart for systematic literature reviews and bibliometric synthesis according to Page et al. (BMJ 2021).
+                <p className="mt-1 text-xs text-ink-muted">
+                  Standardized flow chart for systematic literature reviews and bibliometric
+                  synthesis according to Page et al. (BMJ 2021).
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
+                  loading={isGeneratingPrismaAi}
+                  disabled={
+                    isGeneratingPrismaAi || !prisma.version || !prisma.flow?.consistency.valid
+                  }
                   onClick={handleGeneratePrismaAi}
-                  disabled={isGeneratingPrismaAi || !prisma.version || !prisma.flow?.consistency.valid}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-2xs hover:from-indigo-100 hover:to-violet-100 transition cursor-pointer disabled:opacity-50"
+                  icon={!isGeneratingPrismaAi ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
                 >
-                  {isGeneratingPrismaAi ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                  )}
                   {prismaAiReport ? "Regenerate AI Report" : "Generate AI PRISMA Report"}
-                </button>
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={exportPrismaSvg}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                  icon={<Download className="h-3.5 w-3.5" />}
                 >
-                  <Download className="h-3.5 w-3.5" />
                   Export PRISMA (SVG)
-                </button>
+                </Button>
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-              <PrismaFlowDiagram ref={prismaSvgRef} flow={prisma.flow} reasonsRecorded={hasRecordedExclusions(prisma.version)} />
+            <div className="mt-6 rounded-2xl border border-border-subtle bg-surface-subtle p-4">
+              <PrismaFlowDiagram
+                ref={prismaSvgRef}
+                flow={prisma.flow}
+                reasonsRecorded={hasRecordedExclusions(prisma.version)}
+              />
             </div>
+
             <div className="mt-4">
-              <button type="button" onClick={() => setShowPrismaEditor(!showPrismaEditor)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowPrismaEditor(!showPrismaEditor)}
+              >
                 {showPrismaEditor ? "Hide selection count editor" : "Record study-selection counts"}
-              </button>
-              {showPrismaEditor && <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4"><PrismaManualEditor flow={prisma.flow} draft={prisma.draft} saving={prisma.saving} error={prisma.error} reasonsRecorded={hasRecordedExclusions(prisma.version)} onFieldChange={prisma.updateField} onReasonsChange={prisma.updateReasons} onSave={prisma.save} /></div>}
+              </Button>
+              {showPrismaEditor && (
+                <div className="mt-3 rounded-xl border border-border-default bg-surface-subtle p-4">
+                  <PrismaManualEditor
+                    flow={prisma.flow}
+                    draft={prisma.draft}
+                    saving={prisma.saving}
+                    error={prisma.error}
+                    reasonsRecorded={hasRecordedExclusions(prisma.version)}
+                    onFieldChange={prisma.updateField}
+                    onReasonsChange={prisma.updateReasons}
+                    onSave={prisma.save}
+                  />
+                </div>
+              )}
             </div>
-            {prisma.flow && !prisma.flow.consistency.valid && <p role="alert" className="mt-3 text-xs text-rose-700">{prisma.flow.consistency.errors.join("; ")}</p>}
-            {prisma.flow?.consistency.warnings.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>)}
-          </div>
+
+            {prisma.flow && !prisma.flow.consistency.valid && (
+              <div className="mt-3">
+                <AlertBanner tone="danger">{prisma.flow.consistency.errors.join("; ")}</AlertBanner>
+              </div>
+            )}
+            {prisma.flow?.consistency.warnings.map((warning) => (
+              <p key={warning} className="mt-1.5 text-xs font-medium text-status-warning-text">
+                {warning}
+              </p>
+            ))}
+          </Card>
 
           {/* AI PRISMA 2020 METHODOLOGY NARRATIVE & SYNTHESIS REPORT */}
           {isGeneratingPrismaAi && (
-            <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/50 p-6 shadow-2xs text-center space-y-4">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 animate-pulse mx-auto">
+            <div className="space-y-4 rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50/70 via-surface-canvas to-surface-subtle p-6 text-center shadow-card">
+              <div className="mx-auto inline-flex h-12 w-12 animate-pulse items-center justify-center rounded-2xl border border-brand-200 bg-brand-100 text-brand-600">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-ink-primary">
                   Synthesizing PRISMA 2020 Methodology Narrative via Multi-provider AI...
                 </h3>
-                <p className="text-xs text-slate-500 max-w-xl mx-auto">
-                  Reviewing recorded selection counts and drafting a Methods narrative. Check missing counts and verify the draft against your review protocol before use.
+                <p className="mx-auto max-w-xl text-xs text-ink-muted">
+                  Reviewing recorded selection counts and drafting a Methods narrative. Check
+                  missing counts and verify the draft against your review protocol before use.
                 </p>
               </div>
               <div className="flex justify-center">
-                <RefreshCw className="h-5 w-5 animate-spin text-indigo-600" />
+                <RefreshCw className="h-5 w-5 animate-spin text-brand-500" />
               </div>
             </div>
           )}
 
           {prismaAiError && !isGeneratingPrismaAi && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-5 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-bold text-rose-900">PRISMA AI Synthesis Error</h4>
-                  <p className="text-xs text-rose-700 mt-1">{prismaAiError}</p>
-                </div>
+            <AlertBanner tone="danger" title="PRISMA AI Synthesis Error">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>{prismaAiError}</span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGeneratePrismaAi}
+                >
+                  Retry Synthesis
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={handleGeneratePrismaAi}
-                className="rounded-xl border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-              >
-                Retry Synthesis
-              </button>
-            </div>
+            </AlertBanner>
           )}
 
           {!prismaAiReport && !isGeneratingPrismaAi && !prismaAiError && (
-            <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-purple-50/40 to-slate-50/60 p-6 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-100/70 px-2.5 py-0.5 text-[11px] font-bold text-indigo-800">
+            <div className="flex flex-col items-center justify-between gap-6 rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50/70 via-surface-canvas to-surface-subtle p-6 shadow-card md:flex-row">
+              <div className="max-w-2xl space-y-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-100/70 px-2.5 py-0.5 text-[11px] font-bold text-brand-700">
                   <Sparkles className="h-3 w-3" />
                   AI Scientometric Copilot
                 </div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-ink-primary">
                   Generate PRISMA 2020 Methodology Narrative & Synthesis Report
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Draft a PRISMA 2020 Methods narrative from persisted counts for this dataset version. Unrecorded steps remain unrecorded; review the generated text and checklist against your protocol before publication.
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  Draft a PRISMA 2020 Methods narrative from persisted counts for this dataset
+                  version. Unrecorded steps remain unrecorded; review the generated text and
+                  checklist against your protocol before publication.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="lg"
                 onClick={handleGeneratePrismaAi}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 active:scale-95 transition cursor-pointer shrink-0"
+                icon={<Sparkles className="h-4 w-4" />}
+                className="shrink-0"
               >
-                <Sparkles className="h-4 w-4" />
                 Generate AI PRISMA Report
-              </button>
+              </Button>
             </div>
           )}
 
           {prismaAiReport && !isGeneratingPrismaAi && (
             <div className="space-y-6">
               {/* Report Header Card */}
-              <div className="rounded-2xl border border-indigo-200 bg-white p-6 shadow-2xs space-y-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-5">
+              <Card padding="lg" className="space-y-6 border-brand-200">
+                <div className="flex flex-col justify-between gap-4 border-b border-border-subtle pb-5 lg:flex-row lg:items-center">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-status-success-border bg-status-success-bg px-2.5 py-0.5 text-[11px] font-bold text-status-success-text">
+                        <CheckCircle2 className="h-3 w-3" />
                         Canonical Version Report
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-[11px] font-bold text-brand-700">
                         <Award className="h-3 w-3" />
                         BMJ / Page et al. Protocol
                       </span>
-                      <span className="text-[11px] text-slate-400">
+                      <span className="tabular-metrics text-[11px] text-ink-subtle">
                         Synthesized {new Date(prismaAiReport.generatedAt).toLocaleTimeString()}
                       </span>
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900">
+                    <h2 className="text-lg font-bold text-ink-primary">
                       PRISMA 2020 Systematic Review Methodology & Synthesis Report
                     </h2>
-                    <p className="text-xs text-slate-500">
-                      Corpus: <span className="font-semibold text-slate-700">{prismaAiReport.datasetName}</span>
+                    <p className="text-xs text-ink-muted">
+                      Corpus:{" "}
+                      <span className="font-semibold text-ink-secondary">
+                        {prismaAiReport.datasetName}
+                      </span>
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleCopyMethodology}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 transition cursor-pointer"
+                      icon={
+                        copiedMethodology ? (
+                          <Check className="h-3.5 w-3.5 text-status-success-text" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )
+                      }
                     >
-                      {copiedMethodology ? (
-                        <>
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Copied to Clipboard!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5 text-slate-500" />
-                          <span>Copy Methods Text</span>
-                        </>
-                      )}
-                    </button>
+                      {copiedMethodology ? "Copied to Clipboard!" : "Copy Methods Text"}
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleDownloadMethodologyMarkdown}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 transition cursor-pointer"
+                      icon={<Download className="h-3.5 w-3.5" />}
                     >
-                      <Download className="h-3.5 w-3.5 text-slate-500" />
                       Download Report (.md)
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={handleGeneratePrismaAi}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 active:scale-95 transition cursor-pointer"
+                      icon={<RefreshCw className="h-3.5 w-3.5" />}
                     >
-                      <RefreshCw className="h-3.5 w-3.5" />
                       Regenerate
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 {/* 1. Quantitative Selection Funnel & Yield KPIs */}
                 <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  <div className="sciai-kicker mb-3">
                     Selection Funnel Yield Ratios & Attrition Dynamics
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-slate-400">Total Identified</div>
-                      <div className="text-xl font-black text-slate-900 mt-1">
-                        {(prismaAiReport.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <div className="rounded-xl border border-border-default bg-surface-subtle p-3.5">
+                      <div className="sciai-kicker">Total Identified</div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-ink-primary">
+                        {prismaAiReport.yieldMetrics.totalIdentified?.toLocaleString() ??
+                          "Not recorded"}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">Recorded identification total</div>
+                      <div className="mt-0.5 text-[10px] text-ink-muted">
+                        Recorded identification total
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-rose-700">Duplicate Attrition</div>
-                      <div className="text-xl font-black text-rose-900 mt-1">
+                    <div className="rounded-xl border border-status-danger-border bg-status-danger-bg/50 p-3.5">
+                      <div className="sciai-kicker text-status-danger-text!">
+                        Duplicate Attrition
+                      </div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-status-danger-text">
                         {prismaAiReport.yieldMetrics.duplicateAttritionRate}
                       </div>
-                      <div className="text-[10px] text-rose-600 mt-0.5">Persisted deduplication lineage</div>
+                      <div className="mt-0.5 text-[10px] text-status-danger-text">
+                        Persisted deduplication lineage
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-amber-700">Screening Attrition</div>
-                      <div className="text-xl font-black text-amber-900 mt-1">
+                    <div className="rounded-xl border border-status-warning-border bg-status-warning-bg/50 p-3.5">
+                      <div className="sciai-kicker text-status-warning-text!">
+                        Screening Attrition
+                      </div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-status-warning-text">
                         {prismaAiReport.yieldMetrics.screeningAttritionRate}
                       </div>
-                      <div className="text-[10px] text-amber-600 mt-0.5">Title/Abstract filter</div>
+                      <div className="mt-0.5 text-[10px] text-status-warning-text">
+                        Title/Abstract filter
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-blue-700">Retrieval Success</div>
-                      <div className="text-xl font-black text-blue-900 mt-1">
+                    <div className="rounded-xl border border-status-info-border bg-status-info-bg/50 p-3.5">
+                      <div className="sciai-kicker text-status-info-text!">Retrieval Success</div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-status-info-text">
                         {prismaAiReport.yieldMetrics.retrievalSuccessRate}
                       </div>
-                      <div className="text-[10px] text-blue-600 mt-0.5">Full-text secured</div>
+                      <div className="mt-0.5 text-[10px] text-status-info-text">
+                        Full-text secured
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-purple-700">Eligibility Retention</div>
-                      <div className="text-xl font-black text-purple-900 mt-1">
+                    <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5">
+                      <div className="sciai-kicker text-brand-700!">Eligibility Retention</div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-brand-700">
                         {prismaAiReport.yieldMetrics.eligibilityRetentionRate}
                       </div>
-                      <div className="text-[10px] text-purple-600 mt-0.5">Criteria pass rate</div>
+                      <div className="mt-0.5 text-[10px] text-brand-600">Criteria pass rate</div>
                     </div>
 
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
-                      <div className="text-[10px] font-bold uppercase text-emerald-800">Final Inclusion Yield</div>
-                      <div className="text-xl font-black text-emerald-900 mt-1">
+                    <div className="rounded-xl border border-status-success-border bg-status-success-bg/70 p-3.5">
+                      <div className="sciai-kicker text-status-success-text!">
+                        Final Inclusion Yield
+                      </div>
+                      <div className="tabular-metrics mt-1 text-xl font-black text-status-success-text">
                         {prismaAiReport.yieldMetrics.finalInclusionYield}
                       </div>
-                      <div className="text-[10px] text-emerald-700 mt-0.5">Net synthesis yield</div>
+                      <div className="mt-0.5 text-[10px] text-status-success-text">
+                        Net synthesis yield
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Executive Synthesis Paragraph */}
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 mb-1.5">
-                    <BookOpen className="h-4 w-4 text-indigo-600" />
+                <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
+                  <div className="mb-1.5 flex items-center gap-2 text-xs font-bold text-ink-primary">
+                    <BookOpen className="h-4 w-4 text-brand-500" />
                     Executive Methodological Synthesis
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-xs leading-relaxed text-ink-secondary">
                     {prismaAiReport.executiveSummary}
                   </p>
                 </div>
 
                 {/* 2b. Extraction Outcomes Assessment */}
                 {prismaAiReport.extractionOutcomesAssessment && (
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3">
+                  <div className="space-y-3 rounded-xl border border-status-success-border bg-status-success-bg/40 p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                        <Layers className="h-4 w-4 text-emerald-600" />
+                      <div className="flex items-center gap-2 text-xs font-bold text-status-success-text">
+                        <Layers className="h-4 w-4" />
                         Extraction Outcomes & Field Integrity Assessment
                       </div>
-                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                        Score: {prismaAiReport.extractionOutcomesAssessment.extractionIntegrityScore}/100
+                      <span className="tabular-metrics rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 font-mono text-[11px] font-bold text-status-success-text">
+                        Score: {prismaAiReport.extractionOutcomesAssessment.extractionIntegrityScore}
+                        /100
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-700">
-                      <span className="font-bold text-slate-900">Verdict: </span>
+                    <div className="text-xs text-ink-secondary">
+                      <span className="font-bold text-ink-primary">Verdict: </span>
                       {prismaAiReport.extractionOutcomesAssessment.overallVerdict}
                     </div>
 
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                    <p className="text-[11px] leading-relaxed text-ink-muted">
                       {prismaAiReport.extractionOutcomesAssessment.fieldCompletenessNarrative}
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      <div className="rounded-lg bg-white/80 p-2.5 border border-emerald-100">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-1">
+                    <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
+                      <div className="rounded-lg border border-border-default bg-surface-canvas p-2.5">
+                        <div className="sciai-kicker mb-1 text-status-warning-text!">
                           Potential Biases & Coverage Limits
                         </div>
-                        <ul className="space-y-1 text-[11px] text-slate-600 list-disc list-inside">
-                          {prismaAiReport.extractionOutcomesAssessment.potentialExtractionBiases.map((b, i) => (
-                            <li key={i}>{b}</li>
-                          ))}
+                        <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
+                          {prismaAiReport.extractionOutcomesAssessment.potentialExtractionBiases.map(
+                            (b, i) => (
+                              <li key={i}>{b}</li>
+                            )
+                          )}
                         </ul>
                       </div>
 
-                      <div className="rounded-lg bg-white/80 p-2.5 border border-emerald-100">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1">
+                      <div className="rounded-lg border border-border-default bg-surface-canvas p-2.5">
+                        <div className="sciai-kicker mb-1 text-status-success-text!">
                           Recommended Hygiene Actions
                         </div>
-                        <ul className="space-y-1 text-[11px] text-slate-600 list-disc list-inside">
-                          {prismaAiReport.extractionOutcomesAssessment.recommendedCleaningActions.map((a, i) => (
-                            <li key={i}>{a}</li>
-                          ))}
+                        <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
+                          {prismaAiReport.extractionOutcomesAssessment.recommendedCleaningActions.map(
+                            (a, i) => (
+                              <li key={i}>{a}</li>
+                            )
+                          )}
                         </ul>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* 3. Publication-Ready Academic Methods Section */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <Card padding="lg" className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-indigo-600" />
+                    <h3 className="flex items-center gap-2 text-base font-bold text-ink-primary">
+                      <FileText className="h-4 w-4 text-brand-500" />
                       Draft Methods Section
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Review the draft against your actual search, screening, and eligibility decisions before manuscript use.
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      Review the draft against your actual search, screening, and eligibility
+                      decisions before manuscript use.
                     </p>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     onClick={handleCopyMethodology}
-                    className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+                    icon={
+                      copiedMethodology ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )
+                    }
                   >
-                    {copiedMethodology ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                     {copiedMethodology ? "Copied!" : "Copy Section"}
-                  </button>
+                  </Button>
                 </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/90 p-5 text-xs text-slate-700 leading-relaxed font-sans space-y-3 whitespace-pre-line">
+                <div className="whitespace-pre-line rounded-xl border border-border-subtle bg-surface-subtle p-5 font-sans text-xs leading-relaxed text-ink-primary">
                   {prismaAiReport.methodologyNarrative}
                 </div>
 
-                <div className="text-[11px] text-slate-400 italic">
-                  * Citation guideline: Page MJ, McKenzie JE, Bossuyt PM, et al. The PRISMA 2020 statement: an updated guideline for reporting systematic reviews. BMJ 2021;372:n71. doi:10.1136/bmj.n71
+                <div className="text-[11px] italic text-ink-subtle">
+                  * Citation guideline: Page MJ, McKenzie JE, Bossuyt PM, et al. The PRISMA 2020
+                  statement: an updated guideline for reporting systematic reviews. BMJ
+                  2021;372:n71. doi:10.1136/bmj.n71
                 </div>
-              </div>
+              </Card>
 
               {/* 4. Categorized Exclusions & Bias Assessment */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <Card padding="lg" className="space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-rose-600" />
+                  <h3 className="flex items-center gap-2 text-base font-bold text-ink-primary">
+                    <Filter className="h-4 w-4 text-status-danger-text" />
                     Eligibility Exclusions & Scientometric Impact Analysis
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Categorization of studies excluded at full-text assessment and rationale for maintaining topical coherence.
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    Categorization of studies excluded at full-text assessment and rationale for
+                    maintaining topical coherence.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {prismaAiReport.exclusionReasonsSynthesis.map((ex, idx) => (
-                    <div key={idx} className="rounded-xl border border-rose-100 bg-rose-50/30 p-4 space-y-2">
+                    <div
+                      key={idx}
+                      className="space-y-2 rounded-xl border border-status-danger-border bg-status-danger-bg/40 p-4"
+                    >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">{ex.reason}</span>
-                        <span className="rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[11px] font-mono font-bold">
+                        <span className="text-xs font-bold text-ink-primary">{ex.reason}</span>
+                        <span className="tabular-metrics rounded-full border border-status-danger-border bg-status-danger-bg px-2 py-0.5 font-mono text-[11px] font-bold text-status-danger-text">
                           n = {ex.count}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                      <p className="text-[11px] leading-relaxed text-ink-secondary">
                         {ex.impactAssessment}
                       </p>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
 
               {/* 5. PRISMA 2020 Compliance Checklist Audit */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <Card padding="lg" className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <ListChecks className="h-4 w-4 text-emerald-600" />
+                    <h3 className="flex items-center gap-2 text-base font-bold text-ink-primary">
+                      <ListChecks className="h-4 w-4 text-status-success-text" />
                       PRISMA 2020 Checklist Review
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="mt-0.5 text-xs text-ink-muted">
                       Generated checklist notes are prompts for review, not proof of compliance.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowChecklistDetails(!showChecklistDetails)}
-                    className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+                    className="cursor-pointer text-xs font-bold text-brand-500 transition-colors hover:text-brand-700"
                   >
                     {showChecklistDetails ? "Collapse Checklist" : "Expand Checklist"}
                   </button>
                 </div>
 
                 {showChecklistDetails && (
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-border-subtle">
                     {prismaAiReport.prismaComplianceChecklist.map((item, idx) => (
-                      <div key={idx} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div
+                        key={idx}
+                        className="flex flex-col justify-between gap-2 py-3 sm:flex-row sm:items-center"
+                      >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                            <span className="rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 font-mono text-xs font-bold text-brand-700">
                               {item.itemNumber}
                             </span>
-                            <span className="text-xs font-bold text-slate-800">{item.topic}</span>
+                            <span className="text-xs font-bold text-ink-primary">{item.topic}</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 ml-1 sm:ml-0">{item.notes}</p>
+                          <p className="ml-1 text-[11px] text-ink-muted sm:ml-0">{item.notes}</p>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 shrink-0 self-start sm:self-center">
-                          <Check className="h-3 w-3 text-emerald-600" />
+                        <span className="inline-flex shrink-0 items-center gap-1 self-start rounded-full border border-status-success-border bg-status-success-bg px-2.5 py-0.5 text-[11px] font-bold text-status-success-text sm:self-center">
+                          <Check className="h-3 w-3" />
                           {item.status}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* 6. Methodological Strengths, Recognized Biases & Reviewer Guidance */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-                  <div className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <Card padding="md" className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-status-success-text">
+                    <ShieldCheck className="h-4 w-4" />
                     Protocol Strengths
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600">
+                  <ul className="space-y-2 text-xs text-ink-secondary">
                     {prismaAiReport.methodologicalStrengths.map((str, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-emerald-500 font-bold shrink-0">✓</span>
+                        <span className="shrink-0 font-bold text-status-success-text">✓</span>
                         <span>{str}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </Card>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-                  <div className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <Card padding="md" className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-status-warning-text">
+                    <AlertTriangle className="h-4 w-4" />
                     Limitations & Biases
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600">
+                  <ul className="space-y-2 text-xs text-ink-secondary">
                     {prismaAiReport.limitationsAndBiases.map((lim, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-amber-500 font-bold shrink-0">•</span>
+                        <span className="shrink-0 font-bold text-status-warning-text">•</span>
                         <span>{lim}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </Card>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-                  <div className="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
-                    <Award className="h-4 w-4 text-indigo-600" />
+                <Card padding="md" className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-brand-600">
+                    <Award className="h-4 w-4" />
                     Author & Reviewer Advice
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600">
+                  <ul className="space-y-2 text-xs text-ink-secondary">
                     {prismaAiReport.recommendationsForAuthors.map((rec, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-indigo-500 font-bold shrink-0">→</span>
+                        <span className="shrink-0 font-bold text-brand-500">→</span>
                         <span>{rec}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </Card>
               </div>
             </div>
           )}
@@ -1095,37 +1237,47 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
       {/* SUB-TAB 4: BROWSE RECORDS */}
       {activeSubTab === "records" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-            <div className="flex items-center gap-2 flex-1 max-w-md">
-              <Search className="h-4 w-4 text-slate-400" />
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-default bg-surface-canvas p-3 shadow-card">
+            <div className="flex max-w-md flex-1 items-center gap-2">
+              <Search className="h-4 w-4 text-ink-subtle" />
               <input
                 type="text"
                 placeholder="Search canonical records by title, author, or journal..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs text-slate-800 bg-transparent focus:outline-hidden"
+                className="w-full bg-transparent text-xs text-ink-primary placeholder:text-ink-subtle focus:outline-none"
               />
             </div>
-            <div className="text-xs font-semibold text-slate-500">
-              Showing {filteredDocs.length} of {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()} articles
+            <div className="tabular-metrics text-xs font-semibold text-ink-muted">
+              Showing {filteredDocs.length} of{" "}
+              {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()} articles
             </div>
           </div>
 
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+          <Card padding="none" className="divide-y divide-border-subtle overflow-hidden">
             {filteredDocs.map((doc: any, idx) => (
-              <div key={idx} className="p-4 hover:bg-slate-50 transition space-y-1">
-                <div className="text-xs font-bold text-slate-900">
+              <div key={idx} className="space-y-1 p-4 transition-colors hover:bg-surface-subtle/60">
+                <div className="text-xs font-bold text-ink-primary">
                   {doc.title || doc.TI || "Untitled Publication"}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                  <span>Authors: {Array.isArray(doc.authors) ? doc.authors.slice(0, 4).join(", ") : doc.AU ? doc.AU.slice(0, 4).join(", ") : "Unknown"}</span>
-                  <span>Year: {doc.year || doc.PY || "N/A"}</span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+                  <span>
+                    Authors:{" "}
+                    {Array.isArray(doc.authors)
+                      ? doc.authors.slice(0, 4).join(", ")
+                      : doc.AU
+                        ? doc.AU.slice(0, 4).join(", ")
+                        : "Unknown"}
+                  </span>
+                  <span className="tabular-metrics">Year: {doc.year || doc.PY || "N/A"}</span>
                   <span>Journal: {doc.source || doc.SO || "N/A"}</span>
-                  <span className="font-semibold text-blue-600">Citations: {doc.citations ?? doc.TC ?? "Not recorded"}</span>
+                  <span className="tabular-metrics font-semibold text-brand-500">
+                    Citations: {doc.citations ?? doc.TC ?? "Not recorded"}
+                  </span>
                 </div>
               </div>
             ))}
-          </div>
+          </Card>
         </div>
       )}
     </div>

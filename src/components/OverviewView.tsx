@@ -10,6 +10,14 @@ import { NavTab } from "./Sidebar.js";
 import { validateAiInterpretationResponse } from "../utils/responseValidation.js";
 import { useAiProvider } from "../context/AiProviderContext.js";
 import {
+  AlertBanner,
+  Button,
+  Card,
+  Select,
+  StudioSplitLayout,
+  Tabs,
+} from "./CommonUI.js";
+import {
   FileText,
   TrendingUp,
   Users,
@@ -396,16 +404,16 @@ export function OverviewView({
     setTimeout(() => setCopiedBrief(false), 2000);
   };
 
-  const capabilityCategoryLabels = {
-    all: "All capabilities",
-    acquisition: "Acquisition & hygiene",
-    descriptive: "Descriptive analytics",
-    entities: "Entities & laws",
-    temporal: "Temporal dynamics",
-    networks: "Networks & ML",
-    ai: "AI & benchmarking",
-    delivery: "Reporting & BI",
-  } as const;
+  const capabilityCategoryTabs = [
+    { id: "all", label: "All capabilities" },
+    { id: "acquisition", label: "Acquisition & hygiene" },
+    { id: "descriptive", label: "Descriptive analytics" },
+    { id: "entities", label: "Entities & laws" },
+    { id: "temporal", label: "Temporal dynamics" },
+    { id: "networks", label: "Networks & ML" },
+    { id: "ai", label: "AI & benchmarking" },
+    { id: "delivery", label: "Reporting & BI" },
+  ] as const;
 
   const softwareCapabilities = [
     {
@@ -416,9 +424,9 @@ export function OverviewView({
       desc: "Imports bibliographic corpora, stores versioned snapshots, and keeps each downstream analysis tied to a dataset version for auditability.",
       limitation:
         "Requires at least one uploaded or created dataset before analysis can run.",
-      icon: <Layers className="h-4 w-4 text-emerald-600" />,
+      icon: <Layers className="h-4 w-4 text-status-success-text" />,
       tagColor:
-        "text-emerald-700 bg-emerald-50 border-emerald-200",
+        "text-status-success-text bg-status-success-bg border-status-success-border",
       targetTab: "corpus-pipeline" as NavTab,
     },
     {
@@ -429,9 +437,9 @@ export function OverviewView({
       desc: "Queries the OpenAlex scholarly graph for works, citations, authorship metadata, and candidate records that can become a SciAI dataset.",
       limitation:
         "Coverage follows OpenAlex availability and network/API response quality; closed-index records may be absent.",
-      icon: <Search className="h-4 w-4 text-blue-600" />,
+      icon: <Search className="h-4 w-4 text-status-info-text" />,
       tagColor:
-        "text-blue-700 bg-blue-50 border-blue-200",
+        "text-status-info-text bg-status-info-bg border-status-info-border",
       targetTab: "openalex" as NavTab,
     },
     {
@@ -442,9 +450,9 @@ export function OverviewView({
       desc: "Normalizes multi-source bibliographic records and flags duplicates so Web of Science, Scopus, PubMed, OpenAlex, Dimensions, and Lens-style exports can be reconciled.",
       limitation:
         "Deduplication confidence depends on available identifiers, titles, years, and source metadata.",
-      icon: <GitMerge className="h-4 w-4 text-amber-600" />,
+      icon: <GitMerge className="h-4 w-4 text-status-warning-text" />,
       tagColor:
-        "text-amber-700 bg-amber-50 border-amber-200",
+        "text-status-warning-text bg-status-warning-bg border-status-warning-border",
       targetTab: "merge" as NavTab,
     },
     {
@@ -455,9 +463,9 @@ export function OverviewView({
       desc: "Computes publication counts by year and cumulative output, a standard descriptive basis for measuring corpus growth and temporal coverage.",
       limitation:
         "Requires reliable publication-year metadata; missing years are excluded rather than inferred.",
-      icon: <TrendingUp className="h-4 w-4 text-blue-600" />,
+      icon: <TrendingUp className="h-4 w-4 text-brand-500" />,
       tagColor:
-        "text-blue-700 bg-blue-50 border-blue-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "descriptive" as NavTab,
     },
     {
@@ -468,9 +476,9 @@ export function OverviewView({
       desc: "Summarizes citation counts and citation-per-publication patterns for impact screening before deeper author, source, or field-normalized interpretation.",
       limitation:
         "Citation metrics are source-dependent and should not be compared across fields without normalization.",
-      icon: <Quote className="h-4 w-4 text-emerald-600" />,
+      icon: <Quote className="h-4 w-4 text-status-success-text" />,
       tagColor:
-        "text-emerald-700 bg-emerald-50 border-emerald-200",
+        "text-status-success-text bg-status-success-bg border-status-success-border",
       targetTab: "descriptive" as NavTab,
     },
     {
@@ -481,9 +489,9 @@ export function OverviewView({
       desc: "Extracts dominant author/index keywords and term-frequency structure to reveal the vocabulary that anchors a research corpus.",
       limitation:
         "Results depend on keyword completeness and harmonization of synonyms, spelling variants, and controlled vocabularies.",
-      icon: <Hash className="h-4 w-4 text-purple-600" />,
+      icon: <Hash className="h-4 w-4 text-brand-600" />,
       tagColor:
-        "text-purple-700 bg-purple-50 border-purple-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "keywords" as NavTab,
     },
     {
@@ -494,9 +502,9 @@ export function OverviewView({
       desc: "Ranks authors by publication output and supports productivity screening before applying Lotka-style distribution tests.",
       limitation:
         "Name disambiguation is limited by the metadata supplied; ORCID or affiliation fields improve reliability.",
-      icon: <Users className="h-4 w-4 text-purple-600" />,
+      icon: <Users className="h-4 w-4 text-brand-500" />,
       tagColor:
-        "text-purple-700 bg-purple-50 border-purple-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "authors" as NavTab,
     },
     {
@@ -507,9 +515,9 @@ export function OverviewView({
       desc: "Fits the inverse power-law pattern described by Lotka (1926) and checks how concentrated scientific productivity is in the corpus.",
       limitation:
         "Valid interpretation needs enough authors and careful handling of author-name variants.",
-      icon: <Users className="h-4 w-4 text-indigo-600" />,
+      icon: <Users className="h-4 w-4 text-status-info-text" />,
       tagColor:
-        "text-indigo-700 bg-indigo-50 border-indigo-200",
+        "text-status-info-text bg-status-info-bg border-status-info-border",
       targetTab: "authors" as NavTab,
     },
     {
@@ -520,9 +528,9 @@ export function OverviewView({
       desc: "Partitions journals or sources into core and peripheral zones following Bradford's law of scattering for literature concentration analysis.",
       limitation:
         "Source-title normalization matters; incomplete venue names can distort zone boundaries.",
-      icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
+      icon: <BookOpen className="h-4 w-4 text-status-success-text" />,
       tagColor:
-        "text-emerald-700 bg-emerald-50 border-emerald-200",
+        "text-status-success-text bg-status-success-bg border-status-success-border",
       targetTab: "sources" as NavTab,
     },
     {
@@ -533,9 +541,9 @@ export function OverviewView({
       desc: "Computes h-index family indicators, including Hirsch's h-index, to summarize author impact with complementary excess-citation measures.",
       limitation:
         "H-index style indicators are career-length and database dependent; use alongside field and year context.",
-      icon: <Scale className="h-4 w-4 text-blue-600" />,
+      icon: <Scale className="h-4 w-4 text-brand-500" />,
       tagColor:
-        "text-blue-700 bg-blue-50 border-blue-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "authors" as NavTab,
     },
     {
@@ -546,9 +554,9 @@ export function OverviewView({
       desc: "Detects historical citation peaks by referenced-publication year, following RPYS practice for identifying intellectual roots and seminal years.",
       limitation:
         "Requires cited-reference metadata; sparse reference lists reduce interpretability.",
-      icon: <History className="h-4 w-4 text-amber-600" />,
+      icon: <History className="h-4 w-4 text-status-warning-text" />,
       tagColor:
-        "text-amber-700 bg-amber-50 border-amber-200",
+        "text-status-warning-text bg-status-warning-bg border-status-warning-border",
       targetTab: "historical" as NavTab,
     },
     {
@@ -559,9 +567,9 @@ export function OverviewView({
       desc: "Tracks themes across time slices and visualizes continuity or drift through inclusion-index links and Sankey-style flows.",
       limitation:
         "Needs enough records per time slice; very small periods can create unstable theme transitions.",
-      icon: <GitBranch className="h-4 w-4 text-purple-600" />,
+      icon: <GitBranch className="h-4 w-4 text-brand-600" />,
       tagColor:
-        "text-purple-700 bg-purple-50 border-purple-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "thematic" as NavTab,
     },
     {
@@ -572,9 +580,9 @@ export function OverviewView({
       desc: "Surfaces rapidly intensifying terms or citation signals using burst-detection logic associated with Kleinberg's temporal burst framework.",
       limitation:
         "Burst strength is sensitive to time-window choices and sparse annual data.",
-      icon: <Flame className="h-4 w-4 text-rose-600" />,
+      icon: <Flame className="h-4 w-4 text-status-danger-text" />,
       tagColor:
-        "text-rose-700 bg-rose-50 border-rose-200",
+        "text-status-danger-text bg-status-danger-bg border-status-danger-border",
       targetTab: "frontier" as NavTab,
     },
     {
@@ -585,9 +593,9 @@ export function OverviewView({
       desc: "Builds collaboration edges from shared authorship and renders clusters, hubs, and network structure for social organization of science.",
       limitation:
         "Network quality depends on author disambiguation and complete author lists.",
-      icon: <Share2 className="h-4 w-4 text-sky-600" />,
+      icon: <Share2 className="h-4 w-4 text-status-info-text" />,
       tagColor:
-        "text-sky-700 bg-sky-50 border-sky-200",
+        "text-status-info-text bg-status-info-bg border-status-info-border",
       targetTab: "collaboration" as NavTab,
     },
     {
@@ -598,9 +606,9 @@ export function OverviewView({
       desc: "Provides clustering and topic-modeling views for latent structure discovery in abstracts, keywords, and bibliographic text fields.",
       limitation:
         "Requires meaningful text fields and enough documents; topics are exploratory and need domain review.",
-      icon: <BrainCircuit className="h-4 w-4 text-emerald-600" />,
+      icon: <BrainCircuit className="h-4 w-4 text-status-success-text" />,
       tagColor:
-        "text-emerald-700 bg-emerald-50 border-emerald-200",
+        "text-status-success-text bg-status-success-bg border-status-success-border",
       targetTab: "ml" as NavTab,
     },
     {
@@ -611,9 +619,9 @@ export function OverviewView({
       desc: "Compares datasets and thematic profiles to support cross-corpus hypotheses and specificity checks.",
       limitation:
         "Comparisons are only meaningful when datasets have comparable scopes, time ranges, and metadata quality.",
-      icon: <Scale className="h-4 w-4 text-indigo-600" />,
+      icon: <Scale className="h-4 w-4 text-brand-500" />,
       tagColor:
-        "text-indigo-700 bg-indigo-50 border-indigo-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "benchmark" as NavTab,
     },
     {
@@ -624,9 +632,9 @@ export function OverviewView({
       desc: "Generates interpretive summaries from deterministic SciAI metrics while preserving provenance, warnings, and unavailable-state honesty.",
       limitation:
         "AI output is interpretive, not authoritative; deterministic SciAI metrics remain the source of record.",
-      icon: <Sparkles className="h-4 w-4 text-violet-600" />,
+      icon: <Sparkles className="h-4 w-4 text-brand-600" />,
       tagColor:
-        "text-violet-700 bg-violet-50 border-violet-200",
+        "text-brand-700 bg-brand-50 border-brand-200",
       targetTab: "ai" as NavTab,
     },
     {
@@ -637,9 +645,9 @@ export function OverviewView({
       desc: "Packages selected scientometric findings into executive-ready summaries and exportable research dossiers.",
       limitation:
         "Report quality follows the completeness of computed analyses and selected dataset context.",
-      icon: <FileText className="h-4 w-4 text-rose-600" />,
+      icon: <FileText className="h-4 w-4 text-status-danger-text" />,
       tagColor:
-        "text-rose-700 bg-rose-50 border-rose-200",
+        "text-status-danger-text bg-status-danger-bg border-status-danger-border",
       targetTab: "reports" as NavTab,
     },
     {
@@ -650,9 +658,9 @@ export function OverviewView({
       desc: "Exports bibliometric snapshots and approved aggregate organizational or external reference tables for Power BI Desktop.",
       limitation:
         "Internal data requires a local installation; Power BI refresh, relationships and remote credentials need separate configuration.",
-      icon: <BarChart3 className="h-4 w-4 text-amber-600" />,
+      icon: <BarChart3 className="h-4 w-4 text-status-warning-text" />,
       tagColor:
-        "text-amber-700 bg-amber-50 border-amber-200",
+        "text-status-warning-text bg-status-warning-bg border-status-warning-border",
       targetTab: "powerbi" as NavTab,
     },
   ];
@@ -664,17 +672,18 @@ export function OverviewView({
 
   return (
     <div className="space-y-8">
-      {/* 1. Header & Active Dataset Context Selector */}
-      <section className="overflow-hidden rounded-3xl border border-[#D8DDD8] bg-[#F7F8F6] shadow-xs">
-        <div className="grid gap-0 lg:grid-cols-[1fr_360px]">
-          <div className="relative p-6 sm:p-7">
-            <div className="absolute inset-y-0 right-0 hidden w-px bg-[#D8DDD8] lg:block" />
-
-            <h1 className="mt-0 max-w-2xl text-3xl font-bold tracking-tight text-[#101820] sm:text-4xl">
+      {/* 1. Header & Active Dataset Context Selector (Canonical StudioSplitLayout) */}
+      <StudioSplitLayout
+        main={
+          <div>
+            <p className="sciai-kicker mb-2 text-brand-500!">
+              {BRAND.shellDescriptor}
+            </p>
+            <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-ink-primary sm:text-4xl">
               {BRAND.name} Research Intelligence
             </h1>
 
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#27313C]/75">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-ink-secondary">
               Internal Analytics: Benchmark institutional productivity, capacity, and grant success rates.
               <br />
               Competitive Intelligence: Position your institution against top regional and global peers.
@@ -684,209 +693,177 @@ export function OverviewView({
               Societal Impact: Measure real-world influence across policy, clinical guidelines, and public engagement.
             </p>
           </div>
-
-          {/* Active Dataset Switcher */}
-          <div className="flex flex-col justify-center gap-2 bg-white/70 p-5 sm:p-6">
-            <div>
-              <div className="text-xs font-bold text-[#101820]">
-                Evidence scope
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="relative">
-                <label
-                  htmlFor="active-corpus-select"
-                  className="sr-only"
-                >
-                  Select Active Dataset
-                </label>
-
-                <select
-                  id="active-corpus-select"
-                  value={selectedDatasetId}
-                  onChange={(e) =>
-                    setSelectedDatasetId(e.target.value)
-                  }
-                  className="w-full rounded-xl border border-[#D8DDD8] bg-white px-3.5 py-2 text-xs font-bold text-[#101820] shadow-xs focus:border-[#315C7C] focus:outline-hidden transition cursor-pointer"
-                >
-                  <option value="">
-                    Consolidated Dataset Portfolio (All Datasets)
-                  </option>
-
-                  {datasets.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} ({d.record_count} records)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        }
+        inspector={
+          <div className="flex h-full flex-col justify-center space-y-2.5">
+            <label
+              htmlFor="active-corpus-select"
+              className="block text-xs font-bold text-ink-primary"
+            >
+              Evidence scope
+            </label>
+            <Select
+              id="active-corpus-select"
+              value={selectedDatasetId}
+              onChange={(e) => setSelectedDatasetId(e.target.value)}
+              className="text-xs font-bold shadow-xs cursor-pointer"
+            >
+              <option value="">
+                Consolidated Dataset Portfolio (All Datasets)
+              </option>
+              {datasets.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} ({d.record_count} records)
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-ink-muted">
+              Scope KPIs and AI executive synthesis to a specific dataset snapshot or evaluate the full portfolio.
+            </p>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* 2. Upgraded 4-Pillar Scientometric Health Matrix */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* Pillar 1: Publication Volume */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300">
+        <Card padding="md" className="transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Publication Volume
-            </div>
-
-            <div className="rounded-lg bg-blue-50 p-1.5 text-blue-600">
+            <div className="sciai-kicker">Publication Volume</div>
+            <div className="rounded-lg border border-brand-200 bg-brand-50 p-1.5 text-brand-500">
               <FileText className="h-4 w-4" />
             </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black tracking-tight text-slate-900">
+            <span className="tabular-metrics text-2xl font-black tracking-tight text-ink-primary">
               {loading ? "..." : activeDocCount.toLocaleString()}
             </span>
-
-            <span className="text-xs font-semibold text-slate-500">
+            <span className="text-xs font-semibold text-ink-muted">
               Indexed Publications
             </span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-500">
-            <span>
+          <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2.5 text-[11px] text-ink-muted">
+            <span className="tabular-metrics">
               Datasets: {activeDataset ? 1 : datasets.length}
             </span>
-
-            <span className="font-semibold text-emerald-600">
+            <span className="font-semibold text-status-success-text">
               Bibliographic Metadata Active
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* Pillar 2: Citation Impact & Velocity */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300">
+        <Card padding="md" className="transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Citation Velocity
-            </div>
-
-            <div className="rounded-lg bg-emerald-50 p-1.5 text-emerald-600">
+            <div className="sciai-kicker">Citation Velocity</div>
+            <div className="rounded-lg border border-status-success-border bg-status-success-bg p-1.5 text-status-success-text">
               <Quote className="h-4 w-4" />
             </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black tracking-tight text-slate-900">
+            <span className="tabular-metrics text-2xl font-black tracking-tight text-ink-primary">
               {loading
                 ? "..."
                 : citationStats.totalCitations.toLocaleString()}
             </span>
-
-            <span className="text-xs font-semibold text-slate-500">
+            <span className="text-xs font-semibold text-ink-muted">
               Total Citations
             </span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-500">
-            <span>
+          <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2.5 text-[11px] text-ink-muted">
+            <span className="tabular-metrics">
               CPP: {citationStats.avgPerDoc} citations/publication
             </span>
-
-            <span className="font-semibold text-emerald-600">
+            <span className="font-semibold text-status-success-text">
               Top Velocity: 340+
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* Pillar 3: Scholarly & Author Reach */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300">
+        <Card padding="md" className="transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Scholarly Reach
-            </div>
-
-            <div className="rounded-lg bg-purple-50 p-1.5 text-purple-600">
+            <div className="sciai-kicker">Scholarly Reach</div>
+            <div className="rounded-lg border border-status-info-border bg-status-info-bg p-1.5 text-status-info-text">
               <Users className="h-4 w-4" />
             </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black tracking-tight text-slate-900">
+            <span className="tabular-metrics text-2xl font-black tracking-tight text-ink-primary">
               {loading
                 ? "..."
                 : authorStats.uniqueAuthors.toLocaleString()}
             </span>
-
-            <span className="text-xs font-semibold text-slate-500">
+            <span className="text-xs font-semibold text-ink-muted">
               Unique Authors
             </span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-500">
+          <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2.5 text-[11px] text-ink-muted">
             <span>Co-Authorship Ratio</span>
-
-            <span className="font-semibold text-slate-800">
+            <span className="tabular-metrics font-semibold text-ink-primary">
               {authorStats.collabRatio} authors/publication
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* Pillar 4: Temporal Horizon & Momentum */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:border-slate-300">
+        <Card padding="md" className="transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Temporal Horizon
-            </div>
-
-            <div className="rounded-lg bg-amber-50 p-1.5 text-amber-600">
+            <div className="sciai-kicker">Temporal Horizon</div>
+            <div className="rounded-lg border border-status-warning-border bg-status-warning-bg p-1.5 text-status-warning-text">
               <TrendingUp className="h-4 w-4" />
             </div>
           </div>
 
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black tracking-tight text-slate-900">
+            <span className="tabular-metrics text-2xl font-black tracking-tight text-ink-primary">
               {yearStats.minYear} – {yearStats.maxYear}
             </span>
-
-            <span className="text-xs font-semibold text-slate-500">
+            <span className="text-xs font-semibold text-ink-muted">
               Active Span
             </span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-500">
-            <span>
+          <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2.5 text-[11px] text-ink-muted">
+            <span className="tabular-metrics">
               Peak: {yearStats.peakYear} ({yearStats.peakCount} publications)
             </span>
-
-            <span className="font-semibold text-emerald-600">
+            <span className="tabular-metrics font-semibold text-status-success-text">
               CAGR {yearStats.cagr}
             </span>
           </div>
-        </div>
+        </Card>
       </section>
 
       {/* 4. One-Click AI-Assisted Research Brief */}
-      <section className="rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50 p-6 shadow-xs">
+      <section className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50/70 via-surface-canvas to-surface-subtle p-6 shadow-card">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-indigo-600 p-2.5 text-white shadow-xs">
+            <div className="rounded-xl bg-brand-500 p-2.5 text-white shadow-xs">
               <Sparkles className="h-5 w-5" />
             </div>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                <span className="rounded-md border border-brand-200 bg-brand-100/70 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                   AI Research Assistance
                 </span>
-
-                <span className="text-[10px] font-semibold text-slate-400">
+                <span className="text-[10px] font-semibold text-ink-subtle">
                   AI-Assisted Synthesis Engine
                 </span>
               </div>
 
-              <h2 className="mt-1 text-base font-black tracking-tight text-slate-900">
+              <h2 className="mt-1 text-base font-black tracking-tight text-ink-primary">
                 Executive Scientometric Synthesis
               </h2>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-ink-muted">
                 AI-assisted interpretation of research frontiers, author
                 collaboration hubs, and citation momentum.
               </p>
@@ -895,78 +872,87 @@ export function OverviewView({
 
           <div className="flex shrink-0 items-center gap-2">
             {aiBrief && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="md"
                 onClick={handleCopyBrief}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 transition cursor-pointer"
+                icon={
+                  copiedBrief ? (
+                    <Check className="h-3.5 w-3.5 text-status-success-text" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )
+                }
               >
-                {copiedBrief ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-
                 {copiedBrief ? "Copied" : "Copy Brief"}
-              </button>
+              </Button>
             )}
 
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="md"
               onClick={handleGenerateAiBrief}
               disabled={isAiGenerating}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
+              icon={
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    isAiGenerating ? "animate-spin" : ""
+                  }`}
+                />
+              }
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${
-                  isAiGenerating ? "animate-spin" : ""
-                }`}
-              />
-
               {isAiGenerating
                 ? "Synthesizing..."
                 : aiBrief
                   ? "Refresh Synthesis"
                   : "Generate Research Corpus Brief"}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* AI Brief Result or Prompt Callout */}
         <div className="mt-4">
           {aiBriefError && (
-            <div className="mb-3 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
-              <div>
-                <span className="font-bold">Synthesis Error: </span>
-                {aiBriefError}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGenerateAiBrief}
-                className="cursor-pointer font-bold underline"
-              >
-                Retry
-              </button>
+            <div className="mb-3">
+              <AlertBanner tone="danger">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <span className="font-bold">Synthesis Error: </span>
+                    {aiBriefError}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiBrief}
+                    className="shrink-0 cursor-pointer font-bold underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </AlertBanner>
             </div>
           )}
 
           {aiBriefIsPartial && !aiBriefError && (
-            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
-              Partial / Incomplete AI-Assisted Result: The synthesis was
-              only partially generated and should not be treated as
-              authoritative.
+            <div className="mb-3">
+              <AlertBanner tone="warning">
+                Partial / Incomplete AI-Assisted Result: The synthesis was
+                only partially generated and should not be treated as
+                authoritative.
+              </AlertBanner>
             </div>
           )}
 
           {aiBrief ? (
-            <div className="space-y-2 whitespace-pre-line rounded-xl border border-indigo-100 bg-white p-4.5 text-xs leading-relaxed text-slate-800 shadow-xs">
+            <div className="space-y-2 whitespace-pre-line rounded-xl border border-brand-200 bg-surface-canvas p-4.5 text-xs leading-relaxed text-ink-secondary shadow-card">
               {aiBrief}
             </div>
           ) : !aiBriefError ? (
-            <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 text-center">
-              <p className="text-xs text-indigo-900/80">
+            <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-4 text-center">
+              <p className="text-xs text-brand-800">
                 Click{" "}
-                <strong>&ldquo;Generate Research Corpus Brief&rdquo;</strong>{" "}
+                <strong>“Generate Research Corpus Brief”</strong>{" "}
                 to extract high-level strategic takeaways, emerging
                 research clusters, and breakthrough velocity markers.
               </p>
@@ -977,42 +963,27 @@ export function OverviewView({
 
       {/* 6. Software Capability Guide */}
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-black tracking-tight text-slate-900">
-              SciAI Capability Guide
-            </h2>
+        <Card padding="md">
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="sciai-kicker mb-1">Studio Directory</p>
+              <h2 className="text-base font-black tracking-tight text-ink-primary">
+                SciAI Capability Guide
+              </h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
+                A practical map of the software modules, what each capability
+                measures, where it launches, and the main methodological
+                limitation to consider before interpreting the result.
+              </p>
+            </div>
 
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-              A practical map of the software modules, what each capability
-              measures, where it launches, and the main methodological
-              limitation to consider before interpreting the result.
-            </p>
+            <Tabs
+              items={[...capabilityCategoryTabs]}
+              value={studioCategory}
+              onChange={(val) => setStudioCategory(val)}
+            />
           </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-            {Object.entries(capabilityCategoryLabels).map(
-              ([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() =>
-                    setStudioCategory(
-                      key as typeof studioCategory
-                    )
-                  }
-                  className={`rounded-lg px-2.5 py-1 transition cursor-pointer ${
-                    studioCategory === key
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            )}
-          </div>
-        </div>
+        </Card>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredCapabilities.map((item) => {
@@ -1023,11 +994,11 @@ export function OverviewView({
             return (
               <article
                 key={item.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs"
+                className="sciai-card flex flex-col justify-between p-5 transition-colors hover:border-border-strong"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="rounded-xl bg-slate-100 p-2 text-slate-800">
+                    <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2 text-ink-primary">
                       {item.icon}
                     </div>
 
@@ -1038,29 +1009,29 @@ export function OverviewView({
                     </span>
                   </div>
 
-                  <h3 className="mt-3 text-sm font-bold text-slate-900">
+                  <h3 className="mt-3 text-sm font-bold text-ink-primary">
                     {item.title}
                   </h3>
 
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  <p className="mt-1 text-xs leading-relaxed text-ink-muted">
                     {item.desc}
                   </p>
 
-                  <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2 text-[11px] leading-5 text-amber-900">
+                  <div className="mt-3 rounded-xl border border-status-warning-border bg-status-warning-bg/70 px-3 py-2 text-[11px] leading-5 text-status-warning-text">
                     <span className="font-bold">Limit:</span>{" "}
                     {item.limitation}
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-[11px]">
-                  <span className="flex items-center gap-1.5 font-semibold text-slate-500">
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-border-subtle pt-3 text-[11px]">
+                  <span className="flex items-center gap-1.5 font-semibold text-ink-muted">
                     <span
                       className={`h-2 w-2 rounded-full ${
                         isComputed
-                          ? "bg-emerald-500"
+                          ? "bg-status-success-text"
                           : isRunnable
-                            ? "bg-slate-300"
-                            : "bg-amber-400"
+                            ? "bg-border-strong"
+                            : "bg-status-warning-text"
                       }`}
                     />
 
@@ -1073,10 +1044,8 @@ export function OverviewView({
 
                   <button
                     type="button"
-                    onClick={() =>
-                      onNavigateTab(item.targetTab)
-                    }
-                    className="inline-flex items-center gap-1 font-bold text-slate-900 hover:underline"
+                    onClick={() => onNavigateTab(item.targetTab)}
+                    className="inline-flex items-center gap-1 font-bold text-brand-500 transition-colors hover:text-brand-700 hover:underline cursor-pointer"
                   >
                     Launch
                     <ArrowUpRight className="h-3 w-3" />

@@ -5,18 +5,14 @@ import { OpenAlexExplorer } from "./OpenAlexExplorer.js";
 import { SmartMergeStudio } from "./SmartMergeStudio.js";
 import { DataHygieneStudio } from "./DataHygieneStudio.js";
 import { PrismaExtractionReportStudio } from "./PrismaExtractionReportStudio.js";
+import { AlertBanner, Button } from "./CommonUI.js";
 import {
   Database,
   Globe2,
   GitMerge,
   ShieldCheck,
-  ArrowRight,
   Sparkles,
-  Layers,
   Upload,
-  CheckCircle2,
-  RefreshCw,
-  FileText,
 } from "lucide-react";
 
 export type PipelineStep = "repository" | "openalex" | "merge" | "hygiene" | "prisma";
@@ -103,29 +99,28 @@ export function CorpusPipelineStudio({
   return (
     <div className="space-y-6">
       {/* Top Banner & Pipeline Workflow Stepper */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="sciai-studio-shell p-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-border-default pb-5 md:flex-row md:items-center">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                Unified Workspace
-              </span>
-              <span className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="sciai-kicker">Unified Workspace</span>
+              <span className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 font-mono text-[10px] font-bold text-status-success-text">
                 Dataset & Research Corpus Pipeline
               </span>
             </div>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-1.5 text-2xl font-black tracking-tight text-ink-primary">
               Dataset Acquisition & Research Corpus Harmonization Pipeline
             </h1>
-            <p className="mt-1 text-xs text-slate-500 max-w-2xl">
-              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex live graph, fuse heterogeneous data sources with schema alignment, and synthesize PRISMA 2020 extraction outcomes with multi-provider AI.
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-muted">
+              End-to-end data preparation workflow: ingest bibliographic files, query the OpenAlex
+              live graph, fuse heterogeneous data sources with schema alignment, and synthesize
+              PRISMA 2020 extraction outcomes with multi-provider AI.
             </p>
           </div>
-
         </div>
 
         {/* 4-Step Interactive Pipeline Progress Bar */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((s) => {
             const Icon = s.icon;
             const isActive = activeStep === s.id;
@@ -134,17 +129,17 @@ export function CorpusPipelineStudio({
                 key={s.id}
                 type="button"
                 onClick={() => handleStepSelect(s.id)}
-                className={`relative flex items-center gap-3.5 p-3.5 rounded-xl border text-left transition cursor-pointer ${
+                className={`relative flex items-center gap-3.5 rounded-xl border p-3.5 text-left transition-colors cursor-pointer ${
                   isActive
-                    ? "border-slate-900 bg-slate-900 text-white shadow-xs ring-1 ring-slate-900"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 text-slate-700"
+                    ? "border-brand-600/20 bg-brand-500 text-white shadow-xs"
+                    : "border-border-default bg-surface-canvas text-ink-secondary hover:border-border-strong hover:bg-surface-canvas/80"
                 }`}
               >
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-bold text-xs ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
                     isActive
-                      ? "bg-white/10 text-white"
-                      : "bg-slate-100 text-slate-600"
+                      ? "bg-white/15 text-white"
+                      : "border border-border-subtle bg-surface-subtle text-brand-500"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -153,27 +148,25 @@ export function CorpusPipelineStudio({
                   <div className="flex items-center justify-between gap-1">
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider ${
-                        isActive ? "text-slate-300" : "text-slate-400"
+                        isActive ? "text-brand-100" : "text-ink-subtle"
                       }`}
                     >
                       Step {s.stepNumber}
                     </span>
                     <span
-                      className={`text-[9px] font-semibold px-1.5 py-0.2 rounded-md ${
+                      className={`tabular-metrics rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
                         isActive
                           ? "bg-white/15 text-white"
-                          : "bg-slate-100 text-slate-600"
+                          : "border border-border-subtle bg-surface-subtle text-ink-secondary"
                       }`}
                     >
                       {s.badge}
                     </span>
                   </div>
-                  <div className="text-xs font-bold truncate mt-0.5">
-                    {s.title}
-                  </div>
+                  <div className="mt-0.5 truncate text-xs font-bold">{s.title}</div>
                   <div
-                    className={`text-[11px] truncate ${
-                      isActive ? "text-slate-300" : "text-slate-500"
+                    className={`truncate text-[11px] ${
+                      isActive ? "text-brand-100" : "text-ink-muted"
                     }`}
                   >
                     {s.subtitle}
@@ -207,28 +200,29 @@ export function CorpusPipelineStudio({
         )}
 
         {activeStep === "merge" && (
-          <SmartMergeStudio
-            datasets={datasets}
-            onRefreshData={onRefreshData}
-          />
+          <SmartMergeStudio datasets={datasets} onRefreshData={onRefreshData} />
         )}
 
         {activeStep === "hygiene" && (
           <div className="space-y-4">
             {/* Step 4 Sub-View Mode Selector */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs">
-              <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-surface-canvas p-3 shadow-card">
+              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border-default bg-surface-subtle p-1">
                 <button
                   type="button"
                   id="tab-prisma-report"
                   onClick={() => setHygieneSubMode("prisma")}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                     hygieneSubMode === "prisma"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:bg-surface-canvas hover:text-ink-primary"
                   }`}
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                  <Sparkles
+                    className={`h-3.5 w-3.5 ${
+                      hygieneSubMode === "prisma" ? "text-white" : "text-brand-500"
+                    }`}
+                  />
                   PRISMA AI Workflow & Descriptive Report
                 </button>
 
@@ -236,25 +230,30 @@ export function CorpusPipelineStudio({
                   type="button"
                   id="tab-hygiene-audit"
                   onClick={() => setHygieneSubMode("hygiene")}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                     hygieneSubMode === "hygiene"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:bg-surface-canvas hover:text-ink-primary"
                   }`}
                 >
-                  <ShieldCheck className="h-3.5 w-3.5 text-slate-600" />
+                  <ShieldCheck
+                    className={`h-3.5 w-3.5 ${
+                      hygieneSubMode === "hygiene" ? "text-white" : "text-ink-secondary"
+                    }`}
+                  />
                   Dataset Hygiene & Deduplication Engine
                 </button>
               </div>
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-                  <Database className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border-default bg-surface-subtle px-3 py-1.5">
+                  <Database className="h-3.5 w-3.5 shrink-0 text-brand-500" />
                   <select
                     aria-label="Select dataset for PRISMA and Hygiene"
                     value={currentDataset?.id || ""}
                     onChange={(event) => onSelectDataset?.(event.target.value)}
                     disabled={!datasets.length}
-                    className="w-44 max-w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden disabled:text-slate-400 sm:w-56"
+                    className="w-44 max-w-full bg-transparent text-xs font-bold text-ink-primary focus:outline-none disabled:text-ink-subtle sm:w-56"
                   >
                     {!datasets.length && <option value="">No datasets available</option>}
                     {datasets.map((dataset) => (
@@ -264,21 +263,23 @@ export function CorpusPipelineStudio({
                     ))}
                   </select>
                 </div>
-                <button
+
+                <Button
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={onOpenUpload}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                  icon={<Upload className="h-3.5 w-3.5" />}
                 >
-                  <Upload className="h-3.5 w-3.5" />
                   Upload Dataset
-                </button>
+                </Button>
               </div>
             </div>
 
             {!currentDataset && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+              <AlertBanner tone="info">
                 Upload a dataset to use the PRISMA and Hygiene tools.
-              </div>
+              </AlertBanner>
             )}
 
             {/* Sub-mode 1: PRISMA AI Descriptive Report & Extraction Outcomes Generator */}

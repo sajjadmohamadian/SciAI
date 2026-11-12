@@ -1,14 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Dataset,
-  BibliometricDocument,
   ExtractionOutcomeMetrics,
   PrismaAIReport,
 } from "../types.js";
 import {
   Sparkles,
-  ShieldCheck,
-  FileText,
   Copy,
   Check,
   Download,
@@ -17,19 +14,17 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Database,
   CheckCircle2,
   Calendar,
   Layers,
   Award,
   BookOpen,
-  ArrowRight,
-  ExternalLink,
 } from "lucide-react";
 import { useAiProvider } from "../context/AiProviderContext.js";
 import { apiJson, getApiErrorMessage } from "../utils/apiClient.js";
 import { hasRecordedExclusions, usePrismaFlow, useVersionDocuments } from "../hooks/usePrismaFlow.js";
 import { PrismaFlowDiagram, PrismaManualEditor } from "./PrismaFlowDiagram.js";
+import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface Props {
   dataset: Dataset;
@@ -40,10 +35,6 @@ interface Props {
 
 export function PrismaExtractionReportStudio({
   dataset,
-  allDatasets = [],
-  onSelectDataset,
-  
-  onRefreshData,
 }: Props) {
   const { getAiRequestOptions } = useAiProvider();
   const prisma = usePrismaFlow(dataset?.id || "");
@@ -248,345 +239,392 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
     URL.revokeObjectURL(url);
   };
 
-  // Grade color helper
+  // Grade color helper using semantic tokens
   const getGradeBadge = (grade: string) => {
     switch (grade) {
       case "Optimal":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        return "bg-status-success-bg text-status-success-text border-status-success-border";
       case "Good":
-        return "bg-teal-50 text-teal-700 border-teal-200";
+        return "bg-status-info-bg text-status-info-text border-status-info-border";
       case "Acceptable":
-        return "bg-amber-50 text-amber-700 border-amber-200";
+        return "bg-status-warning-bg text-status-warning-text border-status-warning-border";
       default:
-        return "bg-rose-50 text-rose-700 border-rose-200";
+        return "bg-status-danger-bg text-status-danger-text border-status-danger-border";
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Header & Primary Action Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-5">
+      <Card padding="lg">
+        <div className="flex flex-col justify-between gap-4 border-b border-border-subtle pb-5 lg:flex-row lg:items-center">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                PRISMA 2020 Systematic Protocol
-              </span>
+              <span className="sciai-kicker">PRISMA 2020 Systematic Protocol</span>
               <span
-                className={`rounded-md border px-2 py-0.5 text-[10px] font-mono font-bold ${getGradeBadge(
+                className={`tabular-metrics rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold ${getGradeBadge(
                   extractionOutcomes.extractionFidelityGrade
                 )}`}
               >
-                Extraction Quality: {documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.extractionFidelityGrade} (${extractionOutcomes.compositeScore}/100)`}
+                Extraction Quality:{" "}
+                {documentTotal === null || documentTotal === 0
+                  ? "Not recorded"
+                  : `${extractionOutcomes.extractionFidelityGrade} (${extractionOutcomes.compositeScore}/100)`}
               </span>
-              <span className="rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700 flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
                 <Sparkles className="h-3 w-3" />
                 Multi-provider AI
               </span>
             </div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-xl font-black tracking-tight text-ink-primary">
               PRISMA Workflow & AI Extraction Outcomes Synthesizer
             </h2>
-            <p className="text-xs text-slate-500 max-w-2xl">
-              Reviews observed metadata completeness and the canonical PRISMA 2020 selection flow for this dataset version. AI output is a draft; verify unrecorded steps and all claims against your review protocol.
+            <p className="max-w-2xl text-xs leading-relaxed text-ink-muted">
+              Reviews observed metadata completeness and the canonical PRISMA 2020 selection flow
+              for this dataset version. AI output is a draft; verify unrecorded steps and all
+              claims against your review protocol.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setShowFunnelEditor(!showFunnelEditor)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              icon={<Sliders className="h-3.5 w-3.5 text-ink-subtle" />}
             >
-              <Sliders className="h-3.5 w-3.5 text-slate-400" />
-              Adjust Funnel Counts
+              <span>Adjust Funnel Counts</span>
               {showFunnelEditor ? (
-                <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+                <ChevronUp className="h-3.5 w-3.5 text-ink-subtle" />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
               )}
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
               id="generate-prisma-ai-report-btn"
-              onClick={handleGenerateReport}
+              variant="primary"
+              size="sm"
+              loading={isGenerating}
               disabled={isGenerating || !prisma.flow?.consistency.valid || !prisma.version}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition disabled:opacity-60 cursor-pointer"
+              onClick={handleGenerateReport}
+              icon={!isGenerating ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
             >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Synthesizing Extraction Outcomes...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  Generate AI PRISMA Report
-                </>
-              )}
-            </button>
+              {isGenerating
+                ? "Synthesizing Extraction Outcomes..."
+                : "Generate AI PRISMA Report"}
+            </Button>
           </div>
         </div>
 
         {/* Real-time Extraction Outcomes Telemetry Strip */}
-        <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Total Extracted
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="sciai-kicker">Total Extracted</div>
+            <div className="tabular-metrics mt-1 text-base font-black text-ink-primary">
+              {documentTotal === null
+                ? "Not recorded"
+                : extractionOutcomes.totalRecordsExtracted.toLocaleString()}
             </div>
-            <div className="mt-1 text-base font-black text-slate-900">
-              {documentTotal === null ? "Not recorded" : extractionOutcomes.totalRecordsExtracted.toLocaleString()}
-            </div>
-            <div className="text-[10px] text-slate-500 truncate">
+            <div className="truncate text-[10px] text-ink-muted">
               {Object.keys(extractionOutcomes.sourceDistribution).join(", ") || "Raw records"}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
               <span>DOI Resolution</span>
-              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.doiCoveragePct}%`}</span>
+              <span className="tabular-metrics font-mono text-ink-primary">
+                {documentTotal === null || documentTotal === 0
+                  ? "Not recorded"
+                  : `${extractionOutcomes.doiCoveragePct}%`}
+              </span>
             </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
               <div
-                className="h-full bg-emerald-600 rounded-full"
+                className="h-full rounded-full bg-status-success-text"
                 style={{ width: `${documentTotal ? extractionOutcomes.doiCoveragePct : 0}%` }}
               />
             </div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithDoi.toLocaleString()} with valid DOI
+            <div className="tabular-metrics mt-1 text-[10px] text-ink-muted">
+              {documentTotal === null
+                ? "Not recorded"
+                : extractionOutcomes.recordsWithDoi.toLocaleString()}{" "}
+              with valid DOI
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
               <span>Abstract Capture</span>
-              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.abstractCoveragePct}%`}</span>
+              <span className="tabular-metrics font-mono text-ink-primary">
+                {documentTotal === null || documentTotal === 0
+                  ? "Not recorded"
+                  : `${extractionOutcomes.abstractCoveragePct}%`}
+              </span>
             </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
               <div
-                className="h-full bg-blue-600 rounded-full"
+                className="h-full rounded-full bg-status-info-text"
                 style={{ width: `${documentTotal ? extractionOutcomes.abstractCoveragePct : 0}%` }}
               />
             </div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithAbstract.toLocaleString()} text abstracts
+            <div className="tabular-metrics mt-1 text-[10px] text-ink-muted">
+              {documentTotal === null
+                ? "Not recorded"
+                : extractionOutcomes.recordsWithAbstract.toLocaleString()}{" "}
+              text abstracts
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
               <span>Keywords Indexed</span>
-              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.keywordsCoveragePct}%`}</span>
+              <span className="tabular-metrics font-mono text-ink-primary">
+                {documentTotal === null || documentTotal === 0
+                  ? "Not recorded"
+                  : `${extractionOutcomes.keywordsCoveragePct}%`}
+              </span>
             </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
               <div
-                className="h-full bg-indigo-600 rounded-full"
+                className="h-full rounded-full bg-brand-500"
                 style={{ width: `${documentTotal ? extractionOutcomes.keywordsCoveragePct : 0}%` }}
               />
             </div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithKeywords.toLocaleString()} parsed terms
+            <div className="tabular-metrics mt-1 text-[10px] text-ink-muted">
+              {documentTotal === null
+                ? "Not recorded"
+                : extractionOutcomes.recordsWithKeywords.toLocaleString()}{" "}
+              parsed terms
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-ink-subtle">
               <span>Author Entities</span>
-              <span className="text-slate-900 font-mono">{documentTotal === null || documentTotal === 0 ? "Not recorded" : `${extractionOutcomes.authorsCoveragePct}%`}</span>
+              <span className="tabular-metrics font-mono text-ink-primary">
+                {documentTotal === null || documentTotal === 0
+                  ? "Not recorded"
+                  : `${extractionOutcomes.authorsCoveragePct}%`}
+              </span>
             </div>
-            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
               <div
-                className="h-full bg-violet-600 rounded-full"
+                className="h-full rounded-full bg-brand-600"
                 style={{ width: `${documentTotal ? extractionOutcomes.authorsCoveragePct : 0}%` }}
               />
             </div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {documentTotal === null ? "Not recorded" : extractionOutcomes.recordsWithAuthors.toLocaleString()} attributed
+            <div className="tabular-metrics mt-1 text-[10px] text-ink-muted">
+              {documentTotal === null
+                ? "Not recorded"
+                : extractionOutcomes.recordsWithAuthors.toLocaleString()}{" "}
+              attributed
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Temporal Horizon
-            </div>
-            <div className="mt-1 text-sm font-bold text-slate-800 flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5 text-slate-400" />
+          <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3">
+            <div className="sciai-kicker">Temporal Horizon</div>
+            <div className="tabular-metrics mt-1 flex items-center gap-1 text-sm font-bold text-ink-primary">
+              <Calendar className="h-3.5 w-3.5 text-ink-subtle" />
               {extractionOutcomes.yearSpan}
             </div>
-            <div className="text-[10px] text-slate-500">
-              Publication range
-            </div>
+            <div className="text-[10px] text-ink-muted">Publication range</div>
           </div>
         </div>
 
         {showFunnelEditor && (
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-700">Recorded study-selection counts</h3>
-            <PrismaManualEditor flow={prisma.flow} draft={prisma.draft} saving={prisma.saving} error={prisma.error} reasonsRecorded={hasRecordedExclusions(prisma.version)} onFieldChange={prisma.updateField} onReasonsChange={prisma.updateReasons} onSave={prisma.save} />
+          <div className="mt-5 rounded-xl border border-border-default bg-surface-subtle p-4">
+            <h3 className="sciai-kicker mb-3">Recorded study-selection counts</h3>
+            <PrismaManualEditor
+              flow={prisma.flow}
+              draft={prisma.draft}
+              saving={prisma.saving}
+              error={prisma.error}
+              reasonsRecorded={hasRecordedExclusions(prisma.version)}
+              onFieldChange={prisma.updateField}
+              onReasonsChange={prisma.updateReasons}
+              onSave={prisma.save}
+            />
           </div>
         )}
-      </div>
+      </Card>
 
-      {(prisma.error || documentsError) && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{prisma.error || documentsError}</p>}
-      {isLoadingDocs && <p className="text-xs text-slate-500">Loading all records for extraction metrics...</p>}
+      {(prisma.error || documentsError) && (
+        <AlertBanner tone="danger">{prisma.error || documentsError}</AlertBanner>
+      )}
+      {isLoadingDocs && (
+        <p className="text-xs text-ink-muted">Loading all records for extraction metrics...</p>
+      )}
 
       {/* Error alert if AI generation fails */}
       {reportError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
-          <div className="flex-1">
-            <span className="font-bold">AI Synthesis Notice:</span> {reportError}
-          </div>
-        </div>
+        <AlertBanner tone="danger" title="AI Synthesis Notice">
+          {reportError}
+        </AlertBanner>
       )}
 
       {/* Main Grid: Left Column Visual Flowchart & Yield KPIs, Right Column AI Report */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column: Visual PRISMA 2020 Flowchart & Quantitative Funnel */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="space-y-4 lg:col-span-5">
+          <Card padding="md">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Visual Flowchart
-                </div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  PRISMA 2020 Flow Diagram
-                </h3>
+                <div className="sciai-kicker">Visual Flowchart</div>
+                <h3 className="text-sm font-bold text-ink-primary">PRISMA 2020 Flow Diagram</h3>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handleExportSvg}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                icon={<Download className="h-3 w-3 text-ink-subtle" />}
               >
-                <Download className="h-3 w-3 text-slate-400" />
                 Export SVG
-              </button>
+              </Button>
             </div>
 
             <div className="mt-4">
-              <PrismaFlowDiagram ref={svgRef} flow={prisma.flow} reasonsRecorded={hasRecordedExclusions(prisma.version)} />
+              <PrismaFlowDiagram
+                ref={svgRef}
+                flow={prisma.flow}
+                reasonsRecorded={hasRecordedExclusions(prisma.version)}
+              />
             </div>
-            {prisma.flow && !prisma.flow.consistency.valid && <p role="alert" className="mt-3 text-xs text-rose-700">{prisma.flow.consistency.errors.join("; ")}</p>}
-            {prisma.flow?.consistency.warnings.map((warning) => <p key={warning} className="mt-1 text-xs text-amber-700">{warning}</p>)}
-          </div>
-         
+            {prisma.flow && !prisma.flow.consistency.valid && (
+              <div className="mt-3">
+                <AlertBanner tone="danger">{prisma.flow.consistency.errors.join("; ")}</AlertBanner>
+              </div>
+            )}
+            {prisma.flow?.consistency.warnings.map((warning) => (
+              <p key={warning} className="mt-1.5 text-xs font-medium text-status-warning-text">
+                {warning}
+              </p>
+            ))}
+          </Card>
         </div>
 
         {/* Right Column: AI-Powered Summary & Descriptive Report */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="space-y-4 lg:col-span-7">
           {report ? (
             <div className="space-y-4">
               {/* Executive Summary Card */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <Card padding="lg">
+                <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-xs font-bold text-brand-600">
                       <Sparkles className="h-3.5 w-3.5" />
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900">
+                    <h3 className="text-sm font-bold text-ink-primary">
                       AI Executive Extraction & Yield Summary
                     </h3>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className="tabular-metrics font-mono text-[10px] text-ink-subtle">
                     {new Date(report.generatedAt).toLocaleTimeString()}
                   </span>
                 </div>
-                <p className="mt-3 text-xs text-slate-700 leading-relaxed font-normal">
+                <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
                   {report.executiveSummary}
                 </p>
 
                 {/* Yield Metrics Strip */}
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 border-t border-slate-100 text-center">
-                  <div className="rounded-lg bg-slate-50 p-2">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">Identified</div>
-                    <div className="text-xs font-black text-slate-900 mt-0.5">
-                      {(report.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded")}
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-3 text-center sm:grid-cols-5">
+                  <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2">
+                    <div className="sciai-kicker text-[9px]!">Identified</div>
+                    <div className="tabular-metrics mt-0.5 text-xs font-black text-ink-primary">
+                      {report.yieldMetrics.totalIdentified?.toLocaleString() ?? "Not recorded"}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-2">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">Duplicate Attrition</div>
-                    <div className="text-xs font-black text-slate-900 mt-0.5">
+                  <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2">
+                    <div className="sciai-kicker text-[9px]!">Duplicate Attrition</div>
+                    <div className="tabular-metrics mt-0.5 text-xs font-black text-ink-primary">
                       {report.yieldMetrics.duplicateAttritionRate}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-2">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">Screening Attrition</div>
-                    <div className="text-xs font-black text-slate-900 mt-0.5">
+                  <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2">
+                    <div className="sciai-kicker text-[9px]!">Screening Attrition</div>
+                    <div className="tabular-metrics mt-0.5 text-xs font-black text-ink-primary">
                       {report.yieldMetrics.screeningAttritionRate}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 p-2">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">Retrieval Rate</div>
-                    <div className="text-xs font-black text-slate-900 mt-0.5">
+                  <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2">
+                    <div className="sciai-kicker text-[9px]!">Retrieval Rate</div>
+                    <div className="tabular-metrics mt-0.5 text-xs font-black text-ink-primary">
                       {report.yieldMetrics.retrievalSuccessRate}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 col-span-2 sm:col-span-1">
-                    <div className="text-[9px] uppercase font-bold text-emerald-700">Net Inclusion</div>
-                    <div className="text-xs font-black text-emerald-800 mt-0.5">
+                  <div className="col-span-2 rounded-lg border border-status-success-border bg-status-success-bg p-2 sm:col-span-1">
+                    <div className="sciai-kicker text-[9px]! text-status-success-text!">
+                      Net Inclusion
+                    </div>
+                    <div className="tabular-metrics mt-0.5 text-xs font-black text-status-success-text">
                       {report.yieldMetrics.finalInclusionYield}
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               {/* Data Extraction Outcomes Quality Assessment */}
               {report.extractionOutcomesAssessment && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                    <Layers className="h-4 w-4 text-emerald-600" />
-                    <h3 className="text-sm font-bold text-slate-900">
+                <Card padding="md">
+                  <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
+                    <Layers className="h-4 w-4 text-status-success-text" />
+                    <h3 className="text-sm font-bold text-ink-primary">
                       Data Extraction Outcomes Assessment & Field Quality
                     </h3>
                   </div>
                   <div className="mt-3 space-y-3 text-xs">
-                    <div className="rounded-xl bg-slate-50 p-3 text-slate-700">
-                      <span className="font-bold text-slate-900">Integrity Verdict: </span>
+                    <div className="rounded-xl border border-border-subtle bg-surface-subtle p-3 text-ink-secondary">
+                      <span className="font-bold text-ink-primary">Integrity Verdict: </span>
                       {report.extractionOutcomesAssessment.overallVerdict}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-1">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-status-warning-border bg-status-warning-bg/50 p-3">
+                        <div className="sciai-kicker mb-1 text-status-warning-text!">
                           Potential Extraction Biases
                         </div>
-                        <ul className="space-y-1 text-[11px] text-amber-900 list-disc list-inside">
-                          {report.extractionOutcomesAssessment.potentialExtractionBiases.map((b, i) => (
-                            <li key={i}>{b}</li>
-                          ))}
+                        <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
+                          {report.extractionOutcomesAssessment.potentialExtractionBiases.map(
+                            (b, i) => (
+                              <li key={i}>{b}</li>
+                            )
+                          )}
                         </ul>
                       </div>
 
-                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1">
+                      <div className="rounded-xl border border-status-success-border bg-status-success-bg/50 p-3">
+                        <div className="sciai-kicker mb-1 text-status-success-text!">
                           Recommended Hygiene Actions
                         </div>
-                        <ul className="space-y-1 text-[11px] text-emerald-900 list-disc list-inside">
-                          {report.extractionOutcomesAssessment.recommendedCleaningActions.map((a, i) => (
-                            <li key={i}>{a}</li>
-                          ))}
+                        <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
+                          {report.extractionOutcomesAssessment.recommendedCleaningActions.map(
+                            (a, i) => (
+                              <li key={i}>{a}</li>
+                            )
+                          )}
                         </ul>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
               )}
 
               {/* Multi-Tab Descriptive Report Card */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+              <Card padding="md">
                 {/* Sub-tab switcher */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setActiveNarrativeTab("methods")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                         activeNarrativeTab === "methods"
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "text-slate-600 hover:bg-slate-100"
+                          ? "bg-brand-500 text-white shadow-xs"
+                          : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
                       }`}
                     >
                       Methods Narrative
@@ -594,10 +632,10 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     <button
                       type="button"
                       onClick={() => setActiveNarrativeTab("checklist")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      className={`tabular-metrics cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                         activeNarrativeTab === "checklist"
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "text-slate-600 hover:bg-slate-100"
+                          ? "bg-brand-500 text-white shadow-xs"
+                          : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
                       }`}
                     >
                       PRISMA Checklist ({report.prismaComplianceChecklist.length})
@@ -605,10 +643,10 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     <button
                       type="button"
                       onClick={() => setActiveNarrativeTab("recommendations")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                         activeNarrativeTab === "recommendations"
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "text-slate-600 hover:bg-slate-100"
+                          ? "bg-brand-500 text-white shadow-xs"
+                          : "text-ink-secondary hover:bg-surface-subtle hover:text-ink-primary"
                       }`}
                     >
                       Strengths & Reviewer Tips
@@ -616,43 +654,42 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleCopyMethods}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                      icon={
+                        copiedMethods ? (
+                          <Check className="h-3 w-3 text-status-success-text" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-ink-subtle" />
+                        )
+                      }
                     >
-                      {copiedMethods ? (
-                        <>
-                          <Check className="h-3 w-3 text-emerald-600" />
-                          <span className="text-emerald-700">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3 text-slate-400" />
-                          Copy Methods
-                        </>
-                      )}
-                    </button>
-                    <button
+                      {copiedMethods ? "Copied!" : "Copy Methods"}
+                    </Button>
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={handleDownloadMarkdown}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                      icon={<Download className="h-3 w-3 text-ink-subtle" />}
                     >
-                      <Download className="h-3 w-3 text-slate-400" />
                       Download .md
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 {/* Tab 1: Publication-Ready Academic Methods Narrative */}
                 {activeNarrativeTab === "methods" && (
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-xl bg-slate-50/70 p-4 border border-slate-100">
-                      <div className="prose prose-slate prose-xs max-w-none text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap">
+                    <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
+                      <div className="max-w-none whitespace-pre-wrap font-mono text-xs leading-relaxed text-ink-primary">
                         {report.methodologyNarrative}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-subtle">
                       <span>PRISMA 2020 reference: Page MJ et al., BMJ 2021;372:n71</span>
                       <span className="font-mono">Verify before submission</span>
                     </div>
@@ -665,18 +702,18 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     {report.prismaComplianceChecklist.map((item, idx) => (
                       <div
                         key={idx}
-                        className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs"
+                        className="rounded-xl border border-border-subtle bg-surface-subtle p-3 text-xs"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-900">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-ink-primary">
                             {item.itemNumber}: {item.topic}
                           </span>
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[10px] font-bold text-status-success-text">
+                            <CheckCircle2 className="h-3 w-3" />
                             {item.status}
                           </span>
                         </div>
-                        <p className="mt-1 text-slate-600 text-[11px]">{item.notes}</p>
+                        <p className="mt-1 text-[11px] text-ink-muted">{item.notes}</p>
                       </div>
                     ))}
                   </div>
@@ -686,35 +723,35 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 {activeNarrativeTab === "recommendations" && (
                   <div className="mt-4 space-y-4 text-xs">
                     <div>
-                      <h4 className="font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
-                        <Award className="h-3.5 w-3.5 text-emerald-600" />
+                      <h4 className="mb-1.5 flex items-center gap-1.5 font-bold text-ink-primary">
+                        <Award className="h-3.5 w-3.5 text-status-success-text" />
                         Methodological Strengths
                       </h4>
-                      <ul className="space-y-1 text-slate-600 text-[11px] list-disc list-inside">
+                      <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
                         {report.methodologicalStrengths.map((s, i) => (
                           <li key={i}>{s}</li>
                         ))}
                       </ul>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100">
-                      <h4 className="font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
-                        <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                    <div className="border-t border-border-subtle pt-3">
+                      <h4 className="mb-1.5 flex items-center gap-1.5 font-bold text-ink-primary">
+                        <AlertCircle className="h-3.5 w-3.5 text-status-warning-text" />
                         Limitations & Biases to Disclose
                       </h4>
-                      <ul className="space-y-1 text-slate-600 text-[11px] list-disc list-inside">
+                      <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
                         {report.limitationsAndBiases.map((l, i) => (
                           <li key={i}>{l}</li>
                         ))}
                       </ul>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100">
-                      <h4 className="font-bold text-slate-900 mb-1.5 flex items-center gap-1.5">
-                        <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+                    <div className="border-t border-border-subtle pt-3">
+                      <h4 className="mb-1.5 flex items-center gap-1.5 font-bold text-ink-primary">
+                        <BookOpen className="h-3.5 w-3.5 text-brand-500" />
                         Recommendations for Reviewer Rebuttal
                       </h4>
-                      <ul className="space-y-1 text-slate-600 text-[11px] list-disc list-inside">
+                      <ul className="list-inside list-disc space-y-1 text-[11px] text-ink-secondary">
                         {report.recommendationsForAuthors.map((r, i) => (
                           <li key={i}>{r}</li>
                         ))}
@@ -722,38 +759,39 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     </div>
                   </div>
                 )}
-              </div>
+              </Card>
             </div>
           ) : (
             /* Pre-generation Call to Action State */
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-2xs">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
-                <Sparkles className="h-6 w-6 text-purple-600" />
+            <div className="rounded-2xl border border-dashed border-border-default bg-surface-subtle p-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-brand-200 bg-brand-50 text-brand-500">
+                <Sparkles className="h-6 w-6" />
               </div>
-              <h3 className="mt-3 text-base font-bold text-slate-900">
+              <h3 className="mt-3 text-base font-bold text-ink-primary">
                 Generate AI PRISMA 2020 Descriptive Report
               </h3>
-              <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-                Synthesizes current data extraction outcomes ({documentTotal === null ? "Not recorded" : extractionOutcomes.totalRecordsExtracted.toLocaleString()} documents) into an academic manuscript methodology section, PRISMA 2020 checklist audit, and yield KPIs.
+              <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-ink-muted">
+                Synthesizes current data extraction outcomes (
+                {documentTotal === null
+                  ? "Not recorded"
+                  : extractionOutcomes.totalRecordsExtracted.toLocaleString()}{" "}
+                documents) into an academic manuscript methodology section, PRISMA 2020 checklist
+                audit, and yield KPIs.
               </p>
-              <button
+              <Button
                 type="button"
-                onClick={handleGenerateReport}
+                variant="primary"
+                size="md"
+                loading={isGenerating}
                 disabled={isGenerating || !prisma.flow?.consistency.valid || !prisma.version}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                onClick={handleGenerateReport}
+                icon={!isGenerating ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
+                className="mt-4"
               >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    Analyzing Current Extraction Outcomes...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                    Synthesize PRISMA Report Now
-                  </>
-                )}
-              </button>
+                {isGenerating
+                  ? "Analyzing Current Extraction Outcomes..."
+                  : "Synthesize PRISMA Report Now"}
+              </Button>
             </div>
           )}
         </div>

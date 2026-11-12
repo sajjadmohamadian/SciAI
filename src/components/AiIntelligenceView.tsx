@@ -1,5 +1,10 @@
 import React, { useState } from "react";
-import { Analysis, Dataset, ResearchGapMatrixOutput, MultiCorpusDiscrepancyOutput } from "../types.js";
+import {
+  Analysis,
+  Dataset,
+  ResearchGapMatrixOutput,
+  MultiCorpusDiscrepancyOutput,
+} from "../types.js";
 import {
   validateRagChatResponse,
   validateResearchGapsResponse,
@@ -18,25 +23,29 @@ import {
   FileText,
   Quote,
   TrendingUp,
-  BookOpen,
   Copy,
   Check,
   RefreshCw,
-  Search,
-  ExternalLink,
   Grid,
   Database,
   Award,
   AlertTriangle,
   Lightbulb,
 } from "lucide-react";
+import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface Props {
   datasets: Dataset[];
   analyses: Analysis[];
 }
 
-type AIToolTab = "rag_chat" | "gap_matrix" | "corpus_discrepancy" | "white_spaces" | "manuscript_studio" | "citation_intent";
+type AIToolTab =
+  | "rag_chat"
+  | "gap_matrix"
+  | "corpus_discrepancy"
+  | "white_spaces"
+  | "manuscript_studio"
+  | "citation_intent";
 
 type AiResponseProvenance = {
   provider?: string;
@@ -46,7 +55,8 @@ type AiResponseProvenance = {
 
 export function AiIntelligenceView({ datasets = [], analyses = [] }: Props) {
   const { getAiRequestOptions } = useAiProvider();
-  const [lastAiProvenance, setLastAiProvenance] = useState<AiResponseProvenance | null>(null);
+  const [lastAiProvenance, setLastAiProvenance] =
+    useState<AiResponseProvenance | null>(null);
   const [lastAiWarnings, setLastAiWarnings] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<AIToolTab>("rag_chat");
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>(
@@ -77,23 +87,38 @@ You can ask me questions such as:
   const [gapsError, setGapsError] = useState<string | null>(null);
   const [gapsIsPartial, setGapsIsPartial] = useState(false);
   const [gapsResult, setGapsResult] = useState<{
-    white_spaces: Array<{ title: string; rationale: string; bridging_topics: string[]; potential_impact: string }>;
-    unexplored_intersections: Array<{ topic_a: string; topic_b: string; hypothesis: string }>;
-    future_trend_forecasts: Array<{ concept: string; projected_growth: string; trajectory_rationale: string }>;
+    white_spaces: Array<{
+      title: string;
+      rationale: string;
+      bridging_topics: string[];
+      potential_impact: string;
+    }>;
+    unexplored_intersections: Array<{
+      topic_a: string;
+      topic_b: string;
+      hypothesis: string;
+    }>;
+    future_trend_forecasts: Array<{
+      concept: string;
+      projected_growth: string;
+      trajectory_rationale: string;
+    }>;
   } | null>(null);
 
-  // New Feature: Research Gap Matrix (Feasibility vs. Novelty)
+  // Research Gap Matrix (Feasibility vs. Novelty)
   const [gapMatrixLoading, setGapMatrixLoading] = useState(false);
   const [gapMatrixError, setGapMatrixError] = useState<string | null>(null);
-  const [gapMatrixData, setGapMatrixData] = useState<ResearchGapMatrixOutput | null>(null);
-  const [selectedQuadrantFilter, setSelectedQuadrantFilter] = useState<string>("all");
+  const [gapMatrixData, setGapMatrixData] =
+    useState<ResearchGapMatrixOutput | null>(null);
+  const [selectedQuadrantFilter, setSelectedQuadrantFilter] =
+    useState<string>("all");
 
-  // New Feature: Multi-Source Discrepancy & Indexing Coverage Analysis (WoS vs Scopus vs PubMed)
+  // Multi-Source Discrepancy & Indexing Coverage Analysis
   const [discrepancyLoading, setDiscrepancyLoading] = useState(false);
   const [discrepancyError, setDiscrepancyError] = useState<string | null>(null);
-  const [discrepancyData, setDiscrepancyData] = useState<MultiCorpusDiscrepancyOutput | null>(null);
+  const [discrepancyData, setDiscrepancyData] =
+    useState<MultiCorpusDiscrepancyOutput | null>(null);
 
-  // Run Research Gap Matrix
   const runResearchGapMatrix = async () => {
     setGapMatrixLoading(true);
     setGapMatrixError(null);
@@ -116,17 +141,22 @@ You can ask me questions such as:
         setGapMatrixData(val.data);
       } else {
         setGapMatrixData(null);
-        setGapMatrixError(val.error || "Research gap matrix output is incomplete or malformed.");
+        setGapMatrixError(
+          val.error || "Research gap matrix output is incomplete or malformed."
+        );
       }
     } catch (err) {
       console.error("Failed to generate research gap matrix:", err);
-      setGapMatrixError(err instanceof Error ? err.message : "Failed to generate research gap matrix");
+      setGapMatrixError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate research gap matrix"
+      );
     } finally {
       setGapMatrixLoading(false);
     }
   };
 
-  // Run Multi-Corpus Discrepancy
   const runCorpusDiscrepancyAnalysis = async () => {
     setDiscrepancyLoading(true);
     setDiscrepancyError(null);
@@ -148,18 +178,26 @@ You can ask me questions such as:
         setDiscrepancyData(val.data);
       } else {
         setDiscrepancyData(null);
-        setDiscrepancyError(val.error || "Multi-corpus discrepancy metrics are incomplete.");
+        setDiscrepancyError(
+          val.error || "Multi-corpus discrepancy metrics are incomplete."
+        );
       }
     } catch (err) {
       console.error("Failed to analyze multi-corpus discrepancy:", err);
-      setDiscrepancyError(err instanceof Error ? err.message : "Failed to analyze multi-corpus discrepancy");
+      setDiscrepancyError(
+        err instanceof Error
+          ? err.message
+          : "Failed to analyze multi-corpus discrepancy"
+      );
     } finally {
       setDiscrepancyLoading(false);
     }
   };
 
   // 3. Manuscript Generation state
-  const [manuscriptSection, setManuscriptSection] = useState<"abstract" | "discussion" | "limitations" | "hypotheses">("abstract");
+  const [manuscriptSection, setManuscriptSection] = useState<
+    "abstract" | "discussion" | "limitations" | "hypotheses"
+  >("abstract");
   const [manuscriptLoading, setManuscriptLoading] = useState(false);
   const [manuscriptError, setManuscriptError] = useState<string | null>(null);
   const [manuscriptContent, setManuscriptContent] = useState<string>("");
@@ -174,10 +212,13 @@ You can ask me questions such as:
     conceptual_background: number;
     critical_comparative: number;
     sentiment_summary: string;
-    exemplar_analyses: Array<{ title: string; primary_intent: string; rhetorical_role: string }>;
+    exemplar_analyses: Array<{
+      title: string;
+      primary_intent: string;
+      rhetorical_role: string;
+    }>;
   } | null>(null);
 
-  // Handle RAG query
   const handleSendRag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || ragLoading) return;
@@ -233,7 +274,6 @@ You can ask me questions such as:
     }
   };
 
-  // Run Research Gap Detection
   const runWhiteSpaces = async () => {
     setGapsLoading(true);
     setGapsError(null);
@@ -247,13 +287,33 @@ You can ask me questions such as:
           dataset_id: selectedDatasetId,
           dataset_name: currentDataset?.name || "Active Dataset",
           clusters: [
-            { name: "Deep Learning & Image Processing", top_members: ["CNN", "ResNet", "Segmentation"], size: 18 },
-            { name: "Clinical Oncology & Biomarkers", top_members: ["Prognosis", "Survival", "Biomarker"], size: 14 },
-            { name: "Data Ethics & Privacy", top_members: ["Governance", "HIPAA", "Anonymity"], size: 6 },
+            {
+              name: "Deep Learning & Image Processing",
+              top_members: ["CNN", "ResNet", "Segmentation"],
+              size: 18,
+            },
+            {
+              name: "Clinical Oncology & Biomarkers",
+              top_members: ["Prognosis", "Survival", "Biomarker"],
+              size: 14,
+            },
+            {
+              name: "Data Ethics & Privacy",
+              top_members: ["Governance", "HIPAA", "Anonymity"],
+              size: 6,
+            },
           ],
-          motor_themes: ["Supervised Deep Learning", "Diagnostic Accuracy", "Pathology AI"],
+          motor_themes: [
+            "Supervised Deep Learning",
+            "Diagnostic Accuracy",
+            "Pathology AI",
+          ],
           niche_themes: ["Quantum ML", "Synthetic Biology Biomarkers"],
-          recent_keywords: ["Foundation Models", "Vision Transformers", "Federated Learning"],
+          recent_keywords: [
+            "Foundation Models",
+            "Vision Transformers",
+            "Federated Learning",
+          ],
           ...getAiRequestOptions(),
         }),
       });
@@ -267,18 +327,25 @@ You can ask me questions such as:
           setGapsIsPartial(true);
         }
       } else {
-        setGapsError(val.error || "Failed to process research gaps response.");
+        setGapsError(
+          val.error || "Failed to process research gaps response."
+        );
       }
     } catch (err) {
       console.error("Failed to run white spaces:", err);
-      setGapsError(err instanceof Error ? err.message : "Failed to run white-spaces analysis");
+      setGapsError(
+        err instanceof Error
+          ? err.message
+          : "Failed to run white-spaces analysis"
+      );
     } finally {
       setGapsLoading(false);
     }
   };
 
-  // Generate Manuscript Section
-  const runGenerateManuscript = async (sec: "abstract" | "discussion" | "limitations" | "hypotheses") => {
+  const runGenerateManuscript = async (
+    sec: "abstract" | "discussion" | "limitations" | "hypotheses"
+  ) => {
     setManuscriptLoading(true);
     setManuscriptError(null);
     setManuscriptSection(sec);
@@ -307,17 +374,23 @@ You can ask me questions such as:
       if (val.success && val.data) {
         setManuscriptContent(val.data);
       } else {
-        setManuscriptError(val.error || "Manuscript generation returned empty or incomplete content.");
+        setManuscriptError(
+          val.error ||
+            "Manuscript generation returned empty or incomplete content."
+        );
       }
     } catch (err) {
       console.error("Failed to generate manuscript section:", err);
-      setManuscriptError(err instanceof Error ? err.message : "Failed to generate manuscript section");
+      setManuscriptError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate manuscript section"
+      );
     } finally {
       setManuscriptLoading(false);
     }
   };
 
-  // Run Citation Intent Analysis
   const runCitationIntentAnalysis = async () => {
     setCitationLoading(true);
     setCitationError(null);
@@ -337,50 +410,112 @@ You can ask me questions such as:
       if (val.success && val.data) {
         setCitationData(val.data);
       } else {
-        setCitationError(val.error || "Incomplete citation intent breakdown received from AI.");
+        setCitationError(
+          val.error || "Incomplete citation intent breakdown received from AI."
+        );
       }
     } catch (err) {
       console.error("Failed to analyze citations:", err);
-      setCitationError(err instanceof Error ? err.message : "Failed to analyze citations");
+      setCitationError(
+        err instanceof Error ? err.message : "Failed to analyze citations"
+      );
     } finally {
       setCitationLoading(false);
     }
   };
 
+  const toolItems = [
+    {
+      id: "rag_chat" as AIToolTab,
+      title: "1. Research Corpus RAG",
+      subtitle: "Q&A & Inquiries",
+      icon: BrainCircuit,
+      onActivate: () => setActiveTool("rag_chat"),
+    },
+    {
+      id: "gap_matrix" as AIToolTab,
+      title: "2. Gap Matrix",
+      subtitle: "Feasibility vs Novelty",
+      icon: Grid,
+      onActivate: () => {
+        setActiveTool("gap_matrix");
+        if (!gapMatrixData) runResearchGapMatrix();
+      },
+    },
+    {
+      id: "corpus_discrepancy" as AIToolTab,
+      title: "3. Indexing Coverage",
+      subtitle: "WoS vs Scopus vs PubMed",
+      icon: Database,
+      onActivate: () => {
+        setActiveTool("corpus_discrepancy");
+        if (!discrepancyData) runCorpusDiscrepancyAnalysis();
+      },
+    },
+    {
+      id: "white_spaces" as AIToolTab,
+      title: "4. Research Gaps",
+      subtitle: "Structural Gaps",
+      icon: Compass,
+      onActivate: () => {
+        setActiveTool("white_spaces");
+        if (!gapsResult) runWhiteSpaces();
+      },
+    },
+    {
+      id: "manuscript_studio" as AIToolTab,
+      title: "5. Manuscript",
+      subtitle: "Manuscript Synthesis",
+      icon: FileText,
+      onActivate: () => {
+        setActiveTool("manuscript_studio");
+        if (!manuscriptContent) runGenerateManuscript("abstract");
+      },
+    },
+    {
+      id: "citation_intent" as AIToolTab,
+      title: "6. Citation Context",
+      subtitle: "Rhetorical Roles",
+      icon: Quote,
+      onActivate: () => {
+        setActiveTool("citation_intent");
+        if (!citationData) runCitationIntentAnalysis();
+      },
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-                Scientometric AI Copilot & Research Studio
-                <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
-                  Multi-provider AI
-                </span>
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Full-stack AI assistance: research corpus RAG, research gap mapping, manuscript synthesis, and citation context analysis.
-              </p>
-            </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-default pb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black tracking-tight text-ink-primary">
+              Scientometric AI Copilot &amp; Research Studio
+              <span className="rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-xs font-bold text-brand-700">
+                Multi-provider AI
+              </span>
+            </h1>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Full-stack AI assistance: research corpus RAG, research gap
+              mapping, manuscript synthesis, and citation context analysis.
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <AiProviderSelector />
 
-          {/* Dataset selector */}
           {datasets.length > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 uppercase">Active Dataset:</span>
+            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 shadow-card">
+              <span className="sciai-kicker text-[10px]!">Active Dataset:</span>
               <select
                 value={selectedDatasetId}
                 onChange={(e) => setSelectedDatasetId(e.target.value)}
-                className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer"
+                className="cursor-pointer bg-transparent text-xs font-bold text-ink-primary focus:outline-none"
               >
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -394,165 +529,89 @@ You can ask me questions such as:
       </div>
 
       {lastAiProvenance && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-2xs">
-          <span className="font-bold uppercase tracking-wide text-slate-500">Last AI response</span>
-          <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border-default bg-surface-canvas px-3 py-2 text-[11px] shadow-card">
+          <span className="sciai-kicker text-[10px]!">Last AI response</span>
+          <span className="rounded-md border border-border-subtle bg-surface-subtle px-2 py-1 font-semibold text-ink-secondary">
             {lastAiProvenance.provider || "unavailable"}
-            {lastAiProvenance.model && lastAiProvenance.model !== "unavailable" ? ` · ${lastAiProvenance.model}` : ""}
+            {lastAiProvenance.model && lastAiProvenance.model !== "unavailable"
+              ? ` · ${lastAiProvenance.model}`
+              : ""}
           </span>
-          {lastAiProvenance.attemptedProviders && lastAiProvenance.attemptedProviders.length > 1 && (
-            <span className="text-amber-700">Fallback path attempted</span>
-          )}
+          {lastAiProvenance.attemptedProviders &&
+            lastAiProvenance.attemptedProviders.length > 1 && (
+              <span className="font-medium text-status-warning-text">
+                Fallback path attempted
+              </span>
+            )}
           {lastAiWarnings.map((warning) => (
-            <span key={warning} className="text-amber-700">{warning}</span>
+            <span
+              key={warning}
+              className="font-medium text-status-warning-text"
+            >
+              {warning}
+            </span>
           ))}
         </div>
       )}
 
       {/* Feature Mode Switcher Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <button
-          type="button"
-          onClick={() => setActiveTool("rag_chat")}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "rag_chat"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "rag_chat" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <BrainCircuit className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">1. Research Corpus RAG</div>
-            <div className="text-[10px] text-slate-500 truncate">Q&A & Inquiries</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTool("gap_matrix");
-            if (!gapMatrixData) runResearchGapMatrix();
-          }}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "gap_matrix"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "gap_matrix" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <Grid className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">2. Gap Matrix</div>
-            <div className="text-[10px] text-slate-500 truncate">Feasibility vs Novelty</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTool("corpus_discrepancy");
-            if (!discrepancyData) runCorpusDiscrepancyAnalysis();
-          }}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "corpus_discrepancy"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "corpus_discrepancy" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <Database className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">3. Indexing Coverage</div>
-            <div className="text-[10px] text-slate-500 truncate">WoS vs Scopus vs PubMed</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTool("white_spaces");
-            if (!gapsResult) runWhiteSpaces();
-          }}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "white_spaces"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "white_spaces" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <Compass className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">4. Research Gaps</div>
-            <div className="text-[10px] text-slate-500 truncate">Structural Gaps</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTool("manuscript_studio");
-            if (!manuscriptContent) runGenerateManuscript("abstract");
-          }}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "manuscript_studio"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "manuscript_studio" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <FileText className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">5. Manuscript</div>
-            <div className="text-[10px] text-slate-500 truncate">Manuscript Synthesis</div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTool("citation_intent");
-            if (!citationData) runCitationIntentAnalysis();
-          }}
-          className={`flex items-center gap-2 rounded-xl p-3 text-left border transition cursor-pointer ${
-            activeTool === "citation_intent"
-              ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          <div className={`p-1.5 rounded-lg shrink-0 ${activeTool === "citation_intent" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-            <Quote className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-xs font-black truncate">6. Citation Context</div>
-            <div className="text-[10px] text-slate-500 truncate">Rhetorical Roles</div>
-          </div>
-        </button>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {toolItems.map((tool) => {
+          const Icon = tool.icon;
+          const isActive = activeTool === tool.id;
+          return (
+            <button
+              key={tool.id}
+              type="button"
+              onClick={tool.onActivate}
+              className={`flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-left transition-colors ${
+                isActive
+                  ? "border-brand-500 bg-brand-50/70 text-ink-primary shadow-card"
+                  : "border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
+              }`}
+            >
+              <div
+                className={`shrink-0 rounded-lg p-1.5 ${
+                  isActive
+                    ? "bg-brand-500 text-white"
+                    : "border border-border-subtle bg-surface-subtle text-ink-secondary"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-xs font-black text-ink-primary">
+                  {tool.title}
+                </div>
+                <div className="truncate text-[10px] text-ink-muted">
+                  {tool.subtitle}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* ========================================================= */}
-      {/* 1. RAG CHAT INTERFACE                                     */}
-      {/* ========================================================= */}
+      {/* 1. RAG CHAT INTERFACE */}
       {activeTool === "rag_chat" && (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden flex flex-col h-[600px]">
-          <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-3.5 flex items-center justify-between">
+        <Card
+          padding="none"
+          className="flex h-[600px] flex-col overflow-hidden"
+        >
+          <div className="flex items-center justify-between border-b border-border-subtle bg-surface-subtle px-5 py-3.5">
             <div className="flex items-center gap-2.5">
-              <BrainCircuit className="h-4 w-4 text-indigo-600" />
-              <span className="text-xs font-black text-slate-800">
+              <BrainCircuit className="h-4 w-4 text-brand-500" />
+              <span className="text-xs font-black text-ink-primary">
                 Corpus-Grounded Scientometric RAG Assistant
               </span>
             </div>
-            <span className="text-[10px] font-semibold text-slate-400">
-              Live Token Indexing ({datasets.length} datasets, {analyses.length} analysis runs)
+            <span className="tabular-metrics text-[10px] font-semibold text-ink-subtle">
+              Live Token Indexing ({datasets.length} datasets, {analyses.length}{" "}
+              analysis runs)
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 space-y-4 overflow-y-auto p-5">
             {conversation.map((msg, idx) => (
               <div
                 key={idx}
@@ -561,10 +620,10 @@ You can ask me questions such as:
                 }`}
               >
                 <div
-                  className={`max-w-2xl rounded-2xl p-4 text-xs leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-2xl whitespace-pre-wrap rounded-2xl p-4 text-xs leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-slate-950 text-white rounded-tr-none"
-                      : "bg-slate-50 text-slate-800 border border-slate-200/80 rounded-tl-none"
+                      ? "rounded-tr-none bg-brand-500 text-white"
+                      : "rounded-tl-none border border-border-default bg-surface-subtle text-ink-primary"
                   }`}
                 >
                   {msg.text}
@@ -573,9 +632,10 @@ You can ask me questions such as:
             ))}
             {ragLoading && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3 text-xs text-indigo-700 font-medium">
-                  <Sparkles className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                  AI provider router is retrieving relevant research corpus publications and calculating scientometric context...
+                <div className="flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-xs font-medium text-brand-700">
+                  <Sparkles className="h-3.5 w-3.5 animate-spin text-brand-500" />
+                  AI provider router is retrieving relevant research corpus
+                  publications and calculating scientometric context...
                 </div>
               </div>
             )}
@@ -583,117 +643,141 @@ You can ask me questions such as:
 
           <form
             onSubmit={handleSendRag}
-            className="border-t border-slate-200 bg-white p-3.5 flex gap-2"
+            className="flex gap-2 border-t border-border-default bg-surface-canvas p-3.5"
           >
             <input
               type="text"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ask anything about authors, citations, journals, keyword clusters, or mathematical laws..."
-              className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-xs outline-none focus:border-slate-950"
+              className="flex-1 rounded-xl border border-border-default bg-surface-canvas px-4 py-2.5 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
             />
-            <button
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
+              loading={ragLoading}
               disabled={ragLoading || !prompt.trim()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+              icon={!ragLoading ? <Send className="h-3.5 w-3.5" /> : undefined}
             >
-              <Send className="h-3.5 w-3.5" />
               Ask Copilot
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
       )}
 
-      {/* ========================================================= */}
-      {/* 2. RESEARCH GAP MATRIX (Feasibility vs Novelty)           */}
-      {/* ========================================================= */}
+      {/* 2. RESEARCH GAP MATRIX */}
       {activeTool === "gap_matrix" && (
         <div className="space-y-6">
           {gapMatrixError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
-              <div>
-                <span className="font-bold">Research Gap Matrix Unavailable: </span>
-                {gapMatrixError}
+            <AlertBanner tone="danger">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-bold">
+                    Research Gap Matrix Unavailable:{" "}
+                  </span>
+                  {gapMatrixError}
+                </div>
+                <button
+                  type="button"
+                  onClick={runResearchGapMatrix}
+                  className="cursor-pointer font-bold underline"
+                >
+                  Retry
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={runResearchGapMatrix}
-                className="cursor-pointer font-bold underline"
-              >
-                Retry
-              </button>
-            </div>
+            </AlertBanner>
           )}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">
-                  Research Assistance & Augmented Analysis
+                <span className="sciai-kicker text-[11px]! text-brand-500!">
+                  Research Assistance &amp; Augmented Analysis
                 </span>
-                <span className="rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 text-[10px] font-mono text-indigo-700">
+                <span className="rounded-md border border-brand-200 bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] text-brand-700">
                   Matrix Framework
                 </span>
               </div>
-              <h2 className="text-xl font-black text-slate-900 mt-1">
+              <h2 className="mt-1 text-xl font-black text-ink-primary">
                 Research Gap Matrix: Novelty vs. Feasibility
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                AI-synthesized research proposals categorized into strategic quadrants (Moonshots, Low-Hanging Fruit, High-Impact Core).
+              <p className="mt-0.5 text-xs text-ink-muted">
+                AI-synthesized research proposals categorized into strategic
+                quadrants (Moonshots, Low-Hanging Fruit, High-Impact Core).
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={runResearchGapMatrix}
-                disabled={gapMatrixLoading}
-                className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${gapMatrixLoading ? "animate-spin" : ""}`} />
-                Generate Gap Matrix
-              </button>
-            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              loading={gapMatrixLoading}
+              disabled={gapMatrixLoading}
+              onClick={runResearchGapMatrix}
+              icon={
+                !gapMatrixLoading ? (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                ) : undefined
+              }
+            >
+              Generate Gap Matrix
+            </Button>
           </div>
 
           {gapMatrixLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-              <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
-              <div className="mt-3 text-sm font-bold text-slate-800">
+            <Card padding="lg" className="py-12 text-center">
+              <Sparkles className="mx-auto h-8 w-8 animate-spin text-brand-500" />
+              <div className="mt-3 text-sm font-bold text-ink-primary">
                 Synthesizing Research Gaps into Novelty-Feasibility Matrix...
               </div>
-              <div className="text-xs text-slate-400 mt-1">
-                Multi-provider AI evaluating research potential, methodology pathways, and risk profiles
+              <div className="mt-1 text-xs text-ink-muted">
+                Multi-provider AI evaluating research potential, methodology
+                pathways, and risk profiles
               </div>
-            </div>
+            </Card>
           ) : gapMatrixData ? (
             <div className="space-y-6">
-              {/* Summary Banner */}
-              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs text-indigo-950 flex items-start gap-3 shadow-2xs">
-                <Lightbulb className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50/70 p-4 text-xs text-ink-secondary shadow-card">
+                <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
                 <div>
-                  <span className="font-bold">Recommended Grant Proposal: </span>
+                  <strong className="text-ink-primary">
+                    Recommended Grant Proposal:{" "}
+                  </strong>
                   {gapMatrixData.matrixSummary.recommendedTopGrantProposal}
                 </div>
               </div>
 
-              {/* Quadrant Quick Filter */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                <span className="text-[11px] font-bold text-slate-400 uppercase mr-1">Filter Quadrant:</span>
+                <span className="sciai-kicker mr-1 text-[11px]!">
+                  Filter Quadrant:
+                </span>
                 {[
                   { id: "all", label: "All Quadrants" },
-                  { id: "High Novelty / Low Feasibility", label: "🚀 High-Risk Moonshot" },
-                  { id: "High Novelty / High Feasibility", label: "⭐ Gold Standard Grant" },
-                  { id: "Low Novelty / High Feasibility", label: "🎯 Low-Hanging Fruit" },
-                  { id: "Low Novelty / Low Feasibility", label: "📈 Deprioritized" },
+                  {
+                    id: "High Novelty / Low Feasibility",
+                    label: "High-Risk Moonshot",
+                  },
+                  {
+                    id: "High Novelty / High Feasibility",
+                    label: "Gold Standard Grant",
+                  },
+                  {
+                    id: "Low Novelty / High Feasibility",
+                    label: "Low-Hanging Fruit",
+                  },
+                  {
+                    id: "Low Novelty / Low Feasibility",
+                    label: "Deprioritized",
+                  },
                 ].map((q) => (
                   <button
                     key={q.id}
                     type="button"
                     onClick={() => setSelectedQuadrantFilter(q.id)}
-                    className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap ${
+                    className={`cursor-pointer whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
                       selectedQuadrantFilter === q.id
-                        ? "bg-slate-900 text-white shadow-2xs font-bold"
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        ? "bg-brand-500 font-bold text-white shadow-xs"
+                        : "border border-border-default bg-surface-canvas text-ink-secondary hover:bg-surface-subtle"
                     }`}
                   >
                     {q.label}
@@ -701,345 +785,455 @@ You can ask me questions such as:
                 ))}
               </div>
 
-              {/* Proposals Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {gapMatrixData.proposals
-                  .filter((item) => selectedQuadrantFilter === "all" || item.quadrant.includes(selectedQuadrantFilter))
+                  .filter(
+                    (item) =>
+                      selectedQuadrantFilter === "all" ||
+                      item.quadrant.includes(selectedQuadrantFilter)
+                  )
                   .map((item, idx) => (
-                    <div
+                    <Card
                       key={idx}
-                      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-4"
+                      padding="md"
+                      className="flex flex-col justify-between space-y-4 transition-colors hover:border-border-strong"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-start justify-between gap-3">
                           <span
-                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                               item.quadrant === "High Novelty / Low Feasibility"
-                                ? "bg-purple-100 text-purple-800"
-                                : item.quadrant === "High Novelty / High Feasibility"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : item.quadrant === "Low Novelty / High Feasibility"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-amber-100 text-amber-800"
+                                ? "border-brand-200 bg-brand-50 text-brand-700"
+                                : item.quadrant ===
+                                    "High Novelty / High Feasibility"
+                                  ? "border-status-success-border bg-status-success-bg text-status-success-text"
+                                  : item.quadrant ===
+                                      "Low Novelty / High Feasibility"
+                                    ? "border-status-info-border bg-status-info-bg text-status-info-text"
+                                    : "border-status-warning-border bg-status-warning-bg text-status-warning-text"
                             }`}
                           >
                             {item.quadrant}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400">
+                          <span className="font-mono text-[10px] text-ink-subtle">
                             {item.estimatedCompletionHorizon}
                           </span>
                         </div>
 
-                        <h3 className="text-sm font-black text-slate-900 leading-snug">
+                        <h3 className="text-sm font-black leading-snug text-ink-primary">
                           {item.title}
                         </h3>
 
-                        <p className="text-xs text-slate-600 leading-relaxed">
+                        <p className="text-xs leading-relaxed text-ink-secondary">
                           {item.gapDescription}
                         </p>
                       </div>
 
-                      {/* Score Metrics */}
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                      <div className="space-y-2 border-t border-border-subtle pt-2">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                            <div className="tabular-metrics mb-1 flex justify-between text-[10px] font-bold text-ink-muted">
                               <span>Novelty</span>
-                              <span className="text-purple-700">{item.noveltyScore}/100</span>
+                              <span className="text-brand-600">
+                                {item.noveltyScore}/100
+                              </span>
                             </div>
-                            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                               <div
-                                className="h-full bg-purple-600 rounded-full"
+                                className="h-full rounded-full bg-brand-500"
                                 style={{ width: `${item.noveltyScore}%` }}
                               />
                             </div>
                           </div>
 
                           <div>
-                            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                            <div className="tabular-metrics mb-1 flex justify-between text-[10px] font-bold text-ink-muted">
                               <span>Feasibility</span>
-                              <span className="text-emerald-700">{item.feasibilityScore}/100</span>
+                              <span className="text-status-success-text">
+                                {item.feasibilityScore}/100
+                              </span>
                             </div>
-                            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                               <div
-                                className="h-full bg-emerald-600 rounded-full"
+                                className="h-full rounded-full bg-status-success-text"
                                 style={{ width: `${item.feasibilityScore}%` }}
                               />
                             </div>
                           </div>
                         </div>
 
-                        <div className="pt-2 flex flex-col gap-1 text-[11px] text-slate-500 font-mono">
+                        <div className="flex flex-col gap-1 pt-2 font-mono text-[11px] text-ink-muted">
                           <div>
-                            <span className="font-bold font-sans text-slate-700">Approach: </span>
+                            <span className="font-sans font-bold text-ink-primary">
+                              Approach:{" "}
+                            </span>
                             {item.methodologicalApproach}
                           </div>
                           <div>
-                            <span className="font-bold font-sans text-slate-700">Target Degree: </span>
+                            <span className="font-sans font-bold text-ink-primary">
+                              Target Degree:{" "}
+                            </span>
                             {item.targetDegreeLevel}
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Card>
                   ))}
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-              <Grid className="h-10 w-10 text-slate-300 mx-auto" />
-              <h3 className="mt-3 text-sm font-bold text-slate-900">
+            <Card padding="lg" className="py-12 text-center">
+              <Grid className="mx-auto h-10 w-10 text-ink-subtle" />
+              <h3 className="mt-3 text-sm font-bold text-ink-primary">
                 No Research Gap Matrix Generated Yet
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Generate thesis and grant proposals mapped onto a Novelty-Feasibility quadrant grid grounded in the current bibliometric corpus.
+              <p className="mx-auto mt-1 max-w-md text-xs text-ink-muted">
+                Generate thesis and grant proposals mapped onto a
+                Novelty-Feasibility quadrant grid grounded in the current
+                bibliometric corpus.
               </p>
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={runResearchGapMatrix}
-                className="mt-4 cursor-pointer inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition"
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                className="mt-4"
               >
-                <Sparkles className="h-3.5 w-3.5" />
                 Generate Proposal Matrix
-              </button>
-            </div>
+              </Button>
+            </Card>
           )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 3. MULTI-CORPUS DISCREPANCY & INDEXING BIAS REPORT       */}
-      {/* ========================================================= */}
+      {/* 3. MULTI-CORPUS DISCREPANCY */}
       {activeTool === "corpus_discrepancy" && (
         <div className="space-y-6">
           {discrepancyError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
-              <div>
-                <span className="font-bold">Discrepancy Analysis Unavailable: </span>
-                {discrepancyError}
+            <AlertBanner tone="danger">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-bold">
+                    Discrepancy Analysis Unavailable:{" "}
+                  </span>
+                  {discrepancyError}
+                </div>
+                <button
+                  type="button"
+                  onClick={runCorpusDiscrepancyAnalysis}
+                  className="cursor-pointer font-bold underline"
+                >
+                  Retry
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={runCorpusDiscrepancyAnalysis}
-                className="cursor-pointer font-bold underline"
-              >
-                Retry
-              </button>
-            </div>
+            </AlertBanner>
           )}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600">
+                <span className="sciai-kicker text-[11px]! text-brand-500!">
                   Bibliographic Bias Analysis
                 </span>
-                <span className="rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 text-[10px] font-mono text-indigo-700">
+                <span className="rounded-md border border-brand-200 bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] text-brand-700">
                   Cross-Index Comparative
                 </span>
               </div>
-              <h2 className="text-xl font-black text-slate-900 mt-1">
-                Multi-Source Indexing Coverage & Discrepancy Analysis (WoS vs. Scopus vs. PubMed)
+              <h2 className="mt-1 text-xl font-black text-ink-primary">
+                Multi-Source Indexing Coverage &amp; Discrepancy Analysis (WoS
+                vs. Scopus vs. PubMed)
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Evaluation of indexing coverage gaps, language coverage patterns, and citation lag discrepancies across major bibliographic databases.
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Evaluation of indexing coverage gaps, language coverage
+                patterns, and citation lag discrepancies across major
+                bibliographic databases.
               </p>
             </div>
 
-            <button
+            <Button
               type="button"
-              onClick={runCorpusDiscrepancyAnalysis}
+              variant="primary"
+              size="md"
+              loading={discrepancyLoading}
               disabled={discrepancyLoading}
-              className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50"
+              onClick={runCorpusDiscrepancyAnalysis}
+              icon={
+                !discrepancyLoading ? (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                ) : undefined
+              }
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${discrepancyLoading ? "animate-spin" : ""}`} />
               Re-Analyze Coverage
-            </button>
+            </Button>
           </div>
 
           {discrepancyLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-              <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
-              <div className="mt-3 text-sm font-bold text-slate-800">
-                Auditing indexing coverage across WoS, Scopus, PubMed, and CrossRef...
+            <Card padding="lg" className="py-12 text-center">
+              <Sparkles className="mx-auto h-8 w-8 animate-spin text-brand-500" />
+              <div className="mt-3 text-sm font-bold text-ink-primary">
+                Auditing indexing coverage across WoS, Scopus, PubMed, and
+                CrossRef...
               </div>
-              <div className="text-xs text-slate-400 mt-1">
-                Comparing coverage disparities, regional blind spots, and citation differential ratios
+              <div className="mt-1 text-xs text-ink-muted">
+                Comparing coverage disparities, regional blind spots, and
+                citation differential ratios
               </div>
-            </div>
+            </Card>
           ) : discrepancyData ? (
             <div className="space-y-6">
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-900">
-                <strong>Unique records across databases:</strong> {discrepancyData.totalUniqueUnionDocs.toLocaleString()}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <AlertBanner tone="info">
+                <strong>Unique records across databases:</strong>{" "}
+                <span className="tabular-metrics font-mono font-bold">
+                  {discrepancyData.totalUniqueUnionDocs.toLocaleString()}
+                </span>
+              </AlertBanner>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {discrepancyData.databaseMetrics.map((metric) => (
-                  <div key={metric.database} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-                    <h3 className="text-base font-black text-slate-900">{metric.database}</h3>
-                    <div className="space-y-1 text-xs text-slate-700">
-                      <p>Indexed records: {metric.docCount.toLocaleString()}</p>
-                      <p>Exclusive records: {metric.exclusiveDocCount.toLocaleString()} ({metric.exclusiveRatio}%)</p>
+                  <Card key={metric.database} padding="md" className="space-y-3">
+                    <h3 className="text-base font-black text-ink-primary">
+                      {metric.database}
+                    </h3>
+                    <div className="tabular-metrics space-y-1 text-xs text-ink-secondary">
+                      <p>
+                        Indexed records: {metric.docCount.toLocaleString()}
+                      </p>
+                      <p>
+                        Exclusive records:{" "}
+                        {metric.exclusiveDocCount.toLocaleString()} (
+                        {metric.exclusiveRatio}%)
+                      </p>
                       <p>Coverage of union: {metric.coverageRatio}%</p>
-                      <p>Average recorded citations: {metric.avgCitationsRecorded}</p>
-                      <p>Open access coverage: {metric.openAccessCoveragePct}%</p>
-                      <p>Author disambiguation: {metric.authorDisambiguationQuality}</p>
-                      <p>Funding information: {metric.fundingInformationCoveragePct}%</p>
-                      <p>Abstract completeness: {metric.abstractCompletenessPct}%</p>
+                      <p>
+                        Average recorded citations:{" "}
+                        {metric.avgCitationsRecorded}
+                      </p>
+                      <p>
+                        Open access coverage: {metric.openAccessCoveragePct}%
+                      </p>
+                      <p>
+                        Author disambiguation:{" "}
+                        {metric.authorDisambiguationQuality}
+                      </p>
+                      <p>
+                        Funding information:{" "}
+                        {metric.fundingInformationCoveragePct}%
+                      </p>
+                      <p>
+                        Abstract completeness:{" "}
+                        {metric.abstractCompletenessPct}%
+                      </p>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
-                <h3 className="text-sm font-black text-slate-900">Database Intersections</h3>
-                <div className="grid gap-2 text-xs text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(discrepancyData.vennIntersections).map(([intersection, count]) => (
-                    <p key={intersection}>{intersection.replace(/([A-Z])/g, " $1")}: {count.toLocaleString()}</p>
-                  ))}
+              <Card padding="lg" className="space-y-3">
+                <h3 className="text-sm font-black text-ink-primary">
+                  Database Intersections
+                </h3>
+                <div className="tabular-metrics grid gap-2 text-xs text-ink-secondary sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(discrepancyData.vennIntersections).map(
+                    ([intersection, count]) => (
+                      <p key={intersection}>
+                        {intersection.replace(/([A-Z])/g, " $1")}:{" "}
+                        <strong className="text-ink-primary">
+                          {count.toLocaleString()}
+                        </strong>
+                      </p>
+                    )
+                  )}
                 </div>
-              </div>
+              </Card>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <Card padding="lg" className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
-                  <h3 className="text-sm font-black text-slate-900">Subject Coverage Biases</h3>
+                  <AlertTriangle className="h-5 w-5 text-status-warning-text" />
+                  <h3 className="text-sm font-black text-ink-primary">
+                    Subject Coverage Biases
+                  </h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {discrepancyData.fieldBiases.map((bias) => (
-                    <div key={bias.categoryName} className="rounded-xl border border-amber-200/70 bg-amber-50/40 p-3.5 space-y-1 text-xs">
-                      <div className="font-bold text-amber-900">{bias.categoryName}</div>
-                      <p>WoS: {bias.wosSharePct}% · Scopus: {bias.scopusSharePct}% · PubMed: {bias.pubmedSharePct}%</p>
-                      <p className="text-slate-600">{bias.discrepancyBiasVerdict}</p>
+                    <div
+                      key={bias.categoryName}
+                      className="space-y-1 rounded-xl border border-status-warning-border bg-status-warning-bg/50 p-3.5 text-xs"
+                    >
+                      <div className="font-bold text-status-warning-text">
+                        {bias.categoryName}
+                      </div>
+                      <p className="tabular-metrics font-medium text-ink-primary">
+                        WoS: {bias.wosSharePct}% · Scopus:{" "}
+                        {bias.scopusSharePct}% · PubMed: {bias.pubmedSharePct}%
+                      </p>
+                      <p className="text-ink-secondary">
+                        {bias.discrepancyBiasVerdict}
+                      </p>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3 text-xs text-slate-700">
+              <Card padding="lg" className="space-y-3 text-xs text-ink-secondary">
                 <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-indigo-600" />
-                  <h3 className="text-sm font-black text-slate-900">Cross-Database Synthesis</h3>
+                  <Award className="h-5 w-5 text-brand-500" />
+                  <h3 className="text-sm font-black text-ink-primary">
+                    Cross-Database Synthesis
+                  </h3>
                 </div>
-                <p><strong>Citation coverage:</strong> {discrepancyData.synthesizedReport.citationInflationLeader}</p>
-                <p><strong>Clinical depth:</strong> {discrepancyData.synthesizedReport.clinicalDepthLeader}</p>
-                <p><strong>Selective indexing:</strong> {discrepancyData.synthesizedReport.eliteSelectivityLeader}</p>
-                <p><strong>Recommended strategy:</strong> {discrepancyData.synthesizedReport.recommendedIndexingStrategy}</p>
-                <p className="text-amber-800"><strong>Systematic review caution:</strong> {discrepancyData.synthesizedReport.systematicReviewWarning}</p>
-              </div>
+                <p>
+                  <strong className="text-ink-primary">
+                    Citation coverage:
+                  </strong>{" "}
+                  {discrepancyData.synthesizedReport.citationInflationLeader}
+                </p>
+                <p>
+                  <strong className="text-ink-primary">Clinical depth:</strong>{" "}
+                  {discrepancyData.synthesizedReport.clinicalDepthLeader}
+                </p>
+                <p>
+                  <strong className="text-ink-primary">
+                    Selective indexing:
+                  </strong>{" "}
+                  {discrepancyData.synthesizedReport.eliteSelectivityLeader}
+                </p>
+                <p>
+                  <strong className="text-ink-primary">
+                    Recommended strategy:
+                  </strong>{" "}
+                  {
+                    discrepancyData.synthesizedReport
+                      .recommendedIndexingStrategy
+                  }
+                </p>
+                <p className="font-medium text-status-warning-text">
+                  <strong>Systematic review caution:</strong>{" "}
+                  {discrepancyData.synthesizedReport.systematicReviewWarning}
+                </p>
+              </Card>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-2xs">
-              <Database className="h-10 w-10 text-slate-300 mx-auto" />
-              <h3 className="mt-3 text-sm font-bold text-slate-900">
+            <Card padding="lg" className="py-12 text-center">
+              <Database className="mx-auto h-10 w-10 text-ink-subtle" />
+              <h3 className="mt-3 text-sm font-bold text-ink-primary">
                 No Multi-Source Discrepancy Analysis Run
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Evaluate systematic disparities, non-English literature exclusions, and citation coverage differences across WoS, Scopus, and PubMed.
+              <p className="mx-auto mt-1 max-w-md text-xs text-ink-muted">
+                Evaluate systematic disparities, non-English literature
+                exclusions, and citation coverage differences across WoS,
+                Scopus, and PubMed.
               </p>
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={runCorpusDiscrepancyAnalysis}
-                className="mt-4 cursor-pointer inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition"
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                className="mt-4"
               >
-                <Sparkles className="h-3.5 w-3.5" />
                 Analyze Source Discrepancies
-              </button>
-            </div>
+              </Button>
+            </Card>
           )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 4. RESEARCH GAPS & WHITE-SPACE DETECTION                  */}
-      {/* ========================================================= */}
+      {/* 4. RESEARCH GAPS & WHITE-SPACE DETECTION */}
       {activeTool === "white_spaces" && (
         <div className="space-y-6">
           {gapsError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
-              <span className="font-bold">Research Gap Analysis Unavailable: </span>
+            <AlertBanner tone="danger">
+              <span className="font-bold">
+                Research Gap Analysis Unavailable:{" "}
+              </span>
               {gapsError}
-            </div>
+            </AlertBanner>
           )}
           {gapsIsPartial && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 font-medium">
-              Partial Result: AI response was incomplete. Do not treat it as authoritative analysis.
-            </div>
+            <AlertBanner tone="warning">
+              Partial Result: AI response was incomplete. Do not treat it as
+              authoritative analysis.
+            </AlertBanner>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-slate-900">
-                Research Gaps & Structural Holes
+              <h2 className="text-lg font-black text-ink-primary">
+                Research Gaps &amp; Structural Holes
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                AI-assisted identification of low-edge bridges and underexplored thematic intersections.
+              <p className="mt-0.5 text-xs text-ink-muted">
+                AI-assisted identification of low-edge bridges and underexplored
+                thematic intersections.
               </p>
             </div>
-            <button
+            <Button
               type="button"
-              onClick={runWhiteSpaces}
+              variant="primary"
+              size="md"
+              loading={gapsLoading}
               disabled={gapsLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+              onClick={runWhiteSpaces}
+              icon={
+                !gapsLoading ? <RefreshCw className="h-3.5 w-3.5" /> : undefined
+              }
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${gapsLoading ? "animate-spin" : ""}`} />
               Re-Scan Research Gaps
-            </button>
+            </Button>
           </div>
 
           {gapsLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-              <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
-              <div className="mt-3 text-sm font-bold text-slate-800">
-                Analyzing Network Topology & Modularity Holes...
+            <Card padding="lg" className="py-12 text-center">
+              <Sparkles className="mx-auto h-8 w-8 animate-spin text-brand-500" />
+              <div className="mt-3 text-sm font-bold text-ink-primary">
+                Analyzing Network Topology &amp; Modularity Holes...
               </div>
-              <div className="text-xs text-slate-400 mt-1">
+              <div className="mt-1 text-xs text-ink-muted">
                 Synthesizing thematic gaps across active clusters
               </div>
-            </div>
+            </Card>
           ) : gapsResult ? (
             <div className="space-y-6">
-              {/* Research Gaps */}
               <div className="grid gap-4 md:grid-cols-2">
                 {gapsResult.white_spaces.map((gap, i) => (
                   <div
                     key={i}
-                    className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/20 p-5 shadow-2xs space-y-3"
+                    className="space-y-3 rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50/60 via-surface-canvas to-surface-subtle p-5 shadow-card"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-black text-slate-900">
+                      <h3 className="text-sm font-black text-ink-primary">
                         {gap.title}
                       </h3>
-                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-800">
+                      <span className="tabular-metrics rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[9px] font-bold text-brand-700">
                         Research Gap #{i + 1}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
+                    <p className="text-xs leading-relaxed text-ink-secondary">
                       {gap.rationale}
                     </p>
                     <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">
+                      <div className="sciai-kicker mb-1.5 text-[10px]!">
                         Key Bridging Concepts:
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {gap.bridging_topics.map((t, idx) => (
                           <span
                             key={idx}
-                            className="rounded-md bg-white border border-indigo-200 px-2 py-0.5 text-[11px] font-bold text-indigo-700"
+                            className="rounded-md border border-brand-200 bg-surface-canvas px-2 py-0.5 text-[11px] font-bold text-brand-700"
                           >
                             {t}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800">
+                    <div className="rounded-lg border border-status-success-border bg-status-success-bg p-2.5 text-xs text-status-success-text">
                       <strong>Impact Potential:</strong> {gap.potential_impact}
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Unexplored Intersections & Hypotheses */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <Card padding="lg" className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <Compass className="h-4 w-4 text-purple-600" />
-                  <h3 className="text-sm font-black text-slate-900">
+                  <Compass className="h-4 w-4 text-brand-500" />
+                  <h3 className="text-sm font-black text-ink-primary">
                     Unexplored Inter-Cluster Thematic Intersections
                   </h3>
                 </div>
@@ -1047,30 +1241,32 @@ You can ask me questions such as:
                   {gapsResult.unexplored_intersections.map((inter, i) => (
                     <div
                       key={i}
-                      className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-2"
+                      className="space-y-2 rounded-xl border border-border-subtle bg-surface-subtle p-4"
                     >
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                        <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-indigo-800">
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-ink-primary">
+                        <span className="rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-brand-700">
                           {inter.topic_a}
                         </span>
-                        <span className="text-slate-400">⟷</span>
-                        <span className="rounded-md bg-purple-100 px-2 py-0.5 text-purple-800">
+                        <span className="text-ink-subtle">⟷</span>
+                        <span className="rounded-md border border-status-info-border bg-status-info-bg px-2 py-0.5 text-status-info-text">
                           {inter.topic_b}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-700 leading-relaxed">
-                        <strong>Testable Working Hypothesis:</strong> {inter.hypothesis}
+                      <p className="text-xs leading-relaxed text-ink-secondary">
+                        <strong className="text-ink-primary">
+                          Testable Working Hypothesis:
+                        </strong>{" "}
+                        {inter.hypothesis}
                       </p>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
 
-              {/* Trend Forecasts */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+              <Card padding="lg" className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  <h3 className="text-sm font-black text-slate-900">
+                  <TrendingUp className="h-4 w-4 text-status-success-text" />
+                  <h3 className="text-sm font-black text-ink-primary">
                     2-Year Scientometric Growth Forecasts
                   </h3>
                 </div>
@@ -1078,60 +1274,60 @@ You can ask me questions such as:
                   {gapsResult.future_trend_forecasts.map((trend, i) => (
                     <div
                       key={i}
-                      className="rounded-xl border border-slate-200 bg-white p-4 space-y-1.5"
+                      className="space-y-1.5 rounded-xl border border-border-default bg-surface-subtle p-4"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-black text-slate-900">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-black text-ink-primary">
                           {trend.concept}
                         </div>
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        <span className="tabular-metrics rounded-full border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[10px] font-bold text-status-success-text">
                           {trend.projected_growth}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed">
+                      <p className="text-xs leading-relaxed text-ink-muted">
                         {trend.trajectory_rationale}
                       </p>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             </div>
           ) : null}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 3. MANUSCRIPT STUDIO (ABSTRACT, DISCUSSION, HYPOTHESES)   */}
-      {/* ========================================================= */}
+      {/* 5. MANUSCRIPT STUDIO */}
       {activeTool === "manuscript_studio" && (
         <div className="space-y-6">
           {manuscriptError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+            <AlertBanner tone="danger">
               <span className="font-bold">Synthesis Error: </span>
               {manuscriptError}
-            </div>
+            </AlertBanner>
           )}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-black text-slate-900">
+              <h2 className="text-lg font-black text-ink-primary">
                 Academic Manuscript Drafting Studio
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Generate publication-grade narrative sections for journals like <em>Scientometrics</em>.
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Generate publication-grade narrative sections for journals like{" "}
+                <em>Scientometrics</em>.
               </p>
             </div>
 
-            {/* Section Switcher */}
-            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs">
-              {(["abstract", "discussion", "limitations", "hypotheses"] as const).map((sec) => (
+            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border-default bg-surface-subtle p-1 text-xs">
+              {(
+                ["abstract", "discussion", "limitations", "hypotheses"] as const
+              ).map((sec) => (
                 <button
                   type="button"
                   key={sec}
                   onClick={() => runGenerateManuscript(sec)}
-                  className={`rounded-lg px-3 py-1.5 font-bold capitalize transition cursor-pointer ${
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 font-bold capitalize transition-colors ${
                     manuscriptSection === sec
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-brand-500 text-white shadow-xs"
+                      : "text-ink-secondary hover:text-ink-primary"
                   }`}
                 >
                   {sec}
@@ -1140,182 +1336,199 @@ You can ask me questions such as:
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <Card padding="lg" className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-indigo-600" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                <FileText className="h-4 w-4 text-brand-500" />
+                <span className="sciai-kicker text-ink-primary!">
                   Manuscript Section: {manuscriptSection.toUpperCase()}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     navigator.clipboard.writeText(manuscriptContent);
                     setCopiedSection(true);
                     setTimeout(() => setCopiedSection(false), 2000);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                  icon={
+                    copiedSection ? (
+                      <Check className="h-3.5 w-3.5 text-status-success-text" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )
+                  }
                 >
-                  {copiedSection ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                   {copiedSection ? "Copied" : "Copy to Clipboard"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  onClick={() => runGenerateManuscript(manuscriptSection)}
+                  variant="primary"
+                  size="sm"
+                  loading={manuscriptLoading}
                   disabled={manuscriptLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+                  onClick={() => runGenerateManuscript(manuscriptSection)}
+                  icon={
+                    !manuscriptLoading ? (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    ) : undefined
+                  }
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${manuscriptLoading ? "animate-spin" : ""}`} />
                   Regenerate
-                </button>
+                </Button>
               </div>
             </div>
 
             {manuscriptLoading ? (
               <div className="py-12 text-center">
-                <Sparkles className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                <div className="text-xs font-bold text-slate-700 mt-2">
+                <Sparkles className="mx-auto h-6 w-6 animate-spin text-brand-500" />
+                <div className="mt-2 text-xs font-bold text-ink-secondary">
                   Drafting {manuscriptSection} with empirical parameters...
                 </div>
               </div>
             ) : (
-              <div className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap font-serif bg-slate-50/50 p-5 rounded-xl border border-slate-100">
+              <div className="whitespace-pre-wrap rounded-xl border border-border-subtle bg-surface-subtle p-5 font-serif text-xs leading-relaxed text-ink-primary">
                 {manuscriptContent}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* 4. CITATION CONTEXT & RHETORICAL INTENT ANALYSIS          */}
-      {/* ========================================================= */}
+      {/* 6. CITATION CONTEXT & RHETORICAL INTENT ANALYSIS */}
       {activeTool === "citation_intent" && (
         <div className="space-y-6">
           {citationError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
-              <span className="font-bold">Citation Context Analysis Unavailable: </span>
+            <AlertBanner tone="danger">
+              <span className="font-bold">
+                Citation Context Analysis Unavailable:{" "}
+              </span>
               {citationError}
-            </div>
+            </AlertBanner>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-black text-slate-900">
-                Citation Context Analysis & Rhetorical Intent
+              <h2 className="text-lg font-black text-ink-primary">
+                Citation Context Analysis &amp; Rhetorical Intent
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Classify whether citations represent direct methodological adoption, affirmative replication, or comparative critique.
+              <p className="mt-0.5 text-xs text-ink-muted">
+                Classify whether citations represent direct methodological
+                adoption, affirmative replication, or comparative critique.
               </p>
             </div>
-            <button
+            <Button
               type="button"
-              onClick={runCitationIntentAnalysis}
+              variant="primary"
+              size="md"
+              loading={citationLoading}
               disabled={citationLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+              onClick={runCitationIntentAnalysis}
+              icon={
+                !citationLoading ? (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                ) : undefined
+              }
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${citationLoading ? "animate-spin" : ""}`} />
               Re-Analyze Citations
-            </button>
+            </Button>
           </div>
 
           {citationLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-              <Sparkles className="h-8 w-8 animate-spin text-indigo-600 mx-auto" />
-              <div className="mt-3 text-sm font-bold text-slate-800">
+            <Card padding="lg" className="py-12 text-center">
+              <Sparkles className="mx-auto h-8 w-8 animate-spin text-brand-500" />
+              <div className="mt-3 text-sm font-bold text-ink-primary">
                 Evaluating citation contexts and rhetorical drivers...
               </div>
-            </div>
+            </Card>
           ) : citationData ? (
             <div className="space-y-6">
-              {/* Proportions Breakdown */}
               <div className="grid gap-4 sm:grid-cols-4">
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-                  <div className="text-[10px] font-bold text-emerald-800 uppercase">
+                <div className="rounded-2xl border border-status-success-border bg-status-success-bg/60 p-4">
+                  <div className="sciai-kicker text-[10px]! text-status-success-text!">
                     Affirmative Adoption
                   </div>
-                  <div className="text-2xl font-black text-emerald-900 font-mono mt-1">
+                  <div className="tabular-metrics mt-1 font-mono text-2xl font-black text-ink-primary">
                     {citationData.affirmative_adoption}%
                   </div>
-                  <p className="text-[10px] text-emerald-700 mt-1">
+                  <p className="mt-1 text-[10px] text-status-success-text">
                     Direct validation and building upon findings.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
-                  <div className="text-[10px] font-bold text-blue-800 uppercase">
+                <div className="rounded-2xl border border-brand-200 bg-brand-50/70 p-4">
+                  <div className="sciai-kicker text-[10px]! text-brand-700!">
                     Methodology Applied
                   </div>
-                  <div className="text-2xl font-black text-blue-900 font-mono mt-1">
+                  <div className="tabular-metrics mt-1 font-mono text-2xl font-black text-ink-primary">
                     {citationData.methodological_application}%
                   </div>
-                  <p className="text-[10px] text-blue-700 mt-1">
+                  <p className="mt-1 text-[10px] text-brand-600">
                     Adoption of code, protocols, or benchmarks.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="text-[10px] font-bold text-slate-600 uppercase">
+                <Card padding="sm">
+                  <div className="sciai-kicker text-[10px]!">
                     Conceptual Background
                   </div>
-                  <div className="text-2xl font-black text-slate-900 font-mono mt-1">
+                  <div className="tabular-metrics mt-1 font-mono text-2xl font-black text-ink-primary">
                     {citationData.conceptual_background}%
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="mt-1 text-[10px] text-ink-muted">
                     Historical context or introductory citations.
                   </p>
-                </div>
+                </Card>
 
-                <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-4">
-                  <div className="text-[10px] font-bold text-rose-800 uppercase">
+                <div className="rounded-2xl border border-status-danger-border bg-status-danger-bg/60 p-4">
+                  <div className="sciai-kicker text-[10px]! text-status-danger-text!">
                     Critical / Comparative
                   </div>
-                  <div className="text-2xl font-black text-rose-900 font-mono mt-1">
+                  <div className="tabular-metrics mt-1 font-mono text-2xl font-black text-ink-primary">
                     {citationData.critical_comparative}%
                   </div>
-                  <p className="text-[10px] text-rose-700 mt-1">
+                  <p className="mt-1 text-[10px] text-status-danger-text">
                     Contrasting results or addressing caveats.
                   </p>
                 </div>
               </div>
 
-              {/* Synthesis Note */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-2">
-                <div className="text-xs font-black text-slate-900 uppercase tracking-wide">
+              <Card padding="md" className="space-y-2">
+                <div className="sciai-kicker text-ink-primary!">
                   Research Corpus Rhetorical Profile
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs leading-relaxed text-ink-secondary">
                   {citationData.sentiment_summary}
                 </p>
-              </div>
+              </Card>
 
-              {/* Exemplar Papers */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-3">
-                <div className="text-xs font-black text-slate-900 uppercase tracking-wide">
+              <Card padding="lg" className="space-y-3">
+                <div className="sciai-kicker text-ink-primary!">
                   Exemplar Article Citation Classifications
                 </div>
                 <div className="space-y-2.5">
                   {citationData.exemplar_analyses.map((ex, i) => (
                     <div
                       key={i}
-                      className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 flex items-start justify-between gap-4"
+                      className="flex items-start justify-between gap-4 rounded-xl border border-border-subtle bg-surface-subtle p-3.5"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900">
+                        <div className="text-xs font-bold text-ink-primary">
                           {ex.title}
                         </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
+                        <div className="mt-0.5 text-[11px] text-ink-muted">
                           {ex.rhetorical_role}
                         </div>
                       </div>
-                      <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-800 shrink-0">
+                      <span className="shrink-0 rounded-full border border-border-default bg-surface-canvas px-2.5 py-0.5 text-[10px] font-bold text-ink-primary">
                         {ex.primary_intent}
                       </span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             </div>
           ) : null}
         </div>

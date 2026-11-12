@@ -8,26 +8,20 @@ import {
 import { validateThematicEvolutionResponse } from "../utils/responseValidation.js";
 import {
   GitBranch,
-  Filter,
   Download,
   Sparkles,
   RefreshCw,
   Search,
   Sliders,
-  Layers,
   Info,
   Calendar,
   ArrowRight,
   TrendingUp,
-  Share2,
-  CheckCircle2,
-  Activity,
   FileSpreadsheet,
-  ChevronRight,
   HelpCircle,
-  Flame,
   Database,
 } from "lucide-react";
+import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface Props {
   datasets: Dataset[];
@@ -45,7 +39,6 @@ export function ThematicEvolutionStudio({
   datasets = [],
   activeDatasetId,
   onSelectDataset,
-  onNavigateToFrontier,
 }: Props) {
   // Target Dataset State
   const [selectedDsId, setSelectedDsId] = useState<string>(
@@ -53,8 +46,6 @@ export function ThematicEvolutionStudio({
   );
 
   // Synchronize when parent prop or dashboard datasets change.
-  // Thematic evolution needs a concrete dataset with temporal keyword records;
-  // the consolidated portfolio placeholder cannot be posted as a real dataset_id.
   useEffect(() => {
     if (activeDatasetId && activeDatasetId !== selectedDsId) {
       setSelectedDsId(activeDatasetId);
@@ -84,14 +75,16 @@ export function ThematicEvolutionStudio({
   const [sliceCount, setSliceCount] = useState<number>(3);
   const [customCutsStr, setCustomCutsStr] = useState<string>("");
   const [isCustomCuts, setIsCustomCuts] = useState<boolean>(false);
-  const [minKeywordFreq, setMinKeywordFreq] = useState<number>(1);
+  const [minKeywordFreq] = useState<number>(1);
   const [inclusionThreshold, setInclusionThreshold] = useState<number>(0.12);
   const [maxThemesPerSlice, setMaxThemesPerSlice] = useState<number>(5);
   const [trajectoryFilter, setTrajectoryFilter] = useState<string>("all");
   const [searchKeyword, setSearchKeyword] = useState<string>("");
 
   // Subtabs
-  const [activeSubTab, setActiveSubTab] = useState<"sankey" | "matrix" | "strategic" | "synthesis">("sankey");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "sankey" | "matrix" | "strategic" | "synthesis"
+  >("sankey");
 
   // Selection state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -138,13 +131,14 @@ export function ThematicEvolutionStudio({
       }
       const result: ThematicEvolutionOutput = outcome.data;
       setData(result);
-      // Auto-select first node if none selected
       if (result.nodes && result.nodes.length > 0 && !selectedNodeId) {
         setSelectedNodeId(result.nodes[0].id);
       }
     } catch (err: unknown) {
       console.error("Failed to fetch thematic evolution:", err);
-      setError(err instanceof Error ? err.message : "Failed to load thematic evolution");
+      setError(
+        err instanceof Error ? err.message : "Failed to load thematic evolution"
+      );
     } finally {
       setLoading(false);
     }
@@ -152,12 +146,26 @@ export function ThematicEvolutionStudio({
 
   useEffect(() => {
     fetchEvolution();
-  }, [selectedDsId, sliceCount, isCustomCuts, minKeywordFreq, inclusionThreshold, maxThemesPerSlice]);
+  }, [
+    selectedDsId,
+    sliceCount,
+    isCustomCuts,
+    minKeywordFreq,
+    inclusionThreshold,
+    maxThemesPerSlice,
+  ]);
 
   // Computed layout for Sankey diagram
   const sankeyLayout = useMemo(() => {
     if (!data || data.periods.length === 0 || data.nodes.length === 0) {
-      return { columnWidth: 180, periodX: [], nodeLayouts: new Map(), linkPaths: [], totalWidth: 800, totalHeight: 520 };
+      return {
+        columnWidth: 180,
+        periodX: [],
+        nodeLayouts: new Map(),
+        linkPaths: [],
+        totalWidth: 800,
+        totalHeight: 520,
+      };
     }
 
     const totalPeriods = data.periods.length;
@@ -166,16 +174,24 @@ export function ThematicEvolutionStudio({
     const nodeWidth = 175;
     const minHeight = 440;
 
-    // Calculate total canvas width
-    const columnGap = Math.max(140, Math.min(260, (900 - paddingX * 2 - totalPeriods * nodeWidth) / Math.max(1, totalPeriods - 1)));
-    const totalWidth = paddingX * 2 + totalPeriods * nodeWidth + (totalPeriods - 1) * columnGap;
+    const columnGap = Math.max(
+      140,
+      Math.min(
+        260,
+        (900 - paddingX * 2 - totalPeriods * nodeWidth) /
+          Math.max(1, totalPeriods - 1)
+      )
+    );
+    const totalWidth =
+      paddingX * 2 +
+      totalPeriods * nodeWidth +
+      (totalPeriods - 1) * columnGap;
 
     const periodX: number[] = [];
     for (let p = 0; p < totalPeriods; p++) {
       periodX.push(paddingX + p * (nodeWidth + columnGap));
     }
 
-    // Nodes per period
     const periodNodesMap = new Map<number, ThematicThemeNode[]>();
     for (let p = 0; p < totalPeriods; p++) {
       periodNodesMap.set(p, []);
@@ -186,7 +202,6 @@ export function ThematicEvolutionStudio({
       periodNodesMap.set(node.periodIndex, list);
     }
 
-    // Calculate vertical coordinates for each node
     interface NodePos {
       node: ThematicThemeNode;
       x: number;
@@ -208,12 +223,23 @@ export function ThematicEvolutionStudio({
 
       const gap = 16;
       const totalGap = (count - 1) * gap;
-      const totalWeight = pNodes.reduce((sum, n) => sum + Math.max(1, n.docCount), 0);
+      const totalWeight = pNodes.reduce(
+        (sum, n) => sum + Math.max(1, n.docCount),
+        0
+      );
 
       let currentY = paddingY;
       for (const node of pNodes) {
         const weight = Math.max(1, node.docCount);
-        const nodeH = Math.max(48, Math.min(84, Math.round(((availableH - totalGap) * weight) / Math.max(1, totalWeight))));
+        const nodeH = Math.max(
+          48,
+          Math.min(
+            84,
+            Math.round(
+              ((availableH - totalGap) * weight) / Math.max(1, totalWeight)
+            )
+          )
+        );
         nodeLayouts.set(node.id, {
           node,
           x: periodX[p],
@@ -230,13 +256,11 @@ export function ThematicEvolutionStudio({
       }
     }
 
-    // Filter links by trajectory if needed
     const filteredLinks = data.links.filter((l) => {
       if (trajectoryFilter === "all") return true;
       return l.trajectory === trajectoryFilter;
     });
 
-    // Calculate link paths with Bézier ribbons
     interface LinkPath {
       link: ThematicFlowLink;
       d: string;
@@ -248,8 +272,6 @@ export function ThematicEvolutionStudio({
     }
 
     const linkPaths: LinkPath[] = [];
-
-    // Track vertical offsets along node heights so multiple links don't overlap
     const nodeOutUsage = new Map<string, number>();
     const nodeInUsage = new Map<string, number>();
 
@@ -258,7 +280,10 @@ export function ThematicEvolutionStudio({
       const tgtPos = nodeLayouts.get(l.targetId);
       if (!srcPos || !tgtPos) continue;
 
-      const baseThickness = Math.max(4, Math.min(28, Math.round(l.inclusionIndex * 30)));
+      const baseThickness = Math.max(
+        4,
+        Math.min(28, Math.round(l.inclusionIndex * 30))
+      );
 
       const curOut = nodeOutUsage.get(l.sourceId) || 4;
       const curIn = nodeInUsage.get(l.targetId) || 4;
@@ -302,7 +327,6 @@ export function ThematicEvolutionStudio({
     };
   }, [data, trajectoryFilter]);
 
-  // Determine which nodes and links are active / highlighted based on selection
   const highlightedElements = useMemo(() => {
     if (!data) return { nodes: new Set<string>(), links: new Set<string>() };
 
@@ -326,7 +350,6 @@ export function ThematicEvolutionStudio({
     const hlNodes = new Set<string>([activeNode]);
     const hlLinks = new Set<string>();
 
-    // Trace upstream (ancestors)
     const queueUp = [activeNode];
     while (queueUp.length > 0) {
       const curr = queueUp.shift()!;
@@ -341,7 +364,6 @@ export function ThematicEvolutionStudio({
       }
     }
 
-    // Trace downstream (descendants)
     const queueDown = [activeNode];
     while (queueDown.length > 0) {
       const curr = queueDown.shift()!;
@@ -359,19 +381,16 @@ export function ThematicEvolutionStudio({
     return { nodes: hlNodes, links: hlLinks };
   }, [data, selectedNodeId, hoveredNodeId, selectedLinkId, hoveredLinkId]);
 
-  // Selected node object
   const selectedNode = useMemo(() => {
     if (!data || !selectedNodeId) return null;
     return data.nodes.find((n) => n.id === selectedNodeId) || null;
   }, [data, selectedNodeId]);
 
-  // Selected link object
   const selectedLink = useMemo(() => {
     if (!data || !selectedLinkId) return null;
     return data.links.find((l) => l.id === selectedLinkId) || null;
   }, [data, selectedLinkId]);
 
-  // Direct predecessors and successors of selected node
   const nodeConnections = useMemo(() => {
     if (!data || !selectedNodeId) return { predecessors: [], successors: [] };
     const predecessors = data.links
@@ -389,45 +408,48 @@ export function ThematicEvolutionStudio({
     return { predecessors, successors };
   }, [data, selectedNodeId]);
 
-  // Color helpers for Callon Quadrants
+  // Color helpers for Callon Quadrants using Design System semantic & categorical hexes
   const getQuadrantColor = (code: "Q1" | "Q2" | "Q3" | "Q4") => {
     switch (code) {
       case "Q1": // Motor Themes
         return {
-          badgeBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
-          nodeBorder: "border-emerald-500",
-          accentBg: "bg-emerald-500",
-          strokeColor: "#10b981",
-          gradientFrom: "#10b981",
-          textAccent: "text-emerald-700",
+          badgeBg:
+            "bg-status-success-bg text-status-success-text border-status-success-border",
+          nodeBorder: "border-status-success-border",
+          accentBg: "bg-status-success-text",
+          strokeColor: "#0D9488",
+          gradientFrom: "#0D9488",
+          textAccent: "text-status-success-text",
         };
       case "Q2": // Niche Themes
         return {
-          badgeBg: "bg-purple-50 text-purple-700 border-purple-200",
-          nodeBorder: "border-purple-500",
-          accentBg: "bg-purple-500",
-          strokeColor: "#a855f7",
-          gradientFrom: "#a855f7",
-          textAccent: "text-purple-700",
+          badgeBg: "bg-brand-50 text-brand-700 border-brand-200",
+          nodeBorder: "border-brand-500",
+          accentBg: "bg-brand-500",
+          strokeColor: "#6366F1",
+          gradientFrom: "#6366F1",
+          textAccent: "text-brand-700",
         };
       case "Q3": // Emerging/Declining Themes
         return {
-          badgeBg: "bg-amber-50 text-amber-700 border-amber-200",
-          nodeBorder: "border-amber-500",
-          accentBg: "bg-amber-500",
-          strokeColor: "#f59e0b",
-          gradientFrom: "#f59e0b",
-          textAccent: "text-amber-700",
+          badgeBg:
+            "bg-status-warning-bg text-status-warning-text border-status-warning-border",
+          nodeBorder: "border-status-warning-border",
+          accentBg: "bg-status-warning-text",
+          strokeColor: "#D97706",
+          gradientFrom: "#D97706",
+          textAccent: "text-status-warning-text",
         };
       case "Q4": // Basic Themes
       default:
         return {
-          badgeBg: "bg-sky-50 text-sky-700 border-sky-200",
-          nodeBorder: "border-sky-500",
-          accentBg: "bg-sky-500",
-          strokeColor: "#0284c7",
-          gradientFrom: "#0284c7",
-          textAccent: "text-sky-700",
+          badgeBg:
+            "bg-status-info-bg text-status-info-text border-status-info-border",
+          nodeBorder: "border-status-info-border",
+          accentBg: "bg-status-info-text",
+          strokeColor: "#315C7C",
+          gradientFrom: "#315C7C",
+          textAccent: "text-status-info-text",
         };
     }
   };
@@ -438,37 +460,36 @@ export function ThematicEvolutionStudio({
       case "continuation":
         return {
           label: "Continuation",
-          bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          bg: "bg-status-success-bg text-status-success-text border-status-success-border",
         };
       case "splitting":
         return {
           label: "Splitting",
-          bg: "bg-indigo-50 text-indigo-700 border-indigo-200",
+          bg: "bg-brand-50 text-brand-700 border-brand-200",
         };
       case "merging":
         return {
           label: "Merging",
-          bg: "bg-amber-50 text-amber-700 border-amber-200",
+          bg: "bg-status-warning-bg text-status-warning-text border-status-warning-border",
         };
       case "emerging":
         return {
           label: "Emerging",
-          bg: "bg-cyan-50 text-cyan-700 border-cyan-200",
+          bg: "bg-status-info-bg text-status-info-text border-status-info-border",
         };
       case "fading":
         return {
           label: "Fading",
-          bg: "bg-rose-50 text-rose-700 border-rose-200",
+          bg: "bg-status-danger-bg text-status-danger-text border-status-danger-border",
         };
       default:
         return {
           label: traj,
-          bg: "bg-slate-100 text-slate-700 border-slate-200",
+          bg: "bg-surface-muted text-ink-secondary border-border-default",
         };
     }
   };
 
-  // Export SVG
   const handleExportSVG = () => {
     if (!svgRef.current) return;
     const serializer = new XMLSerializer();
@@ -484,7 +505,6 @@ export function ThematicEvolutionStudio({
     URL.revokeObjectURL(url);
   };
 
-  // Export CSV Matrix
   const handleExportCSV = () => {
     if (!data || data.transitionMatrix.length === 0) return;
     const headers = [
@@ -505,7 +525,10 @@ export function ThematicEvolutionStudio({
       `"${r.trajectory}"`,
       `"${r.sharedKeywords.join(", ")}"`,
     ]);
-    const csvContent = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((e) => e.join(",")),
+    ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -520,37 +543,42 @@ export function ThematicEvolutionStudio({
   return (
     <div className="space-y-6">
       {/* Studio Header */}
-      <div className="space-y-5 border-b border-slate-200 pb-5">
+      <div className="space-y-5 border-b border-border-default pb-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-purple-600 whitespace-nowrap">
+            <span className="sciai-kicker whitespace-nowrap text-brand-500!">
               Scientometrics Evolution Lab
             </span>
-            <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800 whitespace-nowrap">
-              Cobo (2011) & SciMAT / Bibliometrix
+            <span className="whitespace-nowrap rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
+              Cobo (2011) &amp; SciMAT / Bibliometrix
             </span>
           </div>
-          <h1 className="mt-2 flex items-center gap-3 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            <GitBranch className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-purple-600" />
+          <h1 className="mt-2 flex items-center gap-3 text-2xl font-black tracking-tight text-ink-primary sm:text-3xl">
+            <GitBranch className="h-7 w-7 shrink-0 text-brand-500 sm:h-8 sm:w-8" />
             <span className="min-w-0">Thematic Evolution &amp; Slicing</span>
           </h1>
-          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
-            Longitudinal science mapping: divide the corpus into sequential time slices, calculate Callon&apos;s strategic themes, and trace evolutionary trajectories (continuation, splitting, merging) using the Simpson Inclusion Index.
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-ink-muted">
+            Longitudinal science mapping: divide the corpus into sequential time
+            slices, calculate Callon&apos;s strategic themes, and trace
+            evolutionary trajectories (continuation, splitting, merging) using
+            the Simpson Inclusion Index.
           </p>
         </div>
 
         {/* Dataset Selector & Action Controls */}
         <div className="flex flex-wrap items-end gap-3">
-          {/* Target Dataset Selector matching Historical Citation Genealogy */}
           {datasets.length > 0 && (
             <div className="flex min-w-0 flex-col">
-              <label className="flex items-center gap-1 text-xs font-semibold text-slate-500">
-                <Database className="h-3 w-3 shrink-0 text-purple-600" />
+              <label
+                htmlFor="thematic-dataset-select"
+                className="flex items-center gap-1 text-xs font-semibold text-ink-secondary"
+              >
+                <Database className="h-3 w-3 shrink-0 text-brand-500" />
                 Target Dataset
               </label>
               <select
                 id="thematic-dataset-select"
-                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:w-80"
+                className="mt-1 block w-full min-w-0 max-w-full truncate rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 text-xs font-semibold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none sm:w-80"
                 value={selectedDsId}
                 onChange={(e) => handleDatasetChange(e.target.value)}
               >
@@ -564,102 +592,131 @@ export function ThematicEvolutionStudio({
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={fetchEvolution}
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+              icon={
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    loading ? "animate-spin text-brand-500" : ""
+                  }`}
+                />
+              }
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-purple-600" : ""}`} />
-              <span>Recalculate</span>
-            </button>
+              Recalculate
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={handleExportSVG}
               disabled={!data || data.nodes.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+              icon={<Download className="h-3.5 w-3.5 text-ink-subtle" />}
             >
-              <Download className="h-3.5 w-3.5 text-slate-500" />
-              <span>SVG Diagram</span>
-            </button>
+              SVG Diagram
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={handleExportCSV}
               disabled={!data || data.transitionMatrix.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-purple-700 transition cursor-pointer disabled:opacity-50"
+              icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
             >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Export Matrix</span>
-            </button>
+              Export Matrix
+            </Button>
           </div>
         </div>
       </div>
 
       {/* KPI Cards */}
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Time Span</div>
-            <div className="mt-1 text-lg font-black text-slate-900">{data.summary.yearSpan}</div>
-            <div className="mt-0.5 text-[10px] text-slate-500">{data.summary.totalDocuments} articles sliced</div>
-          </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Time Span</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-ink-primary">
+              {data.summary.yearSpan}
+            </div>
+            <div className="tabular-metrics mt-0.5 text-[10px] text-ink-muted">
+              {data.summary.totalDocuments} articles sliced
+            </div>
+          </Card>
 
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Periods (Slices)</div>
-            <div className="mt-1 text-lg font-black text-purple-700">{data.summary.totalPeriods} epochs</div>
-            <div className="mt-0.5 text-[10px] text-slate-500">Sequential intervals</div>
-          </div>
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Periods (Slices)</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-brand-600">
+              {data.summary.totalPeriods} epochs
+            </div>
+            <div className="mt-0.5 text-[10px] text-ink-muted">
+              Sequential intervals
+            </div>
+          </Card>
 
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thematic Clusters</div>
-            <div className="mt-1 text-lg font-black text-slate-900">{data.summary.totalThemes} themes</div>
-            <div className="mt-0.5 text-[10px] text-slate-500">Callon mapped nodes</div>
-          </div>
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Thematic Clusters</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-ink-primary">
+              {data.summary.totalThemes} themes
+            </div>
+            <div className="mt-0.5 text-[10px] text-ink-muted">
+              Callon mapped nodes
+            </div>
+          </Card>
 
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Continuations</div>
-            <div className="mt-1 text-lg font-black text-emerald-600">{data.summary.continuationsCount} flows</div>
-            <div className="mt-0.5 text-[10px] text-emerald-700/80">Direct paradigm lines</div>
-          </div>
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Continuations</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-status-success-text">
+              {data.summary.continuationsCount} flows
+            </div>
+            <div className="mt-0.5 text-[10px] text-status-success-text">
+              Direct paradigm lines
+            </div>
+          </Card>
 
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Splits & Merges</div>
-            <div className="mt-1 text-lg font-black text-indigo-600">
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Splits &amp; Merges</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-brand-500">
               {data.summary.splitsCount} / {data.summary.mergesCount}
             </div>
-            <div className="mt-0.5 text-[10px] text-indigo-700/80">Divergence & synthesis</div>
-          </div>
+            <div className="mt-0.5 text-[10px] text-brand-600">
+              Divergence &amp; synthesis
+            </div>
+          </Card>
 
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Avg Stability Index</div>
-            <div className="mt-1 text-lg font-black text-amber-600">
+          <Card padding="sm">
+            <div className="sciai-kicker text-[10px]!">Avg Stability Index</div>
+            <div className="tabular-metrics mt-1 text-lg font-black text-status-warning-text">
               {(data.summary.averageStability * 100).toFixed(1)}%
             </div>
-            <div className="mt-0.5 text-[10px] text-slate-500">Longitudinal cohesion</div>
-          </div>
+            <div className="mt-0.5 text-[10px] text-ink-muted">
+              Longitudinal cohesion
+            </div>
+          </Card>
         </div>
       )}
 
       {/* Slicing & Parameters Toolbar */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+      <Card padding="sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Left: Slicing Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <Sliders className="h-3.5 w-3.5 text-purple-600" />
+            <div className="flex items-center gap-1.5 text-xs font-bold text-ink-secondary">
+              <Sliders className="h-3.5 w-3.5 text-brand-500" />
               <span>Slicing Mode:</span>
             </div>
 
-            <div className="flex items-center rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+            <div className="flex items-center rounded-xl border border-border-default bg-surface-subtle p-1 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => setIsCustomCuts(false)}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 transition ${
+                className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${
                   !isCustomCuts
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-brand-500 font-bold text-white shadow-xs"
+                    : "text-ink-secondary hover:text-ink-primary"
                 }`}
               >
                 Equal Slices
@@ -667,10 +724,10 @@ export function ThematicEvolutionStudio({
               <button
                 type="button"
                 onClick={() => setIsCustomCuts(true)}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 transition ${
+                className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${
                   isCustomCuts
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-brand-500 font-bold text-white shadow-xs"
+                    : "text-ink-secondary hover:text-ink-primary"
                 }`}
               >
                 Custom Cut Years
@@ -679,11 +736,11 @@ export function ThematicEvolutionStudio({
 
             {!isCustomCuts ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Periods:</span>
+                <span className="text-xs text-ink-muted">Periods:</span>
                 <select
                   value={sliceCount}
                   onChange={(e) => setSliceCount(Number(e.target.value))}
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-hidden"
+                  className="rounded-lg border border-border-default bg-surface-canvas px-2.5 py-1 text-xs font-bold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none"
                 >
                   <option value={2}>2 Slices</option>
                   <option value={3}>3 Slices (Default)</option>
@@ -693,43 +750,49 @@ export function ThematicEvolutionStudio({
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Cuts (e.g. 2022, 2024):</span>
+                <span className="text-xs text-ink-muted">
+                  Cuts (e.g. 2022, 2024):
+                </span>
                 <input
                   type="text"
                   placeholder="2022, 2024"
                   value={customCutsStr}
                   onChange={(e) => setCustomCutsStr(e.target.value)}
-                  className="w-28 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-mono text-slate-800 focus:border-purple-500 focus:outline-hidden"
+                  className="w-28 rounded-lg border border-border-default bg-surface-canvas px-2.5 py-1 font-mono text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
                 />
               </div>
             )}
 
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+            <div className="hidden h-4 w-px bg-border-default sm:block" />
 
             {/* Threshold Slider */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Inclusion Threshold:</span>
+              <span className="text-xs text-ink-muted">
+                Inclusion Threshold:
+              </span>
               <input
                 type="range"
                 min="0.05"
                 max="0.40"
                 step="0.01"
                 value={inclusionThreshold}
-                onChange={(e) => setInclusionThreshold(parseFloat(e.target.value))}
-                className="w-24 accent-purple-600 cursor-pointer"
+                onChange={(e) =>
+                  setInclusionThreshold(parseFloat(e.target.value))
+                }
+                className="w-24 cursor-pointer accent-brand-500"
               />
-              <span className="text-xs font-mono font-bold text-purple-700">
+              <span className="tabular-metrics font-mono text-xs font-bold text-brand-600">
                 {inclusionThreshold.toFixed(2)}
               </span>
             </div>
 
             {/* Themes per Slice */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Themes / Slice:</span>
+              <span className="text-xs text-ink-muted">Themes / Slice:</span>
               <select
                 value={maxThemesPerSlice}
                 onChange={(e) => setMaxThemesPerSlice(Number(e.target.value))}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-hidden"
+                className="rounded-lg border border-border-default bg-surface-canvas px-2 py-1 text-xs font-bold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none"
               >
                 <option value={3}>3</option>
                 <option value={4}>4</option>
@@ -741,64 +804,71 @@ export function ThematicEvolutionStudio({
           </div>
 
           {/* Right: Trajectory filter & Keyword Search */}
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <div className="flex w-full items-center justify-end gap-2 md:w-auto">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
               <input
                 type="text"
                 placeholder="Highlight keyword..."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                className="w-40 sm:w-48 rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:border-purple-500 focus:outline-hidden"
+                className="w-40 rounded-xl border border-border-default bg-surface-canvas py-1.5 pl-8 pr-3 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none sm:w-48"
               />
             </div>
 
             <select
               value={trajectoryFilter}
               onChange={(e) => setTrajectoryFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs focus:border-purple-500 focus:outline-hidden"
+              className="rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 text-xs font-bold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none"
             >
               <option value="all">All Trajectories</option>
               <option value="continuation">Continuations Only</option>
-              <option value="splitting">Splits & Diversifications</option>
-              <option value="merging">Merges & Convergences</option>
+              <option value="splitting">Splits &amp; Diversifications</option>
+              <option value="merging">Merges &amp; Convergences</option>
             </select>
           </div>
         </div>
 
         {/* Legend strip */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-3 text-[11px]">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Callon Quadrants:</span>
-            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Motor Themes (Q1)
+            <span className="sciai-kicker text-[10px]!">
+              Callon Quadrants:
             </span>
-            <span className="inline-flex items-center gap-1 font-semibold text-purple-700">
-              <span className="h-2 w-2 rounded-full bg-purple-500" /> Niche Themes (Q2)
+            <span className="inline-flex items-center gap-1 font-semibold text-status-success-text">
+              <span className="h-2 w-2 rounded-full bg-status-success-text" />{" "}
+              Motor Themes (Q1)
             </span>
-            <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Emerging/Declining (Q3)
+            <span className="inline-flex items-center gap-1 font-semibold text-brand-700">
+              <span className="h-2 w-2 rounded-full bg-brand-500" /> Niche Themes
+              (Q2)
             </span>
-            <span className="inline-flex items-center gap-1 font-semibold text-sky-700">
-              <span className="h-2 w-2 rounded-full bg-sky-500" /> Basic Themes (Q4)
+            <span className="inline-flex items-center gap-1 font-semibold text-status-warning-text">
+              <span className="h-2 w-2 rounded-full bg-status-warning-text" />{" "}
+              Emerging/Declining (Q3)
+            </span>
+            <span className="inline-flex items-center gap-1 font-semibold text-status-info-text">
+              <span className="h-2 w-2 rounded-full bg-status-info-text" /> Basic
+              Themes (Q4)
             </span>
           </div>
 
-          <div className="text-[11px] text-slate-500">
-            Click any theme node to trace its ancestral roots & future directions.
+          <div className="text-[11px] text-ink-muted">
+            Click any theme node to trace its ancestral roots &amp; future
+            directions.
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex flex-wrap border-b border-border-default">
         <button
           type="button"
           onClick={() => setActiveSubTab("sankey")}
-          className={`cursor-pointer px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
             activeSubTab === "sankey"
-              ? "border-purple-600 text-purple-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-brand-500 text-brand-600"
+              : "border-transparent text-ink-muted hover:text-ink-primary"
           }`}
         >
           <GitBranch className="h-4 w-4" />
@@ -808,16 +878,16 @@ export function ThematicEvolutionStudio({
         <button
           type="button"
           onClick={() => setActiveSubTab("matrix")}
-          className={`cursor-pointer px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
             activeSubTab === "matrix"
-              ? "border-purple-600 text-purple-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-brand-500 text-brand-600"
+              : "border-transparent text-ink-muted hover:text-ink-primary"
           }`}
         >
           <FileSpreadsheet className="h-4 w-4" />
-          <span>Transition Matrix & Lineage</span>
+          <span>Transition Matrix &amp; Lineage</span>
           {data && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+            <span className="tabular-metrics rounded-full border border-border-default bg-surface-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary">
               {data.links.length}
             </span>
           )}
@@ -826,10 +896,10 @@ export function ThematicEvolutionStudio({
         <button
           type="button"
           onClick={() => setActiveSubTab("strategic")}
-          className={`cursor-pointer px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
             activeSubTab === "strategic"
-              ? "border-purple-600 text-purple-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-brand-500 text-brand-600"
+              : "border-transparent text-ink-muted hover:text-ink-primary"
           }`}
         >
           <TrendingUp className="h-4 w-4" />
@@ -839,72 +909,86 @@ export function ThematicEvolutionStudio({
         <button
           type="button"
           onClick={() => setActiveSubTab("synthesis")}
-          className={`cursor-pointer px-4 py-2.5 text-xs font-bold transition border-b-2 flex items-center gap-2 ${
+          className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-colors ${
             activeSubTab === "synthesis"
-              ? "border-purple-600 text-purple-700"
-              : "border-transparent text-slate-500 hover:text-slate-800"
+              ? "border-brand-500 text-brand-600"
+              : "border-transparent text-ink-muted hover:text-ink-primary"
           }`}
         >
-          <Sparkles className="h-4 w-4 text-purple-600" />
+          <Sparkles className="h-4 w-4 text-brand-500" />
           <span>Scientific Paradigm Shift</span>
         </button>
       </div>
 
       {/* Main Content Area */}
       {loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-16 text-center shadow-xs">
-          <RefreshCw className="mx-auto h-8 w-8 animate-spin text-purple-600" />
-          <div className="mt-4 text-sm font-bold text-slate-800">Partitioning corpus & computing thematic flows...</div>
-          <div className="mt-1 text-xs text-slate-500">Applying Callon co-word clustering & Simpson inclusion index across time slices</div>
+        <div className="sciai-card rounded-3xl p-16 text-center">
+          <RefreshCw className="mx-auto h-8 w-8 animate-spin text-brand-500" />
+          <div className="mt-4 text-sm font-bold text-ink-primary">
+            Partitioning corpus &amp; computing thematic flows...
+          </div>
+          <div className="mt-1 text-xs text-ink-muted">
+            Applying Callon co-word clustering &amp; Simpson inclusion index
+            across time slices
+          </div>
         </div>
       ) : error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50/50 p-8 text-center">
-          <div className="text-sm font-bold text-rose-800">Error computing Thematic Evolution</div>
-          <div className="mt-1 text-xs text-rose-600">{error}</div>
-          <button
-            type="button"
-            onClick={fetchEvolution}
-            className="mt-4 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition"
-          >
-            Retry Analysis
-          </button>
-        </div>
+        <AlertBanner tone="danger" title="Error computing Thematic Evolution">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={fetchEvolution}
+            >
+              Retry Analysis
+            </Button>
+          </div>
+        </AlertBanner>
       ) : !data || data.periods.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
-          <GitBranch className="mx-auto h-10 w-10 text-slate-400" />
-          <div className="mt-3 text-sm font-bold text-slate-800">No Temporal Documents Found</div>
-          <div className="mt-1 text-xs text-slate-500">Ensure the active dataset has documents with publication years and keywords.</div>
+        <div className="rounded-3xl border border-dashed border-border-default bg-surface-subtle p-12 text-center">
+          <GitBranch className="mx-auto h-10 w-10 text-ink-subtle" />
+          <div className="mt-3 text-sm font-bold text-ink-primary">
+            No Temporal Documents Found
+          </div>
+          <div className="mt-1 text-xs text-ink-muted">
+            Ensure the active dataset has documents with publication years and
+            keywords.
+          </div>
         </div>
       ) : (
         <>
           {/* TAB 1: SANKEY FLOW DIAGRAM */}
           {activeSubTab === "sankey" && (
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
               {/* Sankey Canvas */}
-              <div className="xl:col-span-3 rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xs overflow-x-auto">
+              <div className="sciai-card overflow-x-auto rounded-3xl p-4 xl:col-span-3">
                 <div className="min-w-[800px]">
                   {/* Period Headers */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 px-4">
+                  <div className="flex items-center justify-between border-b border-border-subtle px-4 pb-3">
                     {data.periods.map((p, idx) => (
                       <div
                         key={p.index}
                         style={{ width: `${sankeyLayout.columnWidth}px` }}
-                        className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 text-center shadow-2xs"
+                        className="rounded-xl border border-border-default bg-surface-subtle p-2.5 text-center shadow-card"
                       >
-                        <div className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-purple-700">
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-brand-500">
                           <Calendar className="h-3 w-3" />
                           <span>Period {idx + 1}</span>
                         </div>
-                        <div className="mt-0.5 text-sm font-black text-slate-900">{p.label}</div>
-                        <div className="mt-0.5 flex items-center justify-center gap-2 text-[10px] text-slate-500">
+                        <div className="tabular-metrics mt-0.5 text-sm font-black text-ink-primary">
+                          {p.label}
+                        </div>
+                        <div className="tabular-metrics mt-0.5 flex items-center justify-center gap-2 text-[10px] text-ink-muted">
                           <span>{p.docCount} papers</span>
                           <span>•</span>
                           <span>{p.themeCount} themes</span>
                         </div>
                         {p.stabilityWithNext !== undefined && (
-                          <div className="mt-1.5 pt-1 border-t border-slate-200/60 text-[9px] font-bold text-slate-600">
-                            Stability $\rightarrow$ P{idx + 2}:{" "}
-                            <span className="text-purple-700 font-mono">
+                          <div className="tabular-metrics mt-1.5 border-t border-border-subtle pt-1 text-[9px] font-bold text-ink-secondary">
+                            Stability → P{idx + 2}:{" "}
+                            <span className="font-mono text-brand-600">
                               {(p.stabilityWithNext * 100).toFixed(0)}%
                             </span>
                           </div>
@@ -922,12 +1006,21 @@ export function ThematicEvolutionStudio({
                       className="overflow-visible"
                     >
                       <defs>
-                        {/* Gradient definitions for each flow link */}
                         {sankeyLayout.linkPaths.map(({ link }) => {
-                          const srcNode = data.nodes.find((n) => n.id === link.sourceId);
-                          const tgtNode = data.nodes.find((n) => n.id === link.targetId);
-                          const c1 = srcNode ? getQuadrantColor(srcNode.quadrantCode).gradientFrom : "#8b5cf6";
-                          const c2 = tgtNode ? getQuadrantColor(tgtNode.quadrantCode).gradientFrom : "#3b82f6";
+                          const srcNode = data.nodes.find(
+                            (n) => n.id === link.sourceId
+                          );
+                          const tgtNode = data.nodes.find(
+                            (n) => n.id === link.targetId
+                          );
+                          const c1 = srcNode
+                            ? getQuadrantColor(srcNode.quadrantCode)
+                                .gradientFrom
+                            : "#315C7C";
+                          const c2 = tgtNode
+                            ? getQuadrantColor(tgtNode.quadrantCode)
+                                .gradientFrom
+                            : "#0D9488";
                           return (
                             <linearGradient
                               key={`grad_${link.id}`}
@@ -937,8 +1030,16 @@ export function ThematicEvolutionStudio({
                               x2="100%"
                               y2="0%"
                             >
-                              <stop offset="0%" stopColor={c1} stopOpacity="0.45" />
-                              <stop offset="100%" stopColor={c2} stopOpacity="0.45" />
+                              <stop
+                                offset="0%"
+                                stopColor={c1}
+                                stopOpacity="0.45"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={c2}
+                                stopOpacity="0.45"
+                              />
                             </linearGradient>
                           );
                         })}
@@ -947,7 +1048,9 @@ export function ThematicEvolutionStudio({
                       {/* 1. Render Flow Ribbons */}
                       <g className="flows">
                         {sankeyLayout.linkPaths.map(({ link, d }) => {
-                          const isHighlighted = highlightedElements.links.has(link.id);
+                          const isHighlighted = highlightedElements.links.has(
+                            link.id
+                          );
                           const hasActiveSelection =
                             selectedNodeId !== null ||
                             hoveredNodeId !== null ||
@@ -964,10 +1067,12 @@ export function ThematicEvolutionStudio({
                               key={link.id}
                               d={d}
                               fill={`url(#grad_${link.id})`}
-                              stroke={isHighlighted ? "#7c3aed" : "transparent"}
+                              stroke={
+                                isHighlighted ? "#315C7C" : "transparent"
+                              }
                               strokeWidth={isHighlighted ? 1.5 : 0}
                               opacity={opacity}
-                              className="transition-all duration-200 cursor-pointer hover:opacity-95"
+                              className="cursor-pointer transition-all duration-200 hover:opacity-95"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedLinkId(link.id);
@@ -986,101 +1091,124 @@ export function ThematicEvolutionStudio({
 
                       {/* 2. Render Theme Nodes */}
                       <g className="nodes">
-                        {Array.from(sankeyLayout.nodeLayouts.values()).map(({ node, x, y, width, height }) => {
-                          const isSelected = selectedNodeId === node.id;
-                          const isHovered = hoveredNodeId === node.id;
-                          const isHighlighted = highlightedElements.nodes.has(node.id);
-                          const hasActiveSelection =
-                            selectedNodeId !== null ||
-                            hoveredNodeId !== null ||
-                            selectedLinkId !== null ||
-                            hoveredLinkId !== null;
+                        {Array.from(sankeyLayout.nodeLayouts.values()).map(
+                          ({ node, x, y, width, height }) => {
+                            const isSelected = selectedNodeId === node.id;
+                            const isHovered = hoveredNodeId === node.id;
+                            const isHighlighted =
+                              highlightedElements.nodes.has(node.id);
+                            const hasActiveSelection =
+                              selectedNodeId !== null ||
+                              hoveredNodeId !== null ||
+                              selectedLinkId !== null ||
+                              hoveredLinkId !== null;
 
-                          const matchesSearch =
-                            searchKeyword.trim() &&
-                            (node.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                              node.keywords.some((k) => k.toLowerCase().includes(searchKeyword.toLowerCase())));
+                            const matchesSearch =
+                              searchKeyword.trim() &&
+                              (node.name
+                                .toLowerCase()
+                                .includes(searchKeyword.toLowerCase()) ||
+                                node.keywords.some((k) =>
+                                  k
+                                    .toLowerCase()
+                                    .includes(searchKeyword.toLowerCase())
+                                ));
 
-                          const qColor = getQuadrantColor(node.quadrantCode);
+                            const qColor = getQuadrantColor(node.quadrantCode);
 
-                          let nodeOpacity = 1;
-                          if (hasActiveSelection && !isHighlighted && !matchesSearch) {
-                            nodeOpacity = 0.25;
+                            let nodeOpacity = 1;
+                            if (
+                              hasActiveSelection &&
+                              !isHighlighted &&
+                              !matchesSearch
+                            ) {
+                              nodeOpacity = 0.25;
+                            }
+
+                            return (
+                              <g
+                                key={node.id}
+                                transform={`translate(${x}, ${y})`}
+                                className="cursor-pointer transition-all duration-200"
+                                opacity={nodeOpacity}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedNodeId(node.id);
+                                  setSelectedLinkId(null);
+                                }}
+                                onMouseEnter={() => setHoveredNodeId(node.id)}
+                                onMouseLeave={() => setHoveredNodeId(null)}
+                              >
+                                <rect
+                                  width={width}
+                                  height={height}
+                                  rx={12}
+                                  ry={12}
+                                  fill="#ffffff"
+                                  stroke={
+                                    isSelected || isHovered || matchesSearch
+                                      ? qColor.strokeColor
+                                      : "#d8ddd8"
+                                  }
+                                  strokeWidth={
+                                    isSelected || matchesSearch ? 2.5 : 1
+                                  }
+                                  className="shadow-card transition"
+                                />
+
+                                <rect
+                                  x={0}
+                                  y={0}
+                                  width={5}
+                                  height={height}
+                                  rx={2.5}
+                                  ry={2.5}
+                                  fill={qColor.strokeColor}
+                                />
+
+                                <foreignObject
+                                  x={8}
+                                  y={4}
+                                  width={width - 12}
+                                  height={height - 8}
+                                >
+                                  <div className="pointer-events-none flex h-full select-none flex-col justify-between overflow-hidden p-1">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span
+                                        className={`truncate text-xs font-black tracking-tight ${
+                                          isSelected
+                                            ? "text-brand-700"
+                                            : "text-ink-primary"
+                                        }`}
+                                      >
+                                        {node.name}
+                                      </span>
+                                      <span
+                                        className={`shrink-0 rounded border px-1.5 py-0.2 text-[8px] font-bold ${qColor.badgeBg}`}
+                                      >
+                                        {node.quadrantCode}
+                                      </span>
+                                    </div>
+
+                                    <div className="tabular-metrics flex items-center justify-between text-[9px] font-semibold text-ink-muted">
+                                      <span className="truncate">
+                                        {node.docCount} docs •{" "}
+                                        {node.totalCitations} cits
+                                      </span>
+                                      <span className="font-mono text-[8px] text-brand-600">
+                                        {node.keywords.length} kws
+                                      </span>
+                                    </div>
+
+                                    <div className="truncate text-[8px] text-ink-subtle">
+                                      {node.keywords.slice(0, 3).join(", ")}
+                                    </div>
+                                  </div>
+                                </foreignObject>
+                              </g>
+                            );
                           }
-
-                          return (
-                            <g
-                              key={node.id}
-                              transform={`translate(${x}, ${y})`}
-                              className="cursor-pointer transition-all duration-200"
-                              opacity={nodeOpacity}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedNodeId(node.id);
-                                setSelectedLinkId(null);
-                              }}
-                              onMouseEnter={() => setHoveredNodeId(node.id)}
-                              onMouseLeave={() => setHoveredNodeId(null)}
-                            >
-                              {/* Node Container Card */}
-                              <rect
-                                width={width}
-                                height={height}
-                                rx={12}
-                                ry={12}
-                                fill="#ffffff"
-                                stroke={isSelected || isHovered || matchesSearch ? qColor.strokeColor : "#e2e8f0"}
-                                strokeWidth={isSelected || matchesSearch ? 2.5 : 1}
-                                className="shadow-xs transition"
-                              />
-
-                              {/* Left Accent Color Indicator */}
-                              <rect
-                                x={0}
-                                y={0}
-                                width={5}
-                                height={height}
-                                rx={2.5}
-                                ry={2.5}
-                                fill={qColor.strokeColor}
-                              />
-
-                              {/* Content inside node */}
-                              <foreignObject x={8} y={4} width={width - 12} height={height - 8}>
-                                <div className="h-full flex flex-col justify-between p-1 overflow-hidden pointer-events-none select-none">
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span
-                                      className={`truncate text-xs font-black tracking-tight ${
-                                        isSelected ? "text-purple-950 font-black" : "text-slate-900"
-                                      }`}
-                                    >
-                                      {node.name}
-                                    </span>
-                                    <span
-                                      className={`shrink-0 rounded px-1.5 py-0.2 text-[8px] font-bold border ${qColor.badgeBg}`}
-                                    >
-                                      {node.quadrantCode}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[9px] text-slate-500 font-semibold">
-                                    <span className="truncate">
-                                      {node.docCount} docs • {node.totalCitations} cits
-                                    </span>
-                                    <span className="font-mono text-[8px] text-purple-700">
-                                      {node.keywords.length} kws
-                                    </span>
-                                  </div>
-
-                                  {/* Keyword Snippet */}
-                                  <div className="truncate text-[8px] text-slate-400">
-                                    {node.keywords.slice(0, 3).join(", ")}
-                                  </div>
-                                </div>
-                              </foreignObject>
-                            </g>
-                          );
-                        })}
+                        )}
                       </g>
                     </svg>
                   </div>
@@ -1088,16 +1216,18 @@ export function ThematicEvolutionStudio({
               </div>
 
               {/* Inspector Panel (Right) */}
-              <div className="xl:col-span-1 space-y-4">
+              <div className="space-y-4 xl:col-span-1">
                 {selectedNode ? (
-                  <div className="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
+                  <Card padding="md" className="space-y-4 rounded-3xl">
                     {/* Node Header */}
-                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-start justify-between gap-2 border-b border-border-subtle pb-3">
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600">
+                        <div className="sciai-kicker text-[10px]! text-brand-500!">
                           Theme Inspector • {selectedNode.periodLabel}
                         </div>
-                        <h2 className="text-lg font-black text-slate-900 mt-0.5">{selectedNode.name}</h2>
+                        <h2 className="mt-0.5 text-lg font-black text-ink-primary">
+                          {selectedNode.name}
+                        </h2>
                       </div>
                       <span
                         className={`rounded-lg border px-2 py-0.5 text-[10px] font-black ${
@@ -1110,23 +1240,33 @@ export function ThematicEvolutionStudio({
 
                     {/* Metric Badges */}
                     <div className="grid grid-cols-2 gap-2 text-center">
-                      <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Articles</div>
-                        <div className="text-base font-black text-slate-900">{selectedNode.docCount}</div>
+                      <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
+                        <div className="sciai-kicker text-[9px]!">Articles</div>
+                        <div className="tabular-metrics text-base font-black text-ink-primary">
+                          {selectedNode.docCount}
+                        </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Citations</div>
-                        <div className="text-base font-black text-slate-900">{selectedNode.totalCitations}</div>
+                      <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
+                        <div className="sciai-kicker text-[9px]!">
+                          Citations
+                        </div>
+                        <div className="tabular-metrics text-base font-black text-ink-primary">
+                          {selectedNode.totalCitations}
+                        </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Callon Centrality</div>
-                        <div className="text-xs font-mono font-bold text-purple-700">
+                      <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
+                        <div className="sciai-kicker text-[9px]!">
+                          Callon Centrality
+                        </div>
+                        <div className="tabular-metrics font-mono text-xs font-bold text-brand-600">
                           {selectedNode.rawCentrality.toFixed(1)}
                         </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Callon Density</div>
-                        <div className="text-xs font-mono font-bold text-purple-700">
+                      <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
+                        <div className="sciai-kicker text-[9px]!">
+                          Callon Density
+                        </div>
+                        <div className="tabular-metrics font-mono text-xs font-bold text-brand-600">
                           {selectedNode.rawDensity.toFixed(1)}
                         </div>
                       </div>
@@ -1134,15 +1274,19 @@ export function ThematicEvolutionStudio({
 
                     {/* Keywords in Cluster */}
                     <div>
-                      <div className="text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
-                        <span>Thematic Vocabulary ({selectedNode.keywords.length})</span>
-                        <span className="text-[10px] text-slate-400">Co-occurring</span>
+                      <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-ink-secondary">
+                        <span className="tabular-metrics">
+                          Thematic Vocabulary ({selectedNode.keywords.length})
+                        </span>
+                        <span className="text-[10px] text-ink-subtle">
+                          Co-occurring
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {selectedNode.keywords.map((kw) => (
                           <span
                             key={kw}
-                            className="rounded-md bg-purple-50 text-purple-800 border border-purple-200/60 px-2 py-0.5 text-[10px] font-semibold"
+                            className="rounded-md border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700"
                           >
                             {kw}
                           </span>
@@ -1150,58 +1294,66 @@ export function ThematicEvolutionStudio({
                       </div>
                     </div>
 
-                    {/* Lineage: Ancestors (Where it came from) */}
+                    {/* Lineage: Ancestors */}
                     <div>
-                      <div className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <ArrowRight className="h-3 w-3 text-slate-400 rotate-180" />
+                      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-ink-secondary">
+                        <ArrowRight className="h-3 w-3 rotate-180 text-ink-subtle" />
                         <span>Lineage Roots (Origins)</span>
                       </div>
                       {nodeConnections.predecessors.length === 0 ? (
-                        <div className="text-[11px] text-slate-400 italic rounded-lg bg-slate-50 p-2 border border-slate-100">
+                        <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2 text-[11px] italic text-ink-muted">
                           Origin theme or newly emerged in this period.
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          {nodeConnections.predecessors.map(({ link, node }) => {
-                            const badge = getTrajectoryBadge(link.trajectory);
-                            return (
-                              <button
-                                type="button"
-                                key={link.id}
-                                onClick={() => node && setSelectedNodeId(node.id)}
-                                className="w-full text-left rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200/80 p-2 transition text-xs cursor-pointer"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-bold text-slate-800 truncate">
-                                    {node?.name || link.sourceThemeName}
-                                  </span>
-                                  <span className="font-mono text-[10px] text-purple-700 font-bold">
-                                    I = {link.inclusionIndex}
-                                  </span>
-                                </div>
-                                <div className="mt-1 flex items-center justify-between text-[10px]">
-                                  <span className={`px-1.5 py-0.2 rounded border text-[9px] ${badge.bg}`}>
-                                    {badge.label}
-                                  </span>
-                                  <span className="text-slate-400 text-[9px] truncate">
-                                    {link.sharedKeywords.slice(0, 2).join(", ")}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {nodeConnections.predecessors.map(
+                            ({ link, node }) => {
+                              const badge = getTrajectoryBadge(link.trajectory);
+                              return (
+                                <button
+                                  type="button"
+                                  key={link.id}
+                                  onClick={() =>
+                                    node && setSelectedNodeId(node.id)
+                                  }
+                                  className="w-full cursor-pointer rounded-xl border border-border-default bg-surface-subtle p-2 text-left text-xs transition-colors hover:border-brand-300 hover:bg-brand-50/50"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="truncate font-bold text-ink-primary">
+                                      {node?.name || link.sourceThemeName}
+                                    </span>
+                                    <span className="tabular-metrics font-mono text-[10px] font-bold text-brand-600">
+                                      I = {link.inclusionIndex}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between text-[10px]">
+                                    <span
+                                      className={`rounded border px-1.5 py-0.2 text-[9px] font-semibold ${badge.bg}`}
+                                    >
+                                      {badge.label}
+                                    </span>
+                                    <span className="truncate text-[9px] text-ink-subtle">
+                                      {link.sharedKeywords
+                                        .slice(0, 2)
+                                        .join(", ")}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            }
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Lineage: Descendants (Where it branches to) */}
+                    {/* Lineage: Descendants */}
                     <div>
-                      <div className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                        <ArrowRight className="h-3 w-3 text-purple-600" />
+                      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-ink-secondary">
+                        <ArrowRight className="h-3 w-3 text-brand-500" />
                         <span>Evolutionary Trajectory (Destinations)</span>
                       </div>
                       {nodeConnections.successors.length === 0 ? (
-                        <div className="text-[11px] text-slate-400 italic rounded-lg bg-slate-50 p-2 border border-slate-100">
+                        <div className="rounded-lg border border-border-subtle bg-surface-subtle p-2 text-[11px] italic text-ink-muted">
                           Terminal theme (latest period) or fading.
                         </div>
                       ) : (
@@ -1212,23 +1364,29 @@ export function ThematicEvolutionStudio({
                               <button
                                 type="button"
                                 key={link.id}
-                                onClick={() => node && setSelectedNodeId(node.id)}
-                                className="w-full text-left rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200/80 p-2 transition text-xs cursor-pointer"
+                                onClick={() =>
+                                  node && setSelectedNodeId(node.id)
+                                }
+                                className="w-full cursor-pointer rounded-xl border border-border-default bg-surface-subtle p-2 text-left text-xs transition-colors hover:border-brand-300 hover:bg-brand-50/50"
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="font-bold text-slate-800 truncate">
+                                  <span className="truncate font-bold text-ink-primary">
                                     {node?.name || link.targetThemeName}
                                   </span>
-                                  <span className="font-mono text-[10px] text-purple-700 font-bold">
+                                  <span className="tabular-metrics font-mono text-[10px] font-bold text-brand-600">
                                     I = {link.inclusionIndex}
                                   </span>
                                 </div>
                                 <div className="mt-1 flex items-center justify-between text-[10px]">
-                                  <span className={`px-1.5 py-0.2 rounded border text-[9px] ${badge.bg}`}>
+                                  <span
+                                    className={`rounded border px-1.5 py-0.2 text-[9px] font-semibold ${badge.bg}`}
+                                  >
                                     {badge.label}
                                   </span>
-                                  <span className="text-slate-400 text-[9px] truncate">
-                                    {link.sharedKeywords.slice(0, 2).join(", ")}
+                                  <span className="truncate text-[9px] text-ink-subtle">
+                                    {link.sharedKeywords
+                                      .slice(0, 2)
+                                      .join(", ")}
                                   </span>
                                 </div>
                               </button>
@@ -1237,45 +1395,54 @@ export function ThematicEvolutionStudio({
                         </div>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 ) : selectedLink ? (
-                  /* Link Inspector */
-                  <div className="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
-                    <div className="border-b border-slate-100 pb-3">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600">
+                  <Card padding="md" className="space-y-4 rounded-3xl">
+                    <div className="border-b border-border-subtle pb-3">
+                      <div className="sciai-kicker text-[10px]! text-brand-500!">
                         Evolutionary Transition Flow
                       </div>
-                      <h2 className="text-base font-black text-slate-900 mt-1 flex items-center gap-1.5">
-                        <span className="truncate">{selectedLink.sourceThemeName}</span>
-                        <ArrowRight className="h-4 w-4 text-purple-600 shrink-0" />
-                        <span className="truncate">{selectedLink.targetThemeName}</span>
+                      <h2 className="mt-1 flex items-center gap-1.5 text-base font-black text-ink-primary">
+                        <span className="truncate">
+                          {selectedLink.sourceThemeName}
+                        </span>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-brand-500" />
+                        <span className="truncate">
+                          {selectedLink.targetThemeName}
+                        </span>
                       </h2>
                     </div>
 
-                    {/* Transition Metrics */}
                     <div className="grid grid-cols-2 gap-2 text-center">
-                      <div className="rounded-xl bg-purple-50/60 p-2 border border-purple-100">
-                        <div className="text-[9px] font-bold text-purple-600 uppercase">Inclusion Index</div>
-                        <div className="text-lg font-mono font-black text-purple-900">
+                      <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-2">
+                        <div className="sciai-kicker text-[9px]! text-brand-700!">
+                          Inclusion Index
+                        </div>
+                        <div className="tabular-metrics font-mono text-lg font-black text-brand-800">
                           {selectedLink.inclusionIndex}
                         </div>
-                        <div className="text-[9px] text-purple-600/80">Simpson coeff</div>
+                        <div className="text-[9px] text-brand-600">
+                          Simpson coeff
+                        </div>
                       </div>
-                      <div className="rounded-xl bg-slate-50 p-2 border border-slate-100">
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Jaccard Index</div>
-                        <div className="text-lg font-mono font-black text-slate-900">
+                      <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
+                        <div className="sciai-kicker text-[9px]!">
+                          Jaccard Index
+                        </div>
+                        <div className="tabular-metrics font-mono text-lg font-black text-ink-primary">
                           {selectedLink.jaccardIndex}
                         </div>
-                        <div className="text-[9px] text-slate-500">Intersection / Union</div>
+                        <div className="text-[9px] text-ink-muted">
+                          Intersection / Union
+                        </div>
                       </div>
                     </div>
 
-                    {/* Trajectory */}
                     <div>
-                      <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">
+                      <div className="sciai-kicker mb-1 text-[10px]!">
                         Trajectory Classification
                       </div>
-                      <div className="rounded-xl bg-slate-50 border border-slate-200/70 p-3">
+                      <div className="rounded-xl border border-border-default bg-surface-subtle p-3">
                         <div className="flex items-center gap-2">
                           <span
                             className={`rounded-md border px-2 py-0.5 text-xs font-bold ${
@@ -1284,11 +1451,11 @@ export function ThematicEvolutionStudio({
                           >
                             {getTrajectoryBadge(selectedLink.trajectory).label}
                           </span>
-                          <span className="text-xs font-bold text-slate-700">
+                          <span className="text-xs font-bold text-ink-secondary">
                             {selectedLink.trajectory.toUpperCase()}
                           </span>
                         </div>
-                        <div className="mt-1 text-[11px] text-slate-500">
+                        <div className="mt-1 text-[11px] text-ink-muted">
                           {selectedLink.trajectory === "continuation" &&
                             "Direct paradigm continuity with strong conceptual preservation across slices."}
                           {selectedLink.trajectory === "splitting" &&
@@ -1299,44 +1466,49 @@ export function ThematicEvolutionStudio({
                       </div>
                     </div>
 
-                    {/* Shared Bridge Keywords */}
                     <div>
-                      <div className="text-xs font-bold text-slate-700 mb-1.5">
-                        Shared Conceptual Bridge ({selectedLink.sharedKeywords.length})
+                      <div className="mb-1.5 text-xs font-bold text-ink-secondary">
+                        Shared Conceptual Bridge (
+                        {selectedLink.sharedKeywords.length})
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {selectedLink.sharedKeywords.map((kw) => (
                           <span
                             key={kw}
-                            className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold"
+                            className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[10px] font-bold text-status-success-text"
                           >
                             {kw}
                           </span>
                         ))}
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center">
-                    <Info className="mx-auto h-6 w-6 text-slate-400" />
-                    <div className="mt-2 text-xs font-bold text-slate-700">No Element Selected</div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      Click any theme block or connection ribbon in the diagram to inspect its metrics and evolutionary lineage.
+                  <div className="rounded-3xl border border-dashed border-border-default bg-surface-subtle p-6 text-center">
+                    <Info className="mx-auto h-6 w-6 text-ink-subtle" />
+                    <div className="mt-2 text-xs font-bold text-ink-primary">
+                      No Element Selected
+                    </div>
+                    <div className="mt-1 text-[11px] text-ink-muted">
+                      Click any theme block or connection ribbon in the diagram
+                      to inspect its metrics and evolutionary lineage.
                     </div>
                   </div>
                 )}
 
                 {/* Methodological Guidance Card */}
-                <div className="rounded-3xl border border-slate-200/80 bg-slate-50/60 p-4 text-xs text-slate-600 space-y-2">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <HelpCircle className="h-3.5 w-3.5 text-purple-600" />
+                <div className="space-y-2 rounded-3xl border border-border-default bg-surface-subtle p-4 text-xs text-ink-secondary">
+                  <div className="flex items-center gap-1.5 font-bold text-ink-primary">
+                    <HelpCircle className="h-3.5 w-3.5 text-brand-500" />
                     <span>Methodological Foundations</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-500">
+                  <p className="text-[11px] leading-relaxed text-ink-muted">
                     Calculated using <strong>Cobo et al. (2011)</strong>:
                   </p>
-                  <ul className="list-disc list-inside text-[10px] text-slate-500 space-y-1 font-mono">
-                    <li>{"Inclusion(T_i, T_j) = |T_i ∩ T_j| / min(|T_i|, |T_j|)"}</li>
+                  <ul className="list-inside list-disc space-y-1 font-mono text-[10px] text-ink-muted">
+                    <li>
+                      {"Inclusion(T_i, T_j) = |T_i ∩ T_j| / min(|T_i|, |T_j|)"}
+                    </li>
                     <li>{"Stability = Σ|T_i ∩ T_j| / |K_1 ∪ K_2|"}</li>
                   </ul>
                 </div>
@@ -1346,97 +1518,107 @@ export function ThematicEvolutionStudio({
 
           {/* TAB 2: TRANSITION MATRIX TABLE */}
           {activeSubTab === "matrix" && (
-            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <Card padding="lg" className="space-y-4 rounded-3xl">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Evolutionary Transition & Inclusion Matrix
+                  <h2 className="text-base font-bold text-ink-primary">
+                    Evolutionary Transition &amp; Inclusion Matrix
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Detailed record of all longitudinal flows, Simpson coefficient scores, and thematic bridge keywords.
+                  <p className="text-xs text-ink-muted">
+                    Detailed record of all longitudinal flows, Simpson
+                    coefficient scores, and thematic bridge keywords.
                   </p>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={handleExportCSV}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3.5 py-1.5 text-xs font-bold text-slate-800 transition cursor-pointer"
+                  icon={<Download className="h-3.5 w-3.5 text-ink-subtle" />}
                 >
-                  <Download className="h-3.5 w-3.5 text-slate-500" />
-                  <span>Download CSV</span>
-                </button>
+                  Download CSV
+                </Button>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <thead className="border-b border-border-default bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                     <tr>
-                      <th className="py-3 px-4">Source Period</th>
-                      <th className="py-3 px-4">Origin Theme</th>
-                      <th className="py-3 px-4">Direction</th>
-                      <th className="py-3 px-4">Target Period</th>
-                      <th className="py-3 px-4">Destination Theme</th>
-                      <th className="py-3 px-4">Inclusion Index</th>
-                      <th className="py-3 px-4">Trajectory</th>
-                      <th className="py-3 px-4">Shared Bridge Keywords</th>
+                      <th className="px-4 py-3">Source Period</th>
+                      <th className="px-4 py-3">Origin Theme</th>
+                      <th className="px-4 py-3">Direction</th>
+                      <th className="px-4 py-3">Target Period</th>
+                      <th className="px-4 py-3">Destination Theme</th>
+                      <th className="px-4 py-3">Inclusion Index</th>
+                      <th className="px-4 py-3">Trajectory</th>
+                      <th className="px-4 py-3">Shared Bridge Keywords</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border-subtle">
                     {data.links.map((link) => {
                       const badge = getTrajectoryBadge(link.trajectory);
-                      const srcNode = data.nodes.find((n) => n.id === link.sourceId);
-                      const tgtNode = data.nodes.find((n) => n.id === link.targetId);
+                      const srcNode = data.nodes.find(
+                        (n) => n.id === link.sourceId
+                      );
+                      const tgtNode = data.nodes.find(
+                        (n) => n.id === link.targetId
+                      );
                       return (
                         <tr
                           key={link.id}
-                          className="hover:bg-purple-50/40 transition cursor-pointer"
+                          className="cursor-pointer transition-colors hover:bg-brand-50/40"
                           onClick={() => {
                             setSelectedLinkId(link.id);
                             setSelectedNodeId(null);
                             setActiveSubTab("sankey");
                           }}
                         >
-                          <td className="py-3 px-4 font-mono text-slate-600">
+                          <td className="tabular-metrics px-4 py-3 font-mono text-ink-secondary">
                             {data.periods[link.sourcePeriod]?.label}
                           </td>
-                          <td className="py-3 px-4 font-bold text-slate-900">
+                          <td className="px-4 py-3 font-bold text-ink-primary">
                             <span className="inline-flex items-center gap-1.5">
                               {srcNode && (
                                 <span
                                   className={`h-2 w-2 rounded-full ${
-                                    getQuadrantColor(srcNode.quadrantCode).accentBg
+                                    getQuadrantColor(srcNode.quadrantCode)
+                                      .accentBg
                                   }`}
                                 />
                               )}
                               {link.sourceThemeName}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-purple-600">
+                          <td className="px-4 py-3 text-brand-500">
                             <ArrowRight className="h-3.5 w-3.5" />
                           </td>
-                          <td className="py-3 px-4 font-mono text-slate-600">
+                          <td className="tabular-metrics px-4 py-3 font-mono text-ink-secondary">
                             {data.periods[link.targetPeriod]?.label}
                           </td>
-                          <td className="py-3 px-4 font-bold text-slate-900">
+                          <td className="px-4 py-3 font-bold text-ink-primary">
                             <span className="inline-flex items-center gap-1.5">
                               {tgtNode && (
                                 <span
                                   className={`h-2 w-2 rounded-full ${
-                                    getQuadrantColor(tgtNode.quadrantCode).accentBg
+                                    getQuadrantColor(tgtNode.quadrantCode)
+                                      .accentBg
                                   }`}
                                 />
                               )}
                               {link.targetThemeName}
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-mono font-bold text-purple-700">
+                          <td className="tabular-metrics px-4 py-3 font-mono font-bold text-brand-600">
                             {link.inclusionIndex}
                           </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded border text-[10px] font-bold ${badge.bg}`}>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`rounded border px-2 py-0.5 text-[10px] font-bold ${badge.bg}`}
+                            >
                               {badge.label}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
+                          <td className="max-w-xs truncate px-4 py-3 text-ink-muted">
                             {link.sharedKeywords.join(", ")}
                           </td>
                         </tr>
@@ -1445,33 +1627,34 @@ export function ThematicEvolutionStudio({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* TAB 3: QUADRANT STRATEGIC SHIFTS */}
           {activeSubTab === "strategic" && (
-            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-6">
+            <Card padding="lg" className="space-y-6 rounded-3xl">
               <div>
-                <h2 className="text-base font-bold text-slate-900">
+                <h2 className="text-base font-bold text-ink-primary">
                   Callon&apos;s Strategic Quadrant Migration across Time
                 </h2>
-                <p className="text-xs text-slate-500">
-                  Observe how concepts transition from Emerging (Q3) $\rightarrow$ Motor (Q1) $\rightarrow$ Basic (Q4) as scientific maturity advances.
+                <p className="text-xs text-ink-muted">
+                  Observe how concepts transition from Emerging (Q3) → Motor (Q1)
+                  → Basic (Q4) as scientific maturity advances.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {/* Motor Themes */}
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+                <div className="space-y-3 rounded-2xl border border-status-success-border bg-status-success-bg/50 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-emerald-800">
+                    <span className="text-xs font-black uppercase tracking-wider text-status-success-text">
                       Motor Themes (Q1)
                     </span>
-                    <span className="rounded bg-emerald-200 px-1.5 py-0.5 text-[9px] font-bold text-emerald-900">
+                    <span className="rounded border border-status-success-border bg-status-success-bg px-1.5 py-0.5 text-[9px] font-bold text-status-success-text">
                       High C • High D
                     </span>
                   </div>
-                  <div className="text-[11px] text-emerald-700">
+                  <div className="text-[11px] text-ink-secondary">
                     Driving, well-structured paradigms of each period.
                   </div>
                   <div className="space-y-2">
@@ -1480,18 +1663,21 @@ export function ThematicEvolutionStudio({
                       .map((n) => (
                         <div
                           key={n.id}
-                          className="rounded-xl bg-white border border-emerald-200 p-2.5 shadow-2xs cursor-pointer hover:border-emerald-400 transition"
+                          className="cursor-pointer rounded-xl border border-border-default bg-surface-canvas p-2.5 shadow-card transition-colors hover:border-status-success-border"
                           onClick={() => {
                             setSelectedNodeId(n.id);
                             setActiveSubTab("sankey");
                           }}
                         >
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                          <div className="flex items-center justify-between text-xs font-bold text-ink-primary">
                             <span>{n.name}</span>
-                            <span className="text-[9px] font-mono text-emerald-700">{n.periodLabel}</span>
+                            <span className="tabular-metrics font-mono text-[9px] text-status-success-text">
+                              {n.periodLabel}
+                            </span>
                           </div>
-                          <div className="mt-1 text-[10px] text-slate-500 truncate">
-                            {n.docCount} docs • {n.keywords.slice(0, 2).join(", ")}
+                          <div className="tabular-metrics mt-1 truncate text-[10px] text-ink-muted">
+                            {n.docCount} docs •{" "}
+                            {n.keywords.slice(0, 2).join(", ")}
                           </div>
                         </div>
                       ))}
@@ -1499,16 +1685,16 @@ export function ThematicEvolutionStudio({
                 </div>
 
                 {/* Niche Themes */}
-                <div className="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 space-y-3">
+                <div className="space-y-3 rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-purple-800">
+                    <span className="text-xs font-black uppercase tracking-wider text-brand-700">
                       Niche Themes (Q2)
                     </span>
-                    <span className="rounded bg-purple-200 px-1.5 py-0.5 text-[9px] font-bold text-purple-900">
+                    <span className="rounded border border-brand-200 bg-brand-100/70 px-1.5 py-0.5 text-[9px] font-bold text-brand-700">
                       Low C • High D
                     </span>
                   </div>
-                  <div className="text-[11px] text-purple-700">
+                  <div className="text-[11px] text-ink-secondary">
                     Highly developed specialized sub-domains.
                   </div>
                   <div className="space-y-2">
@@ -1517,18 +1703,21 @@ export function ThematicEvolutionStudio({
                       .map((n) => (
                         <div
                           key={n.id}
-                          className="rounded-xl bg-white border border-purple-200 p-2.5 shadow-2xs cursor-pointer hover:border-purple-400 transition"
+                          className="cursor-pointer rounded-xl border border-border-default bg-surface-canvas p-2.5 shadow-card transition-colors hover:border-brand-300"
                           onClick={() => {
                             setSelectedNodeId(n.id);
                             setActiveSubTab("sankey");
                           }}
                         >
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                          <div className="flex items-center justify-between text-xs font-bold text-ink-primary">
                             <span>{n.name}</span>
-                            <span className="text-[9px] font-mono text-purple-700">{n.periodLabel}</span>
+                            <span className="tabular-metrics font-mono text-[9px] text-brand-600">
+                              {n.periodLabel}
+                            </span>
                           </div>
-                          <div className="mt-1 text-[10px] text-slate-500 truncate">
-                            {n.docCount} docs • {n.keywords.slice(0, 2).join(", ")}
+                          <div className="tabular-metrics mt-1 truncate text-[10px] text-ink-muted">
+                            {n.docCount} docs •{" "}
+                            {n.keywords.slice(0, 2).join(", ")}
                           </div>
                         </div>
                       ))}
@@ -1536,16 +1725,16 @@ export function ThematicEvolutionStudio({
                 </div>
 
                 {/* Emerging/Declining Themes */}
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+                <div className="space-y-3 rounded-2xl border border-status-warning-border bg-status-warning-bg/50 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-amber-800">
+                    <span className="text-xs font-black uppercase tracking-wider text-status-warning-text">
                       Emerging / Declining (Q3)
                     </span>
-                    <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[9px] font-bold text-amber-900">
+                    <span className="rounded border border-status-warning-border bg-status-warning-bg px-1.5 py-0.5 text-[9px] font-bold text-status-warning-text">
                       Low C • Low D
                     </span>
                   </div>
-                  <div className="text-[11px] text-amber-700">
+                  <div className="text-[11px] text-ink-secondary">
                     Nascent or fading exploratory concepts.
                   </div>
                   <div className="space-y-2">
@@ -1554,18 +1743,21 @@ export function ThematicEvolutionStudio({
                       .map((n) => (
                         <div
                           key={n.id}
-                          className="rounded-xl bg-white border border-amber-200 p-2.5 shadow-2xs cursor-pointer hover:border-amber-400 transition"
+                          className="cursor-pointer rounded-xl border border-border-default bg-surface-canvas p-2.5 shadow-card transition-colors hover:border-status-warning-border"
                           onClick={() => {
                             setSelectedNodeId(n.id);
                             setActiveSubTab("sankey");
                           }}
                         >
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                          <div className="flex items-center justify-between text-xs font-bold text-ink-primary">
                             <span>{n.name}</span>
-                            <span className="text-[9px] font-mono text-amber-700">{n.periodLabel}</span>
+                            <span className="tabular-metrics font-mono text-[9px] text-status-warning-text">
+                              {n.periodLabel}
+                            </span>
                           </div>
-                          <div className="mt-1 text-[10px] text-slate-500 truncate">
-                            {n.docCount} docs • {n.keywords.slice(0, 2).join(", ")}
+                          <div className="tabular-metrics mt-1 truncate text-[10px] text-ink-muted">
+                            {n.docCount} docs •{" "}
+                            {n.keywords.slice(0, 2).join(", ")}
                           </div>
                         </div>
                       ))}
@@ -1573,16 +1765,16 @@ export function ThematicEvolutionStudio({
                 </div>
 
                 {/* Basic Themes */}
-                <div className="rounded-2xl border border-sky-200 bg-sky-50/40 p-4 space-y-3">
+                <div className="space-y-3 rounded-2xl border border-status-info-border bg-status-info-bg/50 p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-sky-800">
+                    <span className="text-xs font-black uppercase tracking-wider text-status-info-text">
                       Basic Themes (Q4)
                     </span>
-                    <span className="rounded bg-sky-200 px-1.5 py-0.5 text-[9px] font-bold text-sky-900">
+                    <span className="rounded border border-status-info-border bg-status-info-bg px-1.5 py-0.5 text-[9px] font-bold text-status-info-text">
                       High C • Low D
                     </span>
                   </div>
-                  <div className="text-[11px] text-sky-700">
+                  <div className="text-[11px] text-ink-secondary">
                     Foundational and transversal pillars of research.
                   </div>
                   <div className="space-y-2">
@@ -1591,74 +1783,82 @@ export function ThematicEvolutionStudio({
                       .map((n) => (
                         <div
                           key={n.id}
-                          className="rounded-xl bg-white border border-sky-200 p-2.5 shadow-2xs cursor-pointer hover:border-sky-400 transition"
+                          className="cursor-pointer rounded-xl border border-border-default bg-surface-canvas p-2.5 shadow-card transition-colors hover:border-status-info-border"
                           onClick={() => {
                             setSelectedNodeId(n.id);
                             setActiveSubTab("sankey");
                           }}
                         >
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                          <div className="flex items-center justify-between text-xs font-bold text-ink-primary">
                             <span>{n.name}</span>
-                            <span className="text-[9px] font-mono text-sky-700">{n.periodLabel}</span>
+                            <span className="tabular-metrics font-mono text-[9px] text-status-info-text">
+                              {n.periodLabel}
+                            </span>
                           </div>
-                          <div className="mt-1 text-[10px] text-slate-500 truncate">
-                            {n.docCount} docs • {n.keywords.slice(0, 2).join(", ")}
+                          <div className="tabular-metrics mt-1 truncate text-[10px] text-ink-muted">
+                            {n.docCount} docs •{" "}
+                            {n.keywords.slice(0, 2).join(", ")}
                           </div>
                         </div>
                       ))}
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* TAB 4: SCIENTIFIC PARADIGM SYNTHESIS */}
           {activeSubTab === "synthesis" && (
-            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-6">
+            <Card padding="lg" className="space-y-6 rounded-3xl">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 font-black">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-brand-200 bg-brand-50 font-black text-brand-600">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-slate-900">
+                  <h2 className="text-base font-black text-ink-primary">
                     Scientometric Narrative: Evolutionary Paradigm Synthesis
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Automated epistemic reconstruction of scientific transitions across {data.summary.yearSpan}.
+                  <p className="text-xs text-ink-muted">
+                    Automated epistemic reconstruction of scientific transitions
+                    across {data.summary.yearSpan}.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 {data.periods.map((p, idx) => {
-                  const pNodes = data.nodes.filter((n) => n.periodIndex === p.index);
-                  const motor = pNodes.filter((n) => n.quadrantCode === "Q1");
-                  const basic = pNodes.filter((n) => n.quadrantCode === "Q4");
+                  const pNodes = data.nodes.filter(
+                    (n) => n.periodIndex === p.index
+                  );
                   return (
                     <div
                       key={p.index}
-                      className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 space-y-3"
+                      className="space-y-3 rounded-2xl border border-border-default bg-surface-subtle p-5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="rounded-lg bg-purple-100 px-2 py-0.5 text-xs font-black text-purple-800">
+                        <span className="rounded-lg border border-brand-200 bg-brand-50 px-2 py-0.5 text-xs font-black text-brand-700">
                           Epoch {idx + 1}: {p.label}
                         </span>
-                        <span className="text-[10px] font-bold text-slate-500">{p.docCount} works</span>
+                        <span className="tabular-metrics text-[10px] font-bold text-ink-muted">
+                          {p.docCount} works
+                        </span>
                       </div>
 
-                      <div className="text-xs font-bold text-slate-800">Key Conceptual Anchors:</div>
+                      <div className="text-xs font-bold text-ink-primary">
+                        Key Conceptual Anchors:
+                      </div>
                       <div className="flex flex-wrap gap-1">
                         {pNodes.map((n) => (
                           <span
                             key={n.id}
-                            className="rounded px-2 py-0.5 text-[10px] font-bold bg-white border border-slate-200 text-slate-800"
+                            className="rounded border border-border-default bg-surface-canvas px-2 py-0.5 text-[10px] font-bold text-ink-primary"
                           >
                             {n.name}
                           </span>
                         ))}
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+                      <div className="border-t border-border-subtle pt-2 text-[11px] leading-relaxed text-ink-secondary">
                         {idx === 0 &&
                           "Formative foundational stage: establishment of core diagnostic definitions and exploratory algorithmic implementations."}
                         {idx === 1 &&
@@ -1672,16 +1872,25 @@ export function ThematicEvolutionStudio({
               </div>
 
               {/* Longitudinal Synthesis Card */}
-              <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-5 space-y-3">
-                <div className="text-xs font-black uppercase tracking-wider text-purple-800">
-                  Epistemic Continuity & Divergence Analysis
+              <div className="space-y-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-5">
+                <div className="sciai-kicker text-brand-700!">
+                  Epistemic Continuity &amp; Divergence Analysis
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed">
-                  The corpus demonstrates an overall longitudinal stability index of{" "}
-                  <strong>{(data.summary.averageStability * 100).toFixed(1)}%</strong>. A dominant evolutionary trajectory emerges connecting foundational biomedical modeling to modern multi-modal deep architectures. The presence of {data.summary.splitsCount} thematic splits highlights research specialization, whereas {data.summary.mergesCount} thematic merges denote conceptual cross-pollination.
+                <p className="text-xs leading-relaxed text-ink-secondary">
+                  The corpus demonstrates an overall longitudinal stability
+                  index of{" "}
+                  <strong className="tabular-metrics text-ink-primary">
+                    {(data.summary.averageStability * 100).toFixed(1)}%
+                  </strong>
+                  . A dominant evolutionary trajectory emerges connecting
+                  foundational biomedical modeling to modern multi-modal deep
+                  architectures. The presence of {data.summary.splitsCount}{" "}
+                  thematic splits highlights research specialization, whereas{" "}
+                  {data.summary.mergesCount} thematic merges denote conceptual
+                  cross-pollination.
                 </p>
               </div>
-            </div>
+            </Card>
           )}
         </>
       )}

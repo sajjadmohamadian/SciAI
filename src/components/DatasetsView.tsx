@@ -1,24 +1,22 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dataset, DatasetVersion, DataHealthMetrics, CanonicalDocument } from "../types.js";
-import { SectionHeader, StatusBadge, EmptyState } from "./CommonUI.js";
+import {
+  AlertBanner,
+  Button,
+  Card,
+  EmptyState,
+  StatusBadge,
+} from "./CommonUI.js";
 import {
   Database,
   Plus,
-  Layers,
-  Calendar,
-  FileText,
-  ArrowRight,
-  Play,
   Activity,
   Copy,
   Check,
   Search,
   X,
-  CheckCircle2,
-  ShieldCheck,
   Trash2,
   AlertTriangle,
-  Loader2,
 } from "lucide-react";
 import { apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
 
@@ -32,7 +30,6 @@ interface Props {
 export function DatasetsView({
   datasets = [],
   onOpenUpload,
-  onOpenDescriptive,
   onDatasetDeleted,
 }: Props) {
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(
@@ -41,8 +38,10 @@ export function DatasetsView({
   const [versions, setVersions] = useState<DatasetVersion[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [versionError, setVersionError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"snapshots" | "health" | "methodology" | "records">("snapshots");
-  
+  const [activeTab, setActiveTab] = useState<"snapshots" | "health" | "methodology" | "records">(
+    "snapshots"
+  );
+
   // Health & Methodology state
   const [healthData, setHealthData] = useState<DataHealthMetrics | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
@@ -70,8 +69,10 @@ export function DatasetsView({
   const [bulkDatasetsToDelete, setBulkDatasetsToDelete] = useState<Dataset[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const visibleIds = filteredDatasets.map((dataset) => dataset.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedDatasetIds.includes(id));
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedDatasetIds.includes(id));
 
   useEffect(() => {
     const availableIds = new Set(datasets.map((dataset) => dataset.id));
@@ -85,15 +86,19 @@ export function DatasetsView({
   }, [datasets]);
 
   const toggleDatasetForDeletion = (id: string) => {
-    setSelectedDatasetIds((current) => current.includes(id)
-      ? current.filter((selectedId) => selectedId !== id)
-      : [...current, id]);
+    setSelectedDatasetIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    );
   };
 
   const toggleMatchingDatasets = () => {
-    setSelectedDatasetIds((current) => allVisibleSelected
-      ? current.filter((id) => !visibleIds.includes(id))
-      : [...new Set([...current, ...visibleIds])]);
+    setSelectedDatasetIds((current) =>
+      allVisibleSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : [...new Set([...current, ...visibleIds])]
+    );
   };
 
   useEffect(() => {
@@ -107,7 +112,6 @@ export function DatasetsView({
       return;
     }
 
-    // Immediately clear dependent state when selected dataset changes
     setVersions([]);
     setLoadingVersions(true);
     setVersionError(null);
@@ -118,7 +122,6 @@ export function DatasetsView({
     const controller = new AbortController();
     const currentDatasetId = selectedDataset.id;
 
-    // Fetch versions with signal and request identity check
     fetch(`/datasets/${selectedDataset.id}/versions`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load versions (status ${res.status})`);
@@ -142,7 +145,6 @@ export function DatasetsView({
         }
       });
 
-    // Fetch health
     setLoadingHealth(true);
     fetch(`/datasets/${selectedDataset.id}/health`, { signal: controller.signal })
       .then((res) => res.json())
@@ -162,7 +164,6 @@ export function DatasetsView({
         }
       });
 
-    // Fetch methodology
     fetch(`/datasets/${selectedDataset.id}/methodology`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
@@ -176,7 +177,6 @@ export function DatasetsView({
         }
       });
 
-    // Fetch documents
     setLoadingDocs(true);
     fetch(`/datasets/${selectedDataset.id}/documents?limit=50`, { signal: controller.signal })
       .then((res) => res.json())
@@ -205,7 +205,13 @@ export function DatasetsView({
     if (!searchFilter) return true;
     const term = searchFilter.toLowerCase();
     const title = (doc.TI || doc.title || "").toLowerCase();
-    const author = (Array.isArray(doc.AU) ? doc.AU.join(" ") : Array.isArray(doc.authors) ? doc.authors.join(" ") : "").toLowerCase();
+    const author = (
+      Array.isArray(doc.AU)
+        ? doc.AU.join(" ")
+        : Array.isArray(doc.authors)
+          ? doc.authors.join(" ")
+          : ""
+    ).toLowerCase();
     const doi = (doc.DOI || doc.doi || "").toLowerCase();
     return title.includes(term) || author.includes(term) || doi.includes(term);
   });
@@ -232,7 +238,9 @@ export function DatasetsView({
           body: JSON.stringify({ dataset_ids: deletedIds }),
         });
       } else {
-        await apiRequest(`/api/datasets/${encodeURIComponent(deletedIds[0])}`, { method: "DELETE" });
+        await apiRequest(`/api/datasets/${encodeURIComponent(deletedIds[0])}`, {
+          method: "DELETE",
+        });
       }
 
       setDatasetToDelete(null);
@@ -251,44 +259,48 @@ export function DatasetsView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
+          <h1 className="text-2xl font-black tracking-tight text-ink-primary">
             Dataset Repository
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Manage imported bibliographic datasets, inspect 3-tier data health, generate methodology narratives, and open the appropriate analysis studio.
+          <p className="mt-1 text-xs text-ink-muted">
+            Manage imported bibliographic datasets, inspect 3-tier data health, generate methodology
+            narratives, and open the appropriate analysis studio.
           </p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="primary"
+          size="md"
           onClick={onOpenUpload}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="h-3.5 w-3.5" />
           Upload Dataset
-        </button>
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Datasets list */}
         <div className="space-y-3 lg:col-span-1">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Imported Datasets ({filteredDatasets.length}{datasetSearch.trim() ? ` of ${datasets.length}` : ""})
+            <div className="sciai-kicker tabular-metrics">
+              Imported Datasets ({filteredDatasets.length}
+              {datasetSearch.trim() ? ` of ${datasets.length}` : ""})
             </div>
           </div>
 
           {/* Real-time Dataset Search Input */}
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
             <input
               id="dataset-search-input"
               type="text"
               value={datasetSearch}
               onChange={(e) => setDatasetSearch(e.target.value)}
               placeholder="Search datasets by name or source..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-8 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-950/5 transition"
+              className="w-full rounded-xl border border-border-default bg-surface-canvas py-2 pl-9 pr-8 text-xs text-ink-primary placeholder:text-ink-subtle shadow-card transition-colors focus:border-brand-500 focus:outline-none"
             />
             {datasetSearch && (
               <button
@@ -296,19 +308,20 @@ export function DatasetsView({
                 id="clear-dataset-search-btn"
                 onClick={() => setDatasetSearch("")}
                 title="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-ink-subtle transition-colors hover:bg-surface-muted hover:text-ink-primary cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
+          {/* Bulk Selection Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
               onClick={toggleMatchingDatasets}
               disabled={filteredDatasets.length === 0 || isDeleting}
-              className="text-[11px] font-bold text-slate-700 hover:text-slate-950 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="text-[11px] font-bold text-brand-500 transition-colors hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
             >
               {allVisibleSelected ? "Deselect matching" : "Select all matching"}
             </button>
@@ -316,10 +329,12 @@ export function DatasetsView({
               type="button"
               onClick={() => {
                 setDeleteError(null);
-                setBulkDatasetsToDelete(datasets.filter((dataset) => selectedDatasetIds.includes(dataset.id)));
+                setBulkDatasetsToDelete(
+                  datasets.filter((dataset) => selectedDatasetIds.includes(dataset.id))
+                );
               }}
               disabled={selectedDatasetIds.length === 0 || isDeleting}
-              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-lg border border-status-danger-border bg-status-danger-bg px-2.5 py-1.5 text-[11px] font-bold text-status-danger-text transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete selected ({selectedDatasetIds.length})
@@ -329,21 +344,23 @@ export function DatasetsView({
           {filteredDatasets.length === 0 ? (
             <div
               id="dataset-search-empty-state"
-              className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center"
+              className="rounded-2xl border border-dashed border-border-default bg-surface-subtle p-6 text-center"
             >
-              <Database className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-2 text-xs font-semibold text-slate-700">No matching datasets</p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                No datasets match &ldquo;{datasetSearch}&rdquo;. Try searching another title or source.
+              <Database className="mx-auto h-8 w-8 text-ink-subtle" />
+              <p className="mt-2 text-xs font-semibold text-ink-primary">No matching datasets</p>
+              <p className="mt-1 text-[11px] text-ink-muted">
+                No datasets match “{datasetSearch}”. Try searching another title or source.
               </p>
-              <button
+              <Button
                 type="button"
                 id="reset-dataset-search-btn"
+                variant="secondary"
+                size="sm"
                 onClick={() => setDatasetSearch("")}
-                className="mt-3 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                className="mt-3"
               >
                 Clear Search
-              </button>
+              </Button>
             </div>
           ) : (
             <div id="dataset-filtered-list" className="space-y-3">
@@ -354,38 +371,42 @@ export function DatasetsView({
                     key={d.id}
                     id={`dataset-item-${d.id}`}
                     onClick={() => setSelectedDataset(d)}
-                    className={`group relative cursor-pointer rounded-2xl border p-4 transition ${
+                    className={`group relative cursor-pointer rounded-2xl border p-4 transition-colors ${
                       isSelected
-                        ? "border-slate-950 bg-white shadow-sm ring-1 ring-slate-950"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        ? "border-brand-500 bg-surface-canvas shadow-card ring-1 ring-brand-500"
+                        : "border-border-default bg-surface-canvas hover:border-border-strong"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                      <h3 className="text-sm font-bold leading-snug text-ink-primary">
                         {d.name || "Untitled Dataset"}
                       </h3>
                       <div className="flex shrink-0 items-center gap-2">
                         <StatusBadge status={d.status || "available"} />
-                        <label onClick={(event) => event.stopPropagation()} className="cursor-pointer rounded p-1">
+                        <label
+                          onClick={(event) => event.stopPropagation()}
+                          className="cursor-pointer rounded p-1"
+                        >
                           <input
                             type="checkbox"
                             checked={selectedDatasetIds.includes(d.id)}
                             onChange={() => toggleDatasetForDeletion(d.id)}
                             aria-label={`Select ${d.name || "Untitled Dataset"} for deletion`}
                             disabled={isDeleting}
-                            className="h-4 w-4 cursor-pointer accent-rose-600"
+                            className="h-4 w-4 cursor-pointer accent-brand-500"
                           />
                         </label>
                       </div>
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                      <div className="flex items-center gap-3">
+
+                    <div className="mt-2 flex items-center justify-between text-xs text-ink-muted">
+                      <div className="flex items-center gap-2.5">
                         <span className="flex items-center gap-1">
-                          <Database className="h-3 w-3 text-slate-400" />
+                          <Database className="h-3 w-3 text-ink-subtle" />
                           {d.source || "Generic"}
                         </span>
-                        <span>•</span>
-                        <span>{d.record_count || 0} records</span>
+                        <span>·</span>
+                        <span className="tabular-metrics">{d.record_count || 0} records</span>
                       </div>
 
                       {/* Inline Delete Button */}
@@ -398,7 +419,7 @@ export function DatasetsView({
                           setDeleteError(null);
                           setDatasetToDelete(d);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        className="rounded-lg p-1.5 text-ink-subtle opacity-0 transition-all hover:bg-status-danger-bg hover:text-status-danger-text group-hover:opacity-100 cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -411,35 +432,39 @@ export function DatasetsView({
         </div>
 
         {/* Right Column: Dataset detail and inspector */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2 shadow-xs">
+        <Card padding="lg" className="lg:col-span-2">
           {selectedDataset ? (
             <div>
-              <div className="border-b border-slate-100 pb-4">
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Dataset Inspector
-                  </div>
-                  <h2 className="mt-1 text-xl font-black text-slate-900">
-                    {selectedDataset.name}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Source: <span className="font-semibold text-slate-700">{selectedDataset.source}</span> · 
-                    Created: {selectedDataset.created_at ? new Date(selectedDataset.created_at).toLocaleDateString() : "Recent"} · 
-                    Total Indexed: {selectedDataset.record_count} publications
-                  </p>
-                </div>
+              <div className="border-b border-border-subtle pb-4">
+                <div className="sciai-kicker">Dataset Inspector</div>
+                <h2 className="mt-1 text-xl font-black tracking-tight text-ink-primary">
+                  {selectedDataset.name}
+                </h2>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Source:{" "}
+                  <span className="font-semibold text-ink-secondary">{selectedDataset.source}</span>{" "}
+                  · Created:{" "}
+                  {selectedDataset.created_at
+                    ? new Date(selectedDataset.created_at).toLocaleDateString()
+                    : "Recent"}{" "}
+                  · Total Indexed:{" "}
+                  <span className="tabular-metrics font-semibold text-ink-secondary">
+                    {selectedDataset.record_count}
+                  </span>{" "}
+                  publications
+                </p>
               </div>
 
               {/* Subtabs for Inspector */}
-              <div className="mt-4 border-b border-slate-200">
-                <div className="flex gap-2 text-xs font-bold">
+              <div className="mt-4 border-b border-border-default">
+                <div className="flex flex-wrap gap-4 text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setActiveTab("snapshots")}
-                    className={`pb-2.5 px-1 border-b-2 transition cursor-pointer ${
+                    className={`border-b-2 px-1 pb-2.5 transition-colors cursor-pointer ${
                       activeTab === "snapshots"
-                        ? "border-slate-950 text-slate-950"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
+                        ? "border-brand-500 text-brand-600"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     }`}
                   >
                     Version History
@@ -447,16 +472,16 @@ export function DatasetsView({
                   <button
                     type="button"
                     onClick={() => setActiveTab("health")}
-                    className={`pb-2.5 px-1 border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                    className={`flex items-center gap-1.5 border-b-2 px-1 pb-2.5 transition-colors cursor-pointer ${
                       activeTab === "health"
-                        ? "border-slate-950 text-slate-950"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
+                        ? "border-brand-500 text-brand-600"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     }`}
                   >
                     <Activity className="h-3.5 w-3.5" />
                     <span>3-Tier Data Health</span>
                     {healthData && (
-                      <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[10px]">
+                      <span className="tabular-metrics rounded-full border border-status-success-border bg-status-success-bg px-1.5 py-0.2 text-[10px] text-status-success-text">
                         {healthData.overall_score}%
                       </span>
                     )}
@@ -464,10 +489,10 @@ export function DatasetsView({
                   <button
                     type="button"
                     onClick={() => setActiveTab("methodology")}
-                    className={`pb-2.5 px-1 border-b-2 transition cursor-pointer ${
+                    className={`border-b-2 px-1 pb-2.5 transition-colors cursor-pointer ${
                       activeTab === "methodology"
-                        ? "border-slate-950 text-slate-950"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
+                        ? "border-brand-500 text-brand-600"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     }`}
                   >
                     Methodology Narrative
@@ -475,10 +500,10 @@ export function DatasetsView({
                   <button
                     type="button"
                     onClick={() => setActiveTab("records")}
-                    className={`pb-2.5 px-1 border-b-2 transition cursor-pointer ${
+                    className={`tabular-metrics border-b-2 px-1 pb-2.5 transition-colors cursor-pointer ${
                       activeTab === "records"
-                        ? "border-slate-950 text-slate-950"
-                        : "border-transparent text-slate-500 hover:text-slate-800"
+                        ? "border-brand-500 text-brand-600"
+                        : "border-transparent text-ink-muted hover:text-ink-primary"
                     }`}
                   >
                     Records ({documents.length})
@@ -490,18 +515,13 @@ export function DatasetsView({
               {activeTab === "snapshots" && (
                 <div className="mt-4">
                   {loadingVersions ? (
-                    <div className="py-8 text-center text-xs text-slate-400">
+                    <div className="py-8 text-center text-xs text-ink-muted">
                       Loading versions...
                     </div>
                   ) : versionError ? (
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
-                      <div className="text-xs font-bold text-rose-800">
-                        Failed to load snapshot versions
-                      </div>
-                      <p className="mt-1 text-xs text-rose-600">
-                        {versionError}
-                      </p>
-                    </div>
+                    <AlertBanner tone="danger" title="Failed to load snapshot versions">
+                      {versionError}
+                    </AlertBanner>
                   ) : versions.length === 0 ? (
                     <EmptyState
                       title="No versions found"
@@ -509,41 +529,43 @@ export function DatasetsView({
                     />
                   ) : (
                     <div className="space-y-3">
-                      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                      <div className="divide-y divide-border-subtle rounded-xl border border-border-default">
                         {versions.map((v) => (
                           <div
                             key={v.id}
-                            className="flex items-center justify-between p-4 hover:bg-slate-50/60 transition"
+                            className="flex items-center justify-between p-4 transition-colors hover:bg-surface-subtle/60"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-bold text-xs">
+                              <div className="tabular-metrics flex h-9 w-9 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-xs font-bold text-brand-600">
                                 v{v.version}
                               </div>
                               <div>
-                                <div className="text-xs font-bold text-slate-900">
+                                <div className="text-xs font-bold text-ink-primary">
                                   Version {v.version} Snapshot
                                 </div>
-                                <div className="text-[11px] text-slate-400">
+                                <div className="font-mono text-[11px] text-ink-muted">
                                   ID: {v.id} · {v.record_count} documents parsed
-                                  {v.metadata?.detected_format && ` · Format: ${v.metadata.detected_format}`}
+                                  {v.metadata?.detected_format &&
+                                    ` · Format: ${v.metadata.detected_format}`}
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-3">
                               <StatusBadge status={v.status || "ready"} />
-                             
                             </div>
                           </div>
                         ))}
                       </div>
 
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                        <div className="text-xs font-bold text-slate-800">
+                      <div className="rounded-xl border border-border-default bg-surface-subtle p-4">
+                        <div className="text-xs font-bold text-ink-primary">
                           Ready for Scientometric Intelligence
                         </div>
-                        <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                          This dataset is indexed and ready for publication year distributions, author productivity curves (Lotka), citation dispersion, Bradford journal zones, and co-authorship collaboration mapping.
+                        <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+                          This dataset is indexed and ready for publication year distributions,
+                          author productivity curves (Lotka), citation dispersion, Bradford journal
+                          zones, and co-authorship collaboration mapping.
                         </p>
                       </div>
                     </div>
@@ -555,42 +577,69 @@ export function DatasetsView({
               {activeTab === "health" && (
                 <div className="mt-4 space-y-4">
                   {loadingHealth ? (
-                    <div className="py-8 text-center text-xs text-slate-400">Computing 3-tier health scores...</div>
+                    <div className="py-8 text-center text-xs text-ink-muted">
+                      Computing 3-tier health scores...
+                    </div>
                   ) : healthData ? (
                     <>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-center">
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Level 1 (Core · W:3)</span>
-                          <div className="text-xl font-black text-slate-900 mt-1">{healthData.level_1_score}%</div>
-                          <span className="text-[9px] text-slate-500">Author, Year, Source, Citations</span>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl border border-border-default bg-surface-subtle p-3.5 text-center">
+                          <span className="sciai-kicker">Level 1 (Core · W:3)</span>
+                          <div className="tabular-metrics mt-1 text-xl font-black text-ink-primary">
+                            {healthData.level_1_score}%
+                          </div>
+                          <span className="text-[10px] text-ink-muted">
+                            Author, Year, Source, Citations
+                          </span>
                         </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-center">
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Level 2 (Descriptive · W:2)</span>
-                          <div className="text-xl font-black text-slate-900 mt-1">{healthData.level_2_score}%</div>
-                          <span className="text-[9px] text-slate-500">Title, Keywords, Affiliations</span>
+                        <div className="rounded-xl border border-border-default bg-surface-subtle p-3.5 text-center">
+                          <span className="sciai-kicker">Level 2 (Descriptive · W:2)</span>
+                          <div className="tabular-metrics mt-1 text-xl font-black text-ink-primary">
+                            {healthData.level_2_score}%
+                          </div>
+                          <span className="text-[10px] text-ink-muted">
+                            Title, Keywords, Affiliations
+                          </span>
                         </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-center">
-                          <span className="text-[10px] font-bold uppercase text-slate-400">Level 3 (Supplemental · W:1)</span>
-                          <div className="text-xl font-black text-slate-900 mt-1">{healthData.level_3_score}%</div>
-                          <span className="text-[9px] text-slate-500">Abstract, DOI, Categories</span>
+                        <div className="rounded-xl border border-border-default bg-surface-subtle p-3.5 text-center">
+                          <span className="sciai-kicker">Level 3 (Supplemental · W:1)</span>
+                          <div className="tabular-metrics mt-1 text-xl font-black text-ink-primary">
+                            {healthData.level_3_score}%
+                          </div>
+                          <span className="text-[10px] text-ink-muted">
+                            Abstract, DOI, Categories
+                          </span>
                         </div>
                       </div>
 
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800 mb-2">Field-Level Completeness</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <h4 className="mb-2 text-xs font-bold text-ink-primary">
+                          Field-Level Completeness
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                           {Object.entries(healthData.field_completeness).map(([field, rawPct]) => {
                             const pct = Number(rawPct) || 0;
                             return (
-                              <div key={field} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs">
+                              <div
+                                key={field}
+                                className="rounded-xl border border-border-subtle bg-surface-subtle p-2.5 text-xs"
+                              >
                                 <div className="flex justify-between text-[11px]">
-                                  <span className="capitalize font-medium text-slate-700">{field}</span>
-                                  <span className="font-bold text-slate-900">{pct}%</span>
+                                  <span className="font-medium capitalize text-ink-secondary">
+                                    {field}
+                                  </span>
+                                  <span className="tabular-metrics font-bold text-ink-primary">
+                                    {pct}%
+                                  </span>
                                 </div>
-                                <div className="mt-1 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
                                   <div
                                     className={`h-full rounded-full ${
-                                      pct > 80 ? "bg-emerald-600" : pct > 40 ? "bg-amber-500" : "bg-rose-500"
+                                      pct > 80
+                                        ? "bg-status-success-text"
+                                        : pct > 40
+                                          ? "bg-status-warning-text"
+                                          : "bg-status-danger-text"
                                     }`}
                                     style={{ width: `${pct}%` }}
                                   />
@@ -602,7 +651,10 @@ export function DatasetsView({
                       </div>
                     </>
                   ) : (
-                    <EmptyState title="Health score unavailable" description="Could not compute health score for this dataset." />
+                    <EmptyState
+                      title="Health score unavailable"
+                      description="Could not compute health score for this dataset."
+                    />
                   )}
                 </div>
               )}
@@ -610,27 +662,35 @@ export function DatasetsView({
               {/* TAB 3: METHODOLOGY NARRATIVE */}
               {activeTab === "methodology" && (
                 <div className="mt-4 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-xs font-bold text-slate-900">
+                      <h3 className="text-xs font-bold text-ink-primary">
                         Academic Methodology Paragraph
                       </h3>
-                      <p className="text-[10px] text-slate-500">
-                        Synthesized academic methodology text describing database indexing and deduplication procedures.
+                      <p className="text-[11px] text-ink-muted">
+                        Synthesized academic methodology text describing database indexing and
+                        deduplication procedures.
                       </p>
                     </div>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={handleCopyMethodology}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition cursor-pointer shadow-xs"
+                      icon={
+                        copiedMethodology ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )
+                      }
                     >
-                      {copiedMethodology ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                       {copiedMethodology ? "Copied!" : "Copy Narrative"}
-                    </button>
+                    </Button>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-serif leading-relaxed text-slate-800 select-text">
+                  <div className="select-text rounded-xl border border-border-default bg-surface-subtle p-4 font-serif text-xs leading-relaxed text-ink-primary">
                     "{methodology || "No methodology generated yet."}"
                   </div>
                 </div>
@@ -640,22 +700,27 @@ export function DatasetsView({
               {activeTab === "records" && (
                 <div className="mt-4 space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-ink-subtle" />
                     <input
                       type="text"
                       value={searchFilter}
                       onChange={(e) => setSearchFilter(e.target.value)}
                       placeholder="Search title, author, or DOI..."
-                      className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-950"
+                      className="w-full rounded-xl border border-border-default bg-surface-canvas py-1.5 pl-8 pr-3 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
                     />
                   </div>
 
                   {loadingDocs ? (
-                    <div className="py-8 text-center text-xs text-slate-400">Loading documents...</div>
+                    <div className="py-8 text-center text-xs text-ink-muted">
+                      Loading documents...
+                    </div>
                   ) : filteredDocs.length === 0 ? (
-                    <EmptyState title="No records found" description="No matching documents in this dataset." />
+                    <EmptyState
+                      title="No records found"
+                      description="No matching documents in this dataset."
+                    />
                   ) : (
-                    <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200">
+                    <div className="max-h-96 divide-y divide-border-subtle overflow-y-auto rounded-xl border border-border-default">
                       {filteredDocs.map((doc, i) => {
                         const title = doc.TI || doc.title || "Untitled Paper";
                         const authors = Array.isArray(doc.AU) ? doc.AU : doc.authors || [];
@@ -666,24 +731,33 @@ export function DatasetsView({
                         const db = doc.DB || "Generic";
 
                         return (
-                          <div key={doc.id || doc.UT || i} className="p-3.5 hover:bg-slate-50 transition text-xs">
+                          <div
+                            key={doc.id || doc.UT || i}
+                            className="p-3.5 text-xs transition-colors hover:bg-surface-subtle/60"
+                          >
                             <div className="flex items-start justify-between gap-3">
-                              <span className="font-bold text-slate-900 leading-snug">{title}</span>
-                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-700">
+                              <span className="font-bold leading-snug text-ink-primary">
+                                {title}
+                              </span>
+                              <span className="shrink-0 rounded-md border border-border-default bg-surface-subtle px-1.5 py-0.5 text-[9px] font-bold text-ink-secondary">
                                 {db}
                               </span>
                             </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                              <span className="font-medium text-slate-700">{authors.slice(0, 3).join("; ")}</span>
-                              <span>•</span>
-                              <span>{year}</span>
-                              <span>•</span>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ink-muted">
+                              <span className="font-medium text-ink-secondary">
+                                {authors.slice(0, 3).join("; ")}
+                              </span>
+                              <span>·</span>
+                              <span className="tabular-metrics">{year}</span>
+                              <span>·</span>
                               <span className="italic">{source}</span>
-                              <span>•</span>
-                              <span className="font-semibold text-slate-800">{citations} citations</span>
+                              <span>·</span>
+                              <span className="tabular-metrics font-semibold text-ink-primary">
+                                {citations} citations
+                              </span>
                             </div>
                             {doi && (
-                              <div className="mt-1 font-mono text-[10px] text-indigo-600 truncate">
+                              <div className="mt-1 truncate font-mono text-[10px] text-brand-500">
                                 DOI: {doi}
                               </div>
                             )}
@@ -701,49 +775,67 @@ export function DatasetsView({
               description="Choose a dataset from the left panel to inspect its versions."
             />
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Delete Confirmation Modal */}
       {(datasetToDelete || bulkDatasetsToDelete) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div role="alertdialog" aria-modal="true" aria-labelledby="dataset-delete-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-dark/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="dataset-delete-title"
+            className="w-full max-w-md rounded-2xl border border-border-default bg-surface-canvas p-6 shadow-elevated"
+          >
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-status-danger-border bg-status-danger-bg text-status-danger-text">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <h3 id="dataset-delete-title" className="text-base font-bold text-slate-900">
-                  {bulkDatasetsToDelete ? `Delete ${bulkDatasetsToDelete.length} Datasets` : "Delete Dataset"}
+                <h3
+                  id="dataset-delete-title"
+                  className="text-base font-bold text-ink-primary"
+                >
+                  {bulkDatasetsToDelete
+                    ? `Delete ${bulkDatasetsToDelete.length} Datasets`
+                    : "Delete Dataset"}
                 </h3>
                 {bulkDatasetsToDelete ? (
-                  <div className="mt-1 text-xs text-slate-500 leading-relaxed">
-                    <p>These datasets, their versions, and indexed documents will be permanently deleted:</p>
-                    <ul className="mt-2 max-h-36 list-disc space-y-1 overflow-y-auto pl-5 text-slate-800">
+                  <div className="mt-1 text-xs leading-relaxed text-ink-muted">
+                    <p>
+                      These datasets, their versions, and indexed documents will be permanently
+                      deleted:
+                    </p>
+                    <ul className="mt-2 max-h-36 list-disc space-y-1 overflow-y-auto pl-5 text-ink-primary">
                       {bulkDatasetsToDelete.map((dataset) => (
-                        <li key={dataset.id}>{dataset.name || "Untitled Dataset"} ({dataset.record_count || 0} records)</li>
+                        <li key={dataset.id}>
+                          {dataset.name || "Untitled Dataset"} ({dataset.record_count || 0} records)
+                        </li>
                       ))}
                     </ul>
                   </div>
                 ) : (
-                  <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  <p className="mt-1 text-xs leading-relaxed text-ink-muted">
                     Are you sure you want to permanently delete{" "}
-                    <strong className="text-slate-800">"{datasetToDelete?.name}"</strong>
-                    ? This will delete all associated versions and indexed documents ({datasetToDelete?.record_count || 0} records).
+                    <strong className="text-ink-primary">"{datasetToDelete?.name}"</strong>? This
+                    will delete all associated versions and indexed documents (
+                    {datasetToDelete?.record_count || 0} records).
                   </p>
                 )}
               </div>
             </div>
 
             {deleteError && (
-              <div className="mt-4 rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700">
-                {deleteError}
+              <div className="mt-4">
+                <AlertBanner tone="danger">{deleteError}</AlertBanner>
               </div>
             )}
 
             <div className="mt-6 flex items-center justify-end gap-2.5">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 disabled={isDeleting}
                 onClick={() => {
                   if (!isDeleting) {
@@ -752,28 +844,24 @@ export function DatasetsView({
                     setDeleteError(null);
                   }
                 }}
-                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
+                loading={isDeleting}
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer disabled:opacity-50"
+                icon={<Trash2 className="h-3.5 w-3.5" />}
               >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>{bulkDatasetsToDelete ? `Delete ${bulkDatasetsToDelete.length} Datasets` : "Confirm Delete"}</span>
-                  </>
-                )}
-              </button>
+                {isDeleting
+                  ? "Deleting..."
+                  : bulkDatasetsToDelete
+                    ? `Delete ${bulkDatasetsToDelete.length} Datasets`
+                    : "Confirm Delete"}
+              </Button>
             </div>
           </div>
         </div>
@@ -781,4 +869,3 @@ export function DatasetsView({
     </div>
   );
 }
-
