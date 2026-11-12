@@ -33,11 +33,11 @@ const extractServerMessage = (data: unknown): string | null => {
   return typeof message === "string" && message.trim() ? message.trim() : null;
 };
 
-const makeHttpError = (response: Response, data: unknown): ApiRequestError => {
+const makeHttpError = (response: Response, data: unknown, accountRequest = false): ApiRequestError => {
   const serverMessage = extractServerMessage(data);
 
   if (response.status === 401) {
-    return new ApiRequestError(AUTHENTICATED_DEPLOYMENT_REQUIRED_MESSAGE, {
+    return new ApiRequestError(accountRequest ? serverMessage || "Please sign in again." : AUTHENTICATED_DEPLOYMENT_REQUIRED_MESSAGE, {
       status: response.status,
       code: "auth_required",
       details: serverMessage,
@@ -45,7 +45,7 @@ const makeHttpError = (response: Response, data: unknown): ApiRequestError => {
   }
 
   if (response.status === 403) {
-    return new ApiRequestError(AUTHENTICATED_DEPLOYMENT_REQUIRED_MESSAGE, {
+    return new ApiRequestError(accountRequest ? serverMessage || "Please sign in again." : AUTHENTICATED_DEPLOYMENT_REQUIRED_MESSAGE, {
       status: response.status,
       code: "forbidden",
       details: serverMessage,
@@ -112,7 +112,8 @@ export async function apiRequest<T = unknown>(input: RequestInfo | URL, init: Re
     const response = await fetch(input, init);
     const data = await parseResponseBody(response);
     if (!response.ok) {
-      throw makeHttpError(response, data);
+      const url = new URL(typeof Request !== "undefined" && input instanceof Request ? input.url : String(input), "http://localhost");
+      throw makeHttpError(response, data, /^\/api\/(auth|admin)\//.test(url.pathname));
     }
     return data as T;
   } catch (err) {

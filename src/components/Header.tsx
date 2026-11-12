@@ -1,17 +1,21 @@
 import React from "react";
 import { BRAND } from "../brand.js";
 import { NavTab } from "./Sidebar.js";
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 
 interface Props {
   activeTab: NavTab;
   onToggleMobileNav?: () => void;
   onRefresh?: () => void;
+  onLogout?: () => void;
+  userRole?: "admin" | "user";
 }
 
 export function Header({
   activeTab,
   onToggleMobileNav,
+  onLogout,
+  userRole,
 }: Props) {
   const titles: Record<NavTab, { label: string; subtitle?: string }> = {
     overview: { label: "Overview" },
@@ -35,6 +39,7 @@ export function Header({
     powerbi: { label: "Power BI Research Intelligence Export" },
     reports: { label: "Executive Reports" },
     ai: { label: "AI Research Assistance" },
+    admin: { label: "User Administration" },
   };
 
   const current = titles[activeTab] || titles.overview;
@@ -46,6 +51,7 @@ export function Header({
           {onToggleMobileNav && (
             <button
               type="button"
+              aria-label="Open navigation"
               onClick={onToggleMobileNav}
               className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden"
             >
@@ -70,6 +76,7 @@ export function Header({
               </div>
             )}
           </div>
+          <div className="ml-4 flex items-center gap-2 text-[10px] font-bold text-slate-500"><span>{userRole === "admin" ? "Administrator" : userRole === "user" ? "User" : "Local workspace"}</span>{onLogout && <button type="button" onClick={onLogout} title="Sign out" aria-label="Sign out" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"><LogOut className="h-4 w-4" /></button>}</div>
         </div>
       </div>
     </header>

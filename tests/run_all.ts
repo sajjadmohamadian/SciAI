@@ -8,6 +8,7 @@ import fs from "node:fs";
 process.env.NODE_ENV = "test";
 process.env.SCIAI_DEV_AUTH_BYPASS = "false";
 process.env.HOST = "localhost";
+process.env.SCIAI_USER_AUTH_ENABLED = "false";
 
 // Set isolated temporary database for test suite so production sciai.db is NEVER touched
 const tempTestDb = path.join(
@@ -17,8 +18,12 @@ const tempTestDb = path.join(
 process.env.SCIAI_DB_PATH = tempTestDb;
 
 const testFiles = [
+  path.resolve("tests/environment.test.ts"),
   path.resolve("server/test_author_counting.ts"),
   path.resolve("server/test_citation_window.ts"),
+  path.resolve("tests/auth_service.test.ts"),
+  path.resolve("tests/auth_api.test.ts"),
+  path.resolve("tests/auth_client.test.ts"),
   path.resolve("tests/author_counting.test.ts"),
   path.resolve("tests/citation_window.test.ts"),
   path.resolve("tests/security.test.ts"),

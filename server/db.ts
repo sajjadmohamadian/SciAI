@@ -18,7 +18,55 @@ const DEFAULT_DB_PATH = process.env.SCIAI_DB_PATH || path.join(process.cwd(), "d
  * Current schema version for SciAI SQLite persistence layer.
  * Stored in _schema_meta table to track future migrations without data loss.
  */
-export const SCHEMA_VERSION = "1.1.0";
+export const SCHEMA_VERSION = "1.3.0";
+
+/** Idempotent upgrades also support databases created by the initial auth implementation. */
+export function migrateAuthSchema(db: DatabaseSync): void {
+  runTransaction(db, () => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS auth_users (
+        id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'user')) DEFAULT 'user',
+        status TEXT NOT NULL CHECK (status IN ('active', 'disabled')) DEFAULT 'active',
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_login_at TEXT,
+        must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1))
+      );
+      CREATE TABLE IF NOT EXISTS auth_sessions (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+        revoked_at TEXT, metadata TEXT NOT NULL DEFAULT '{}'
+      );
+      CREATE TABLE IF NOT EXISTS auth_audit_logs (
+        id TEXT PRIMARY KEY, user_id TEXT, actor_id TEXT, action TEXT NOT NULL,
+        success INTEGER NOT NULL CHECK (success IN (0, 1)),
+        metadata TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS auth_reset_tokens (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES auth_users(id),
+        token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+        used_at TEXT
+      );
+    `);
+    const columns = (table: string) => new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((column) => column.name));
+    if (!columns('auth_users').has('must_change_password')) {
+      db.exec('ALTER TABLE auth_users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1))');
+    }
+    if (!columns('auth_audit_logs').has('actor_id')) db.exec('ALTER TABLE auth_audit_logs ADD COLUMN actor_id TEXT');
+    // Old scrypt session digests cannot be converted without the bearer secret. Fail closed.
+    db.prepare("UPDATE auth_sessions SET revoked_at = ? WHERE revoked_at IS NULL AND token_hash NOT LIKE 'sha256:%'").run(new Date().toISOString());
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth_sessions(token_hash);
+      CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_auth_audit_user_time ON auth_audit_logs(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_auth_reset_user ON auth_reset_tokens(user_id);
+      CREATE TRIGGER IF NOT EXISTS auth_audit_no_update BEFORE UPDATE ON auth_audit_logs
+        BEGIN SELECT RAISE(ABORT, 'Auth audit logs are append-only'); END;
+      CREATE TRIGGER IF NOT EXISTS auth_audit_no_delete BEFORE DELETE ON auth_audit_logs
+        BEGIN SELECT RAISE(ABORT, 'Auth audit logs are append-only'); END;
+    `);
+  });
+}
 
 /**
  * Explicit transaction executor for Node's DatabaseSync.
@@ -200,7 +248,9 @@ export function initDb(dbFilePath: string = DEFAULT_DB_PATH): DatabaseSync {
       BEGIN SELECT RAISE(ABORT, 'Power BI refresh runs are immutable'); END;
     CREATE TRIGGER IF NOT EXISTS powerbi_refresh_runs_no_delete BEFORE DELETE ON powerbi_refresh_runs
       BEGIN SELECT RAISE(ABORT, 'Power BI refresh runs are immutable'); END;
+
   `);
+  migrateAuthSchema(db);
 
   // Ensure schema version marker is saved
   db.prepare(`

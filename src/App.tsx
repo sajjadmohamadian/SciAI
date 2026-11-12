@@ -29,8 +29,45 @@ import { ComparativeBenchmarkingStudio } from "./components/ComparativeBenchmark
 import { PowerBIConnectorStudio } from "./components/PowerBIConnectorStudio.js";
 import { apiJson, getApiErrorMessage } from "./utils/apiClient.js";
 import { StudioExportBoundary } from "./components/StudioExportBoundary.js";
+import { useAuth } from "./context/AuthContext.js";
+import { LoginView } from "./components/LoginView.js";
+import { AdminUsersView } from "./components/AdminUsersView.js";
+import { AiProviderProvider } from "./context/AiProviderContext.js";
 
 export default function App() {
+  const { user, authEnabled, loading } = useAuth();
+  if (loading) return <div role="status" className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading secure session…</div>;
+  if (authEnabled && !user) return <LoginView />;
+  if (authEnabled && user?.must_change_password) return <PasswordChangeGate />;
+  return <AiProviderProvider><WorkspaceApp /></AiProviderProvider>;
+}
+
+function PasswordChangeGate() {
+  const { changePassword, logout } = useAuth();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  return <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+    <form className="w-full max-w-md rounded-3xl bg-white p-8" onSubmit={async (event) => {
+      event.preventDefault(); if (busy) return; setBusy(true); setError("");
+      try { await changePassword(current, next); setCurrent(""); setNext(""); }
+      catch (err) { setError(getApiErrorMessage(err, "Password change failed.")); }
+      finally { setBusy(false); }
+    }}>
+      <h1 className="text-xl font-black">Change your temporary password</h1>
+      <p className="mt-2 text-sm text-slate-600">Choose a new password before entering the workspace.</p>
+      <label className="mt-5 block text-sm font-semibold">Current password<input required autoComplete="current-password" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="mt-1 w-full rounded-xl border p-3" /></label>
+      <label className="mt-3 block text-sm font-semibold">New password (12+ characters)<input required minLength={12} autoComplete="new-password" type="password" value={next} onChange={(e) => setNext(e.target.value)} className="mt-1 w-full rounded-xl border p-3" /></label>
+      <button disabled={busy} className="mt-5 w-full rounded-xl bg-slate-900 p-3 font-bold text-white disabled:opacity-50">{busy ? "Updating…" : "Update password"}</button>
+      <button type="button" disabled={busy} onClick={() => void logout()} className="mt-3 w-full text-sm font-semibold text-slate-600">Sign out</button>
+      {error && <p role="alert" className="mt-3 text-xs text-rose-700">{error}</p>}
+    </form>
+  </main>;
+}
+
+function WorkspaceApp() {
+  const { user, authEnabled, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<NavTab>("overview");
   const [project, setProject] = useState<Project | null>(null);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -141,6 +178,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased selection:bg-slate-950 selection:text-white">
       {/* Sidebar */}
       <Sidebar
+        isAdmin={authEnabled && user?.role === "admin"}
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         project={project || undefined}
@@ -155,6 +193,8 @@ export default function App() {
           activeTab={activeTab}
           onRefresh={loadDashboard}
           onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
+          onLogout={authEnabled ? () => void logout() : undefined}
+          userRole={user?.role}
         />
 
         {/* Page Content */}
@@ -339,11 +379,9 @@ export default function App() {
           )}
 
           {/* VIEW: AI INTELLIGENCE */}
-          {activeTab === "ai" && (
-            <AiIntelligenceView datasets={datasets} analyses={analyses} />
-          )}
-
+          {activeTab === "ai" && <AiIntelligenceView datasets={datasets} analyses={analyses} />}
           </StudioExportBoundary>
+          {activeTab === "admin" && authEnabled && user?.role === "admin" && <AdminUsersView />}
         </main>
       </div>
 

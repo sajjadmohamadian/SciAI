@@ -16,23 +16,24 @@ The development server serves both the React app and Express API from the same o
 
 ## Authentication and deployment
 
-SciAI protects data-changing and AI/ML mutation routes with a server-side API token middleware. This includes dataset upload, sample cohort ingestion, dataset deletion, analysis execution, Smart Merge, OpenAlex import, and other protected POST/DELETE operations.
+SciAI includes two browser account roles: **administrator** and **user**. Both use an HttpOnly session cookie, not a server API token. Administrators can create accounts, change roles, disable/restore access, remove access (soft deletion), and issue expiring password-reset tokens. Ordinary users cannot call administration endpoints. All authenticated users currently work in **one shared research workspace**: this is role-based account management, not private per-user datasets, source ACLs, or tenant isolation.
 
-- `SCIAI_API_TOKEN` or `API_TOKEN` is a server-side secret for protected server-to-server/admin API calls.
-- Never expose this value to browser JavaScript.
-- Never put API tokens in `VITE_*` variables, localStorage, sessionStorage, URLs, rendered HTML, or a browser-readable config endpoint.
-- `VITE_*` values are compiled into the client bundle and are visible to users.
+### First administrator and login
 
-For local loopback-only development, `SCIAI_DEV_AUTH_BYPASS="true"` allows protected mutations only when no API token is configured and the server host is loopback (`localhost`, `127.0.0.1`, or `::1`). Non-loopback deployments fail closed without a configured token.
+Supply `SCIAI_BOOTSTRAP_ADMIN_EMAIL` and `SCIAI_BOOTSTRAP_ADMIN_PASSWORD` to the **server process** before starting the app. Use a unique 12–256-character password from a password manager. No known administrator password is seeded. Bootstrap runs only against an empty account store and never overwrites an existing account. First sign-in forces a password change; remove the bootstrap environment secret afterward. `.env.example` documents the names, but deployment environment configuration must actually supply them to Node.
 
-For hosted browser use, choose one of these safe patterns:
+- `GET /api/auth/me`, `POST /api/auth/login`, `/logout`, `/password`, and `/reset` implement browser sessions and password changes/resets.
+- Session lifetime is eight hours. Session and reset credentials are stored only as domain-separated SHA-256 hashes; passwords use asynchronously computed, randomly salted scrypt hashes. Cookie flags are HttpOnly, SameSite=Lax and Secure in production; production **requires HTTPS**, a trusted exact `APP_URL`, and a persistent SQLite volume.
+- All research API paths and legacy aliases require a valid session or explicitly validated integration token, including reads. Cookie-authenticated mutations require a session-bound `X-CSRF-Token` and allowed Origin/Fetch-Metadata. The UI holds CSRF state in memory only. Logout, disabling/removing an account, role changes and password resets revoke sessions.
+- Accounts created by administrators must change their initial password. Reset tokens expire after one hour, are single-use, are shown once to the administrator, and must be delivered privately. Issuing a reset immediately invalidates the old password and sessions; only token redemption restores password login. No email provider or public registration is configured. Resetting a password does not enable a disabled account.
+- The last active administrator cannot be disabled/demoted; administrators cannot remove their own access from the administration UI/API. Soft deletion retains account identity and append-only audit history; it is not data erasure. Audit records omit passwords and credentials.
+- Authentication endpoints apply bounded per-socket-address attempt limits (20 attempts per 15 minutes). Forwarded IP headers are not trusted. Deploy a trusted gateway with additional rate limiting for internet exposure; multiple users behind one proxy share the application limit. TLS termination and proxy trust must be configured by the operator.
+- `SCIAI_USER_AUTH_ENABLED=false` is a **loopback-only legacy development/test option**. It is ignored on non-loopback hosts. The older `SCIAI_DEV_AUTH_BYPASS` does not bypass enabled browser authentication, and public-upload mode does not override the login requirement.
+- `SCIAI_API_TOKEN`/`API_TOKEN` remain optional privileged server-to-server integration credentials. They do not grant account-administration access. Never expose them in `VITE_*`, browser storage, URLs, PBIDS, or scripts. API tokens are not browser login credentials.
 
-1. **Trusted gateway injection**: authenticate users at a same-origin gateway/reverse proxy, strip client-supplied auth headers, and inject server-side credentials only on the trusted server-to-server hop.
-2. **Real browser auth/session**: add a login provider, secure `HttpOnly` cookies, CSRF/Origin protections, and server-side session authorization.
-3. **Public upload mode**: if uploads must be open to everyone, set `SCIAI_PUBLIC_UPLOADS="true"` and configure `SCIAI_PUBLIC_ORIGIN` to the exact hosted site origin. This makes only `POST /api/datasets/upload` public; sample cohort loading, Smart Merge, dataset deletion, analysis execution, imports, and AI/ML mutations remain protected.
-4. **Read-only hosted UI with admin API mutations**: keep protected mutations unavailable in the browser when token auth is enabled and use server-to-server/admin tools for writes.
+Power BI v2/v3 aggregate APIs retain their stricter private loopback/no-shared-token/no-public-upload boundary and additionally require an administrator session when user login is enabled. Login does **not** enable hosted organizational exports or Power BI Service refresh. Existing Anonymous Power Query/PBIDS instructions apply only to explicit local legacy mode; Power BI Desktop does not share the browser login cookie. With login enabled, use the authorized in-app file exports until a separate credential-aware Power BI connector is implemented.
 
-Do not add an anonymous token/session bootstrap endpoint. The browser cannot safely receive `SCIAI_API_TOKEN`.
+No commit should contain real bootstrap passwords, production database files, session tokens, or reset tokens.
 
 ## Terminology
 
@@ -63,7 +64,7 @@ Optional cloud provider keys are server-only secrets:
 - `ANTHROPIC_API_KEY`
 - `OPENAI_API_KEY`
 
-Never expose provider keys through `VITE_*` variables, frontend code, browser storage, rendered HTML, query strings, or public capability endpoints. AI routes remain protected by `SCIAI_API_TOKEN`; public upload mode does not make AI routes public.
+Never expose provider keys through `VITE_*` variables, frontend code, browser storage, rendered HTML, query strings, or public capability endpoints. AI routes require an authenticated session (with CSRF for mutations) or a validated server-side integration token; public upload mode never makes AI routes public.
 
 Local-first routing is configured with:
 
@@ -124,7 +125,7 @@ Formats are CSV, JSON, LaTeX, native OOXML Word `.docx`, Excel `.xlsx`, PowerPoi
 
 Uploads use browser-generated multipart `FormData`; do not manually set the multipart `Content-Type` boundary. The server enforces bounded temporary-file upload limits: 25 MB per file, 50 MB per request, and up to 10 files.
 
-When `SCIAI_PUBLIC_UPLOADS="true"`, unauthenticated browser uploads are accepted only for the upload endpoint and only from the configured public origin. Public uploads use the same file validation and upload-size limits plus a lightweight in-memory IP rate limit. Public uploads write into the shared SciAI dataset store, so do not use this mode for private per-user data until real user accounts and per-user authorization exist.
+With default user authentication, uploads require a logged-in session or validated integration token regardless of `SCIAI_PUBLIC_UPLOADS`. The old public-upload behavior is retained only when user authentication is explicitly disabled in local legacy development. Public-upload mode writes to the same shared workspace and must never be used as per-user data isolation.
 
 ## Render deployment
 
@@ -147,7 +148,7 @@ If browser upload shows `Authentication required`:
 1. Open the browser Network panel and inspect the failing request URL.
 2. Confirm `GET /api/health` works from the same origin.
 3. Confirm the request is going to the intended SciAI API, not a preview gateway or stale deployment.
-4. If `SCIAI_API_TOKEN` is configured, browser mutations will return 401/403 unless a trusted gateway or real browser auth/session is deployed.
+4. Sign in and complete any required password change. If the session expired, sign in again. For hosted use, verify HTTPS and trusted `APP_URL`; API tokens remain server-to-server credentials, not browser passwords.
 5. Do not fix this by exposing the server token to the browser.
 
 ## Verification

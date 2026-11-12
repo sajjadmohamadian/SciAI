@@ -1,3 +1,4 @@
+import "./server/environment.js";
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -46,6 +47,8 @@ import {
   generatePrismaSynthesisReport,
 } from "./server/ai/service.js";
 import { AiProviderError } from "./server/ai/types.js";
+import { ensureBootstrap } from "./server/auth/service.js";
+import { createAuthRouter, requestSession, userAuthEnabled, acceptSession } from "./server/auth/http.js";
 import {
   parseAnyDatabaseSource,
   detectDatabaseFormat,
@@ -277,13 +280,15 @@ if (
   process.env.npm_lifecycle_event !== "test" &&
   !isLoopbackHost() &&
   !getConfiguredApiToken() &&
-  !isPublicUploadsEnabled()
+  !isPublicUploadsEnabled() &&
+  !userAuthEnabled()
 ) {
   console.error("CRITICAL CONFIGURATION ERROR: Server is configured to bind to non-loopback host '%s', but SCIAI_API_TOKEN is not set. Refusing to start an unprotected server.", getHost());
   process.exit(1);
 }
 
 export const requireApiToken: express.RequestHandler = (req, res, next) => {
+  if (userAuthEnabled() && requestSession(req)) return acceptSession(req, res, next);
   const configuredApiToken = getConfiguredApiToken();
   const devBypass = isDevBypassEnabled();
   const isAuthMandatory = !devBypass;
@@ -1865,7 +1870,23 @@ if (hasAnyData(sciaiDb)) {
 
 // ================= API ROUTES =================
 
-// Health check
+// First-party identity routes precede the global research-data gate.
+app.use("/api", createAuthRouter());
+app.use((req, res, next) => {
+  if (!userAuthEnabled() || req.path === "/api/health" || req.path === "/health") return next();
+  // Protect all research aliases, including previously unguarded GET routes, not static assets.
+  const dataPath = /^\/(api|projects|datasets|analyses|analysis|ml|ai|powerbi|collaboration|capabilities|dashboard|benchmark|network|thematic|frontier|historical)(\/|$)/i.test(req.path);
+  if (!dataPath) return next();
+  res.setHeader("Cache-Control", "no-store");
+  if (requestSession(req)) return acceptSession(req, res, next);
+  // Deliberately bypass local-dev trust: an integration header must actually be validated.
+  const configured = getConfiguredApiToken();
+  const bearer = typeof req.headers.authorization === "string" ? /^Bearer\s+(\S+)$/i.exec(req.headers.authorization.trim())?.[1] : undefined;
+  const supplied = bearer || (typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : "");
+  if (configured && supplied && Buffer.byteLength(configured) === Buffer.byteLength(supplied) && crypto.timingSafeEqual(Buffer.from(configured), Buffer.from(supplied))) return next();
+  return res.status(401).json({ error: "Sign in to continue", code: "session_required" });
+});
+
 app.get(["/api/health", "/health"], (req, res) => {
   res.json({
     status: "ok",
@@ -3779,7 +3800,8 @@ function buildPowerBIAggregateTargetRows(model: any, targetField: JoinTarget): {
 
 // Snapshot imports are available only in an explicit, tokenless, single-operator local mode.
 // A bind address and shared API token cannot establish organizational identity behind a proxy.
-const requireLocalPowerBI: express.RequestHandler = (_req, res, next) => {
+const requireLocalPowerBI: express.RequestHandler = (req, res, next) => {
+  if (userAuthEnabled() && requestSession(req)?.user.role !== "admin") return res.status(403).json({ error: "Local aggregate exports are restricted to the administrator" });
   if (!isDevBypassEnabled() || getConfiguredApiToken() || isPublicUploadsEnabled()) {
     return res.status(403).json({ error: "Power BI snapshot imports require a local single-operator installation without a shared API token or public uploads" });
   }
@@ -4985,6 +5007,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // ================= VITE MIDDLEWARE & FRONTEND SERVING =================
 async function startServer() {
+  if (!isLoopbackHost() && !userAuthEnabled()) throw new Error("User authentication cannot be disabled on a non-loopback deployment");
+  if (userAuthEnabled()) await ensureBootstrap();
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

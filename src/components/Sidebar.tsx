@@ -17,6 +17,7 @@ import {
   Compass,
   LineChart,
   Layers,
+  ShieldCheck,
 } from "lucide-react";
 
 export type NavTab =
@@ -40,7 +41,8 @@ export type NavTab =
   | "benchmark"
   | "powerbi"
   | "reports"
-  | "ai";
+  | "ai"
+  | "admin";
 
 export interface NavItem {
   id: NavTab;
@@ -128,9 +130,16 @@ const NAV_ITEMS: NavItem[] = [
     icon: <FileText className="h-4 w-4 text-rose-500" />,
     description: "Dossiers & Exports",
   },
+  {
+    id: "admin",
+    label: "User Administration",
+    icon: <ShieldCheck className="h-4 w-4 text-slate-700" />,
+    description: "Admin-only account management",
+  },
 ];
 
 interface Props {
+  isAdmin?: boolean;
   activeTab: NavTab;
   onChangeTab: (tab: NavTab) => void;
   project?: Project;
@@ -149,6 +158,7 @@ function BrandMark() {
 }
 
 export function Sidebar({
+  isAdmin = false,
   activeTab,
   onChangeTab,
   project,
@@ -160,18 +170,17 @@ export function Sidebar({
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    if (!query) {
-      return NAV_ITEMS;
-    }
+    const available = NAV_ITEMS.filter((item) => item.id !== "admin" || isAdmin);
+    if (!query) return available;
 
-    return NAV_ITEMS.filter((item) => {
+    return available.filter((item) => {
       return (
         item.label.toLowerCase().includes(query) ||
         item.id.toLowerCase().includes(query) ||
         Boolean(item.description?.toLowerCase().includes(query))
       );
     });
-  }, [searchQuery]);
+  }, [searchQuery, isAdmin]);
 
   const handleSelectTab = (tab: NavTab) => {
     onChangeTab(tab);
