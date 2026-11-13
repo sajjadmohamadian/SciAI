@@ -899,7 +899,7 @@ Thematic keyword co-occurrence analysis identifies the strategic driving themes:
           <div className="space-y-2 rounded-xl border border-border-subtle bg-surface-subtle p-4">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-ink-primary">
               <Users className="h-4 w-4 text-brand-500" />
-              1. Author Productivity &amp; Lotka&apos;s Law
+              1. Price&apos;s Elite Group &amp; Lotka&apos;s Law
             </div>
             <p className="text-xs leading-relaxed text-ink-secondary">
               The corpus exhibits strong conformance to Lotka&apos;s

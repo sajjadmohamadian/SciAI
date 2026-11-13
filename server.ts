@@ -1,4 +1,6 @@
 import "./server/environment.js";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -4921,6 +4923,8 @@ app.post("/api/openalex/import", requireApiToken, (req, res) => {
       description: `Live imported via OpenAlex REST API for query "${query || "all"}". Includes citation counts, open access metadata, and referenced works count.`,
       status: "ready",
       database_type: "openalex",
+      record_count: canonicalDocs.length,
+      latest_version_id: verId,
       created_at: new Date().toISOString(),
     };
 

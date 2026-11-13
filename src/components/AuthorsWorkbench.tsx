@@ -90,7 +90,7 @@ export function AuthorsWorkbench({ analyses, onRunAnalysis, datasetName }: Props
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            Author Productivity
+            Price's Elite Group
           </button>
           <button
             type="button"
@@ -175,156 +175,225 @@ export function AuthorsWorkbench({ analyses, onRunAnalysis, datasetName }: Props
         </div>
       </div>
 
-      {/* Subtab 1: Author Productivity */}
-      {subTab === "overview" && (
-        <div className="space-y-6">
-          {productivityAnalysis ? (
-            <div className="space-y-4">
-              {/* Chart */}
-              <VisualizerChart
-                capabilityId="author.productivity"
-                records={productivityRecords}
-              />
+      {/* Subtab 1: Price's Elite Group */}
+      {subTab === "overview" && (() => {
+        const totalAuthorsCount = productivityRecords.length;
+        const eliteQuota = Math.max(1, Math.ceil(Math.sqrt(totalAuthorsCount)));
+        const sortedByOutput = [...productivityRecords].sort(
+          (a, b) => Number(b.documents || b.count || 0) - Number(a.documents || a.count || 0)
+        );
+        const eliteThreshold = sortedByOutput[eliteQuota - 1]
+          ? Number(sortedByOutput[eliteQuota - 1].documents || sortedByOutput[eliteQuota - 1].count || 1)
+          : 1;
+        const eliteGroup = sortedByOutput.filter(
+          (r) => Number(r.documents || r.count || 0) >= eliteThreshold
+        );
+        const totalOutput = sortedByOutput.reduce(
+          (sum, r) => sum + Number(r.documents || r.count || 0),
+          0
+        );
+        const eliteOutput = eliteGroup.reduce(
+          (sum, r) => sum + Number(r.documents || r.count || 0),
+          0
+        );
+        const eliteSharePct = totalOutput > 0 ? (eliteOutput / totalOutput) * 100 : 0;
+        const visibleElite = eliteGroup.filter((r) =>
+          String(r.author || "").toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
-              {/* Table with search and counting mode controls */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 p-4 gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900">Author Productivity Ranking</h3>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        activeProductivityMode === "fractional"
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : "bg-slate-100 text-slate-700 border border-slate-200"
-                      }`}>
-                        <Layers className="h-3 w-3" />
-                        {activeProductivityMode === "fractional" ? "Fractional Credit (1/N)" : "Whole Counting"}
+        return (
+          <div className="space-y-6">
+            {productivityAnalysis ? (
+              <div className="space-y-5">
+                {/* Price's Law KPI Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Total Corpus Authors (N)
+                    </div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 font-mono">
+                      {totalAuthorsCount.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-500">Deduplicated researchers</div>
+                  </div>
+
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 shadow-2xs">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                      Price&apos;s Elite Size (√N)
+                    </div>
+                    <div className="mt-1 text-2xl font-black text-indigo-950 font-mono">
+                      {eliteGroup.length.toLocaleString()}
+                      <span className="ml-1.5 text-xs font-semibold text-indigo-600">
+                        (target: {eliteQuota})
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500">
-                      {activeProductivityMode === "fractional"
-                        ? "Proportional credit allocated evenly (1/N) among deduplicated co-authors per paper"
-                        : "Each deduplicated author receives 1 full document credit per publication"}
-                    </p>
+                    <div className="mt-0.5 text-[11px] text-indigo-700/80">
+                      {totalAuthorsCount > 0
+                        ? `Top ${((eliteGroup.length / totalAuthorsCount) * 100).toFixed(1)}% of authors`
+                        : "Core contributors"}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Counting Mode Selector */}
-                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCountingMode("whole");
-                          handleExecuteWithMode("author.productivity", "whole");
-                        }}
-                        className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                          activeProductivityMode === "whole"
-                            ? "bg-white text-slate-900 shadow-2xs font-bold"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                        title="Award 1 full credit to each author on a paper"
-                      >
-                        Whole
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCountingMode("fractional");
-                          handleExecuteWithMode("author.productivity", "fractional");
-                        }}
-                        className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                          activeProductivityMode === "fractional"
-                            ? "bg-white text-slate-900 shadow-2xs font-bold"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                        title="Award 1/N credit to each author on a paper with N co-authors"
-                      >
-                        Fractional (1/N)
-                      </button>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-2xs">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      Elite Output Share
                     </div>
+                    <div className="mt-1 text-2xl font-black text-emerald-950 font-mono">
+                      {eliteSharePct.toFixed(1)}%
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-emerald-700">
+                      Price&apos;s theoretical benchmark: 50.0%
+                    </div>
+                  </div>
 
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search author..."
-                        className="rounded-lg border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
-                      />
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Elite Entry Threshold
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleExecuteWithMode("author.productivity", activeProductivityMode)}
-                      className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      <Play className="h-3 w-3 text-slate-500" />
-                      Re-run
-                    </button>
+                    <div className="mt-1 text-2xl font-black text-slate-900 font-mono">
+                      ≥ {activeProductivityMode === "fractional" ? eliteThreshold.toFixed(2) : eliteThreshold}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-500">
+                      {activeProductivityMode === "fractional" ? "Fractional credit minimum" : "Minimum publications"}
+                    </div>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/75 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">#</th>
-                        <th className="px-4 py-3">Author Name</th>
-                        <th className="px-4 py-3 text-right">
-                          {activeProductivityMode === "fractional" ? "Credit (Fractional)" : "Documents"}
-                        </th>
-                        {activeProductivityMode === "fractional" && (
-                          <th className="px-4 py-3 text-right">Raw Papers</th>
-                        )}
-                        <th className="px-4 py-3 text-right">Total Citations</th>
-                        <th className="px-4 py-3 text-right">
-                          {activeProductivityMode === "fractional" ? "Citations / Credit" : "Avg Citations / Doc"}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {filteredAuthors.map((a, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/60 transition">
-                          <td className="px-4 py-3 font-mono text-slate-400">{idx + 1}</td>
-                          <td className="px-4 py-3 font-bold text-slate-900 flex items-center gap-2">
-                            <div className="h-6 w-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-bold">
-                              {String(a.author || "U").charAt(0)}
-                            </div>
-                            {String(a.author)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                            {activeProductivityMode === "fractional"
-                              ? Number(a.documents || a.credit || a.count || 0).toFixed(3)
-                              : Number(a.documents || a.count || 0)}
-                          </td>
-                          {activeProductivityMode === "fractional" && (
-                            <td className="px-4 py-3 text-right font-mono text-slate-500">
-                              {Number(a.raw_documents || a.count || 0)}
-                            </td>
-                          )}
-                          <td className="px-4 py-3 text-right font-mono text-slate-600">
-                            {Number(a.total_citations || 0)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-600">
-                            {Number(a.avg_citations || 0).toFixed(2)}
-                          </td>
+                {/* Chart */}
+                <VisualizerChart
+                  capabilityId="author.productivity"
+                  records={productivityRecords}
+                />
+
+                {/* Price's Elite Table */}
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 p-4 gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Price&apos;s Elite Group Members
+                        </h3>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                          <Award className="h-3 w-3" />
+                          √N Core ({eliteGroup.length})
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Showing only researchers meeting Price&apos;s square-root elite threshold (≥ {activeProductivityMode === "fractional" ? eliteThreshold.toFixed(2) : eliteThreshold} {activeProductivityMode === "fractional" ? "credit" : "articles"}).
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountingMode("whole");
+                            handleExecuteWithMode("author.productivity", "whole");
+                          }}
+                          className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                            activeProductivityMode === "whole"
+                              ? "bg-white text-slate-900 shadow-2xs font-bold"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Whole
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountingMode("fractional");
+                            handleExecuteWithMode("author.productivity", "fractional");
+                          }}
+                          className={`cursor-pointer rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                            activeProductivityMode === "fractional"
+                              ? "bg-white text-slate-900 shadow-2xs font-bold"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Fractional (1/N)
+                        </button>
+                      </div>
+
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Filter elite member..."
+                          className="rounded-lg border border-slate-200 bg-slate-50/50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleExecuteWithMode("author.productivity", activeProductivityMode)}
+                        className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        <Play className="h-3 w-3 text-slate-500" />
+                        Recompute
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50/75 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">#</th>
+                          <th className="px-4 py-3">Elite Researcher</th>
+                          <th className="px-4 py-3 text-right">
+                            {activeProductivityMode === "fractional" ? "Fractional Credit" : "Articles"}
+                          </th>
+                          <th className="px-4 py-3 text-right">Output Share</th>
+                          <th className="px-4 py-3 text-right">Citations</th>
+                          <th className="px-4 py-3 text-right">Cites / Doc</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {visibleElite.map((a, idx) => {
+                          const docsVal = Number(a.documents || a.credit || a.count || 0);
+                          const share = totalOutput > 0 ? (docsVal / totalOutput) * 100 : 0;
+                          return (
+                            <tr key={idx} className="hover:bg-indigo-50/30 transition">
+                              <td className="px-4 py-3 font-mono text-slate-400">{idx + 1}</td>
+                              <td className="px-4 py-3 font-bold text-slate-900 flex items-center gap-2">
+                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700">
+                                  ★
+                                </span>
+                                {String(a.author)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                                {activeProductivityMode === "fractional" ? docsVal.toFixed(3) : docsVal}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-indigo-700 font-semibold">
+                                {share.toFixed(1)}%
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-slate-600">
+                                {Number(a.total_citations || 0).toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-600">
+                                {Number(a.avg_citations || 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <EmptyState
-              title="No Author Productivity Data"
-              description="Calculate author publication and citation distributions across your dataset."
-              action="Run Author Productivity"
-              onAction={() => onRunAnalysis("author.productivity")}
-            />
-          )}
-        </div>
-      )}
+            ) : (
+              <EmptyState
+                title="No Price's Elite Group Data"
+                description="Run Price's square-root law analysis to identify the core elite group of researchers."
+                action="Identify Elite Group"
+                onAction={() => onRunAnalysis("author.productivity")}
+              />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Subtab 2: Lotka's Law */}
       {subTab === "lotka" && (

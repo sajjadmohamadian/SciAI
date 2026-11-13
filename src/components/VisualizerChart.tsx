@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { WorldChoroplethMap } from "./WorldChoroplethMap.js";
 import {
   BarChart,
   Bar,
@@ -200,7 +201,16 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
   const [viewOverrides, setViewOverrides] = useState<Record<string, string>>({});
 
   if (!records || !Array.isArray(records) || records.length === 0) {
+    if (capabilityId === "group.analysis") {
     return (
+      <WorldChoroplethMap
+        records={records}
+        title="Country Analysis — World Research Distribution"
+      />
+    );
+  }
+
+  return (
       <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
         <AlertCircle className="mx-auto h-8 w-8 text-slate-300" />
         <div className="mt-2 text-xs font-bold text-slate-700">Empty Chart Data</div>
@@ -266,45 +276,79 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
     );
   }
 
-  // 2. Author Productivity
+  // 2. Author Productivity -> Price's Elite Group (√N)
   if (capabilityId === "author.productivity") {
     const isFractional = records.some((r) => {
       const docs = Number(r.documents || r.count || 0);
       return docs % 1 !== 0;
     });
 
-    const data = records.slice(0, 10).map((r) => ({
-      author: String(r.author || "Unknown"),
-      documents: isFractional
+    const sorted = [...records].sort(
+      (a, b) => Number(b.documents || b.count || 0) - Number(a.documents || a.count || 0)
+    );
+    const eliteQuota = Math.max(1, Math.ceil(Math.sqrt(sorted.length)));
+    const threshold = sorted[eliteQuota - 1]
+      ? Number(sorted[eliteQuota - 1].documents || sorted[eliteQuota - 1].count || 1)
+      : 1;
+    const eliteMembers = sorted.filter(
+      (r) => Number(r.documents || r.count || 0) >= threshold
+    );
+
+    const data = eliteMembers.slice(0, 15).map((r) => {
+      const rawAuthor = String(r.author || "Unknown");
+      const docs = isFractional
         ? Number(Number(r.documents || r.count || 0).toFixed(3))
-        : Number(r.documents || r.count || 0),
-      citations: Number(r.total_citations || 0),
-    }));
+        : Number(r.documents || r.count || 0);
+      return {
+        author: rawAuthor.length > 22 ? rawAuthor.slice(0, 22) + "..." : rawAuthor,
+        documents: docs,
+        citations: Number(r.total_citations || 0),
+      };
+    });
 
     return (
-      <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-600">
-            Top Productive Authors ({isFractional ? "Fractional Credit" : "Whole Counting"})
+      <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-5 shadow-xs">
+        <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div>
+            <span className="text-xs font-bold text-slate-900">
+              Price&apos;s Elite Group (√N = {eliteMembers.length} Core Contributors)
+            </span>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Researchers meeting Price&apos;s square-root elite threshold (≥ {isFractional ? threshold.toFixed(2) : threshold} {isFractional ? "credit" : "articles"}).
+            </p>
+          </div>
+          <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+            Price&apos;s Law Core
           </span>
-          <span className="text-[10px] font-semibold text-slate-400">Showing Top 10</span>
         </div>
-        <div className="h-64 w-full">
+        <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 40, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} />
-              <YAxis type="category" dataKey="author" tick={{ fontSize: 10, fill: "#334155" }} width={80} />
+            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 25, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "#64748b" }} />
+              <YAxis
+                type="category"
+                dataKey="author"
+                width={130}
+                tick={{ fontSize: 11, fill: "#1e293b", fontWeight: 600 }}
+              />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
-                formatter={(val: any, name: any) => [
-                  val,
-                  name === "documents"
-                    ? (isFractional ? "Fractional Credit" : "Publications")
-                    : "Total Citations"
-                ]}
+                formatter={(val: any, _name: any, props: any) => {
+                  const cites = props?.payload?.citations;
+                  return [
+                    `${val}${cites ? ` (Citations: ${cites})` : ""}`,
+                    isFractional ? "Fractional Credit" : "Elite Publications",
+                  ];
+                }}
               />
-              <Bar dataKey="documents" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={14} />
+              <Bar
+                dataKey="documents"
+                name={isFractional ? "Fractional Credit" : "Articles"}
+                fill="#4f46e5"
+                radius={[0, 4, 4, 0]}
+                barSize={12}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -562,119 +606,50 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
 
   // 4. Keyword Frequency: Tag Cloud, Bar breakdown & Donut breakdown
   if (capabilityId === "keyword.frequency") {
-    const activeView = currentView || "donut";
-    const topKeywords = records.slice(0, 20);
-    const maxFreq = Math.max(...topKeywords.map((k) => Number(k.frequency || k.count || 1)));
-
-    // Categorical breakdown for Donut/Pie: top 8 keywords share of total
-    const top8 = records.slice(0, 8).map((k) => ({
-      name: String(k.keyword || k.name),
-      value: Number(k.frequency || k.count || 0),
-    }));
+    const topKeywords = records.slice(0, 45);
+    const maxFreq = Math.max(1, ...topKeywords.map((k) => Number(k.frequency || k.count || 1)));
+    const minFreq = Math.min(...topKeywords.map((k) => Number(k.frequency || k.count || 1)));
+    const span = Math.max(1, maxFreq - minFreq);
     const totalOccurrences = records.reduce((sum, r) => sum + Number(r.frequency || r.count || 0), 0);
-    const top8Sum = top8.reduce((sum, item) => sum + item.value, 0);
-    const otherSum = Math.max(0, totalOccurrences - top8Sum);
-    const pieData = otherSum > 0 ? [...top8, { name: "Other Keywords", value: otherSum }] : top8;
-
-    // Bar chart data
-    const barData = records.slice(0, 10).map((k) => ({
-      name: String(k.keyword || k.name),
-      frequency: Number(k.frequency || k.count || 0),
-    }));
+    const cloudColors = ["#1e1b4b", "#1d4ed8", "#0f766e", "#0369a1", "#4338ca", "#b45309", "#be123c", "#334155", "#047857", "#6d28d9"];
+    const arranged: typeof topKeywords = [];
+    topKeywords.forEach((item, i) => {
+      if (i % 2 === 0) arranged.push(item);
+      else arranged.unshift(item);
+    });
 
     return (
       <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <span className="text-xs font-bold text-slate-800">Thematic Keyword Distribution</span>
-            <span className="text-[10px] text-slate-400 block">Categorical composition & occurrence hierarchy</span>
+            <span className="text-xs font-bold text-slate-800">Keyword Word Cloud</span>
+            <span className="text-[10px] text-slate-400 block">Proportional occurrence density across top {topKeywords.length} keywords</span>
           </div>
-          <ChartToggle
-            currentView={activeView}
-            onViewChange={setView}
-            options={[
-              { id: "donut", label: "Donut Share", icon: LucidePieChart },
-              { id: "bar", label: "Bar Frequency", icon: BarChart3 },
-              { id: "cloud", label: "Tag Cloud", icon: Layers },
-            ]}
-          />
         </div>
-
-        {activeView === "donut" && (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={85}
-                  paddingAngle={3}
-                >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} stroke="#ffffff" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(val: any) => [
-                    `${val} mentions (${totalOccurrences > 0 ? ((Number(val) / totalOccurrences) * 100).toFixed(1) : 0}%)`,
-                    "Occurrences",
-                  ]}
-                />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {activeView === "bar" && (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#334155" }} width={110} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(val: any) => [val, "Frequency"]} />
-                <Bar dataKey="frequency" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={14}>
-                  {barData.map((_, index) => (
-                    <Cell key={`cell-bar-${index}`} fill={index === 0 ? "#0f172a" : index < 3 ? "#3b82f6" : "#64748b"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {activeView === "cloud" && (
-          <div className="flex flex-wrap gap-2 py-4 max-h-64 overflow-y-auto">
-            {topKeywords.map((kw, idx) => {
-              const freq = Number(kw.frequency || kw.count || 1);
-              const ratio = freq / maxFreq;
-              const sizeClass =
-                ratio > 0.8
-                  ? "text-sm font-black bg-slate-900 text-white"
-                  : ratio > 0.5
-                  ? "text-xs font-bold bg-slate-200 text-slate-800"
-                  : "text-xs font-medium bg-white text-slate-600 border border-slate-200";
-
-              return (
-                <span
-                  key={idx}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 shadow-2xs transition hover:scale-105 ${sizeClass}`}
-                >
-                  <span>{String(kw.keyword || kw.name)}</span>
-                  <span className="rounded-full bg-black/10 px-1.5 py-0.2 text-[10px] font-mono">
-                    {freq}
-                  </span>
-                </span>
-              );
-            })}
-          </div>
-        )}
+        <div className="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-2.5 rounded-xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50/90 px-6 py-8 min-h-[290px]">
+          {arranged.map((kw, idx) => {
+            const word = String(kw.keyword || kw.name || "");
+            const freq = Number(kw.frequency || kw.count || 1);
+            const norm = (freq - minFreq) / span;
+            const fontSize = Math.round(12 + Math.pow(norm, 0.78) * 26);
+            const fontWeight = norm > 0.7 ? 900 : norm > 0.4 ? 700 : norm > 0.18 ? 600 : 500;
+            const color = cloudColors[(word.length + idx) % cloudColors.length];
+            const sharePct = totalOccurrences > 0 ? ((freq / totalOccurrences) * 100).toFixed(1) : "0";
+            return (
+              <span
+                key={word + idx}
+                title={`${word}: ${freq} occurrences (${sharePct}%)`}
+                style={{ fontSize: `${fontSize}px`, fontWeight, color, lineHeight: 1.15 }}
+                className="group relative inline-flex items-baseline gap-1 cursor-default select-none rounded-md px-1.5 py-0.5 transition-all duration-150 hover:scale-110 hover:bg-blue-50/80"
+              >
+                <span>{word}</span>
+                <sup className="text-[9px] font-mono font-semibold text-slate-400 group-hover:text-blue-600">
+                  {freq}
+                </sup>
+              </span>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -962,38 +937,39 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
     );
   }
 
-  // 9. Advanced Hirsch Family Metrics: Multi-index Bar vs Power BI Scatter / Bubble visual
+  // 9. Advanced Hirsch Family Metrics: Clear Horizontal Index Comparison & Productivity-Impact Quadrant
   if (capabilityId === "citation.advanced_hirsch") {
-    const activeView = currentView || "scatter";
-    const barData = records.slice(0, 8).map((r) => ({
-      author: String(r.author).length > 18 ? String(r.author).slice(0, 18) + "..." : String(r.author),
+    const activeView = currentView || "bar";
+    const barData = records.slice(0, 10).map((r) => ({
+      author: String(r.author).length > 22 ? String(r.author).slice(0, 22) + "..." : String(r.author),
+      fullAuthor: String(r.author || "Author"),
       h_index: Number(r.h_index || 0),
       g_index: Number(r.g_index || 0),
-      m_quotient: Number(r.m_quotient || 0),
       e_index: Number(r.e_index || 0),
+      m_quotient: Number(r.m_quotient || 0),
       citations: Number(r.total_citations || 0),
+      documents: Number(r.documents || r.count || 0),
     }));
 
-    // Multi-dimensional Scatter / Bubble visual:
-    // X = Publication Year (first or latest pub year), Y = Total Citations, Bubble Size = Documents / h-index
-    const scatterData = records.slice(0, 25).map((r) => {
-      const year = Number(r.first_publication_year || r.latest_publication_year || 2020);
-      const citations = Number(r.total_citations || (Number(r.h_index || 1) * 8));
-      const documents = Math.max(1, Number(r.documents || r.count || r.h_index || 2));
+    // Productivity (X = Documents) vs Impact (Y = h-index), Bubble Size = Total Citations
+    const scatterData = records.slice(0, 30).map((r) => {
+      const documents = Math.max(1, Number(r.documents || r.count || r.h_index || 1));
       const hIndex = Number(r.h_index || 0);
+      const gIndex = Number(r.g_index || 0);
+      const citations = Number(r.total_citations || hIndex * 5);
       const mQuot = Number(r.m_quotient || 0);
       const author = String(r.author || "Author");
 
       return {
-        x: year,
-        y: citations,
-        z: documents,
+        x: documents,
+        y: hIndex,
+        z: Math.max(1, citations),
         author,
         label: author,
-        xName: "Career Start Year",
-        yName: "Total Citations",
-        zName: "Publication Count",
-        extra: `h-index: ${hIndex} • m-quotient: ${mQuot} • g-index: ${r.g_index || 0}`,
+        xName: "Published Documents",
+        yName: "Hirsch h-index",
+        zName: "Total Citations",
+        extra: `g-index: ${gIndex} | m-quotient: ${mQuot.toFixed(2)}`,
       };
     });
 
@@ -1003,67 +979,92 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-                Hirsch Family Metrics (hindexcalculator & CITAN)
+                Hirsch Family Metrics
               </span>
-              <span className="text-xs font-bold text-slate-800">Multi-Dimensional Impact & Trajectory</span>
+              <span className="text-xs font-bold text-slate-800">
+                {activeView === "bar"
+                  ? "Top Authors: h-index vs. g-index & e-index"
+                  : "Productivity (Documents) vs. Impact (h-index)"}
+              </span>
             </div>
             <p className="text-[11px] text-slate-500 mt-1">
-              Correlating career publication onset (X), cumulative citations (Y), and total publications (bubble size).
+              {activeView === "bar"
+                ? "Comparing core impact (h), citation concentration in top papers (g), and excess core citations (e)."
+                : "X-axis shows total publications, Y-axis shows h-index, and bubble size reflects cumulative citations."}
             </p>
           </div>
           <ChartToggle
             currentView={activeView}
             onViewChange={setView}
             options={[
-              { id: "scatter", label: "Scatter Bubble", icon: CircleDot },
               { id: "bar", label: "Index Comparison", icon: BarChart3 },
+              { id: "scatter", label: "Productivity vs Impact", icon: CircleDot },
             ]}
           />
         </div>
 
-        {activeView === "scatter" ? (
-          <div className="h-64 w-full">
+        {activeView === "bar" ? (
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 15, right: 25, bottom: 15, left: 10 }}>
+              <BarChart
+                data={barData}
+                layout="vertical"
+                margin={{ top: 5, right: 25, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" tick={{ fontSize: 10, fill: "#64748b" }} />
+                <YAxis
+                  type="category"
+                  dataKey="author"
+                  width={130}
+                  tick={{ fontSize: 11, fill: "#1e293b", fontWeight: 600 }}
+                />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  formatter={(value: any, name: any, props: any) => {
+                    if (name === "h-index") {
+                      return [`${value} (m-quotient: ${props.payload.m_quotient.toFixed(2)})`, name];
+                    }
+                    return [value, name];
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                <Bar dataKey="h_index" name="h-index" fill="#0f172a" radius={[0, 3, 3, 0]} barSize={8} />
+                <Bar dataKey="g_index" name="g-index" fill="#3b82f6" radius={[0, 3, 3, 0]} barSize={8} />
+                <Bar dataKey="e_index" name="e-index (Excess)" fill="#10b981" radius={[0, 3, 3, 0]} barSize={8} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 15, right: 25, bottom: 20, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
                   type="number"
                   dataKey="x"
-                  name="Career Start Year"
-                  domain={["auto", "auto"]}
+                  name="Documents"
                   tick={{ fontSize: 10, fill: "#64748b" }}
+                  label={{ value: "Total Publications (Documents)", position: "bottom", offset: 0, fontSize: 10, fill: "#64748b" }}
                 />
                 <YAxis
                   type="number"
                   dataKey="y"
-                  name="Citations"
+                  name="h-index"
                   tick={{ fontSize: 10, fill: "#64748b" }}
+                  label={{ value: "Hirsch h-index", angle: -90, position: "insideLeft", fontSize: 10, fill: "#64748b" }}
                 />
-                <ZAxis type="number" dataKey="z" range={[70, 360]} name="Documents" />
+                <ZAxis type="number" dataKey="z" range={[60, 420]} name="Total Citations" />
                 <Tooltip content={<CustomScatterTooltip />} />
                 <Scatter
                   name="Authors"
                   data={scatterData}
-                  fill="#0f172a"
-                  fillOpacity={0.7}
-                  stroke="#3b82f6"
-                  strokeWidth={1.5}
+                  fill="#2563eb"
+                  fillOpacity={0.75}
+                  stroke="#0f172a"
+                  strokeWidth={1.2}
                 />
               </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} margin={{ top: 10, right: 20, left: -10, bottom: 25 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="author" tick={{ fontSize: 10, fill: "#64748b" }} angle={-25} textAnchor="end" height={50} />
-                <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="h_index" name="h-index" fill="#0f172a" radius={[3, 3, 0, 0]} barSize={10} />
-                <Bar dataKey="g_index" name="g-index" fill="#3b82f6" radius={[3, 3, 0, 0]} barSize={10} />
-                <Bar dataKey="e_index" name="e-index (Excess)" fill="#10b981" radius={[3, 3, 0, 0]} barSize={10} />
-              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -2042,6 +2043,68 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(val: any) => [`${val}%`, pctKey.replace(/_/g, " ")]} />
               <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
             </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  }
+
+  if (capabilityId === "group.analysis") {
+    return (
+      <WorldChoroplethMap
+        records={records}
+        title="Country Analysis — World Research Distribution"
+      />
+    );
+  }
+
+  if (capabilityId === "institution.productivity") {
+    const instMetric = (currentView === "citations" || currentView === "avg") ? currentView : "documents";
+    const topInsts = records.slice(0, 15).map((r) => {
+      const fullName = String(r.institution || r.affiliation || r.name || "Unknown");
+      const docs = Number(r.documents || r.count || 0);
+      const cites = Number(r.total_citations || r.citations || 0);
+      const avg = docs > 0 ? Number((cites / docs).toFixed(2)) : 0;
+      return {
+        shortName: fullName.length > 34 ? fullName.slice(0, 32) + "…" : fullName,
+        fullName,
+        documents: docs,
+        citations: cites,
+        avg,
+      };
+    });
+    const barColor = instMetric === "citations" ? "#10b981" : instMetric === "avg" ? "#f59e0b" : "#2563eb";
+    const metricLabel = instMetric === "citations" ? "Total Citations" : instMetric === "avg" ? "Avg Citations / Doc" : "Documents";
+    return (
+      <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-xs font-bold text-slate-800">Institutional Research Productivity & Impact</span>
+            <span className="text-[10px] text-slate-400 block">Top {topInsts.length} affiliations ranked by {metricLabel}</span>
+          </div>
+          <ChartToggle
+            currentView={instMetric}
+            onViewChange={setView}
+            options={[
+              { id: "documents", label: "Documents", icon: BarChart3 },
+              { id: "citations", label: "Total Citations", icon: BarChart3 },
+              { id: "avg", label: "Avg Citations", icon: BarChart3 },
+            ]}
+          />
+        </div>
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={topInsts} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "#64748b" }} />
+              <YAxis type="category" dataKey="shortName" width={185} tick={{ fontSize: 10, fill: "#334155" }} />
+              <Tooltip
+                formatter={(val: any) => [val, metricLabel]}
+                labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""}
+                contentStyle={{ fontSize: "11px", borderRadius: "8px", borderColor: "#e2e8f0" }}
+              />
+              <Bar dataKey={instMetric} fill={barColor} radius={[0, 4, 4, 0]} barSize={14} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>

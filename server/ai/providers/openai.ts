@@ -5,6 +5,7 @@ import { createSuccessProvenance, createUnavailableProvenance } from "../prompts
 import { parseJsonObject } from "../schemas.js";
 
 let client: OpenAI | null = null;
+let cachedSignature: string | null = null;
 
 const isTransientProviderError = (err: unknown) => {
   const text = String(err).toLowerCase();
@@ -20,13 +21,25 @@ export class OpenAiProvider implements AiProvider {
   }
 
   isConfigured() {
-    return Boolean(process.env.OPENAI_API_KEY);
+    return Boolean(process.env.OPENAI_API_KEY?.trim());
   }
 
   private getClient() {
-    if (!this.isConfigured()) return null;
-    if (!client) {
-      client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) return null;
+    const baseURL = (process.env.OPENAI_BASE_URL || process.env.LLM_BASE_URL || "").trim() || undefined;
+    const signature = `${apiKey}::${baseURL || "default"}`;
+
+    if (!client || cachedSignature !== signature) {
+      client = new OpenAI({
+        apiKey,
+        ...(baseURL ? { baseURL } : {}),
+        defaultHeaders: {
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "SciAI Research Intelligence",
+        },
+      });
+      cachedSignature = signature;
     }
     return client;
   }
@@ -43,14 +56,27 @@ export class OpenAiProvider implements AiProvider {
     }
 
     try {
-      const response = await openai.responses.create({
+      const isReasoningModel = /^(o1|o3|o4|gpt-5)/i.test(this.model.trim());
+      const tokenBudget = Math.max(request.maxOutputTokens || 2048, isReasoningModel ? 8192 : 4096);
+
+      const response = await openai.chat.completions.create({
         model: this.model,
-        input: request.prompt,
-        temperature: request.temperature,
-        max_output_tokens: request.maxOutputTokens || 2048,
+        messages: [{ role: "user", content: request.prompt }],
+        ...(isReasoningModel ? {} : { temperature: request.temperature }),
+        max_completion_tokens: tokenBudget,
       });
-      const text = response.output_text?.trim() || "";
-      if (!text) throw new AiProviderError("OpenAI returned an empty response", "empty_response", true);
+
+      const choice = response.choices?.[0];
+      const text = choice?.message?.content?.trim() || "";
+      if (!text) {
+        const reason = choice?.finish_reason || "unknown";
+        const refusal = (choice?.message as any)?.refusal || "";
+        throw new AiProviderError(
+          `OpenAI returned an empty response (model=${this.model}, finish_reason=${reason}${refusal ? `, refusal=${refusal}` : ""})`,
+          "empty_response",
+          true
+        );
+      }
       const attempts = [{ provider: this.id, model: this.model, status: "success" as const }];
       return {
         status: "available",
@@ -59,7 +85,9 @@ export class OpenAiProvider implements AiProvider {
         warnings: [],
       };
     } catch (err) {
-      throw new AiProviderError("OpenAI provider call failed", "provider_call_failed", isTransientProviderError(err));
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[OpenAiProvider] Call failed:", detail);
+      throw new AiProviderError(`OpenAI provider call failed: ${detail}`, "provider_call_failed", isTransientProviderError(err));
     }
   }
 

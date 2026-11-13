@@ -8,17 +8,21 @@ import {
 } from "../src/types.js";
 
 let aiClient: GoogleGenAI | null = null;
+let cachedKey: string | null = null;
 
 export function getGenAI(): GoogleGenAI | null {
-  if (!aiClient && process.env.GEMINI_API_KEY) {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return null;
+  if (!aiClient || cachedKey !== apiKey) {
     aiClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey,
       httpOptions: {
         headers: {
           "User-Agent": "aistudio-build",
         },
       },
     });
+    cachedKey = apiKey;
   }
   return aiClient;
 }
@@ -29,12 +33,13 @@ export function getGenAI(): GoogleGenAI | null {
  */
 async function callGeminiWithRetry<T>(
   fn: (modelName: string) => Promise<T>,
-  primaryModel: string = "gemini-3.8-flash",
+  primaryModel: string = process.env.SCIAI_GEMINI_MODEL || "gemini-2.5-flash",
   fallbackModel: string = "gemini-flash-latest",
   maxRetries: number = 2
 ): Promise<T> {
-  // Try primary model first, followed by alias 'gemini-flash-latest', then 'gemini-3.1-flash-lite'
-  const candidateModels = Array.from(new Set([primaryModel, fallbackModel, "gemini-3.1-flash-lite"]));
+  const candidateModels = Array.from(
+    new Set([primaryModel, fallbackModel, "gemini-2.5-flash-lite"])
+  );
   let lastError: unknown = null;
 
   for (const model of candidateModels) {
@@ -54,12 +59,10 @@ async function callGeminiWithRetry<T>(
           errString.includes("429");
 
         if (isTransient && attempt < maxRetries) {
-          // Exponential backoff: 800ms, 1600ms
           const delayMs = (attempt + 1) * 800;
           await new Promise((res) => setTimeout(res, delayMs));
           continue;
         }
-        // If transient failed all retries for this model, break out to switch to next fallback model
         break;
       }
     }
@@ -122,7 +125,6 @@ Maintain an authoritative, scholarly, mathematically rigorous tone. Avoid empty 
 
 /**
  * 2. Semantic Cluster Labeling & Conceptual Identity Engine
- * Replaces generic cluster numbers with academic sub-field descriptors.
  */
 export interface ClusterLabelRequest {
   cluster_id: number;
@@ -209,7 +211,6 @@ Return a strict JSON array conforming to the schema.`;
 
 /**
  * 3. Research Gaps Detection
- * Detects structural holes between isolated clusters, emerging topics, and unexplored combinations.
  */
 export async function detectResearchGapsAndWhiteSpaces(
   datasetName: string,
@@ -356,8 +357,7 @@ Respond with JSON adhering to the specified schema.`;
 }
 
 /**
- * 4. Scientometric Manuscript Synthesis Engine (Abstract, Discussion, Limitations)
- * Generates submission-ready manuscript sections for journals like Scientometrics or J. Informetrics.
+ * 4. Scientometric Manuscript Synthesis Engine
  */
 export async function generateManuscriptSection(
   section: "abstract" | "discussion" | "limitations" | "hypotheses",
@@ -419,7 +419,6 @@ Use refined academic prose, formal scientific phrasing, and relevant mathematica
 
 /**
  * 5. Citation Context & Rhetorical Intent Analyzer
- * Analyzes whether citations are affirmative, methodology-adopting, or critical/contextual.
  */
 export async function analyzeCitationContexts(
   samplePapers: Array<{ title: string; abstract?: string; citations?: number }>
@@ -511,7 +510,6 @@ Return a strict JSON conforming to the schema.`;
 
 /**
  * 6. Corpus-Wide Scientometric RAG (Retrieval-Augmented Assistant)
- * Answers natural language questions ground in actual canonical records & empirical outputs.
  */
 export async function executeScientometricRAG(
   query: string,
@@ -521,7 +519,6 @@ export async function executeScientometricRAG(
 ): Promise<string> {
   const client = getGenAI();
 
-  // Pick the most relevant papers based on keyword overlap
   const queryTokens = query.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
   const scoredDocs = corpusDocuments.map((doc) => {
     let score = 0;
@@ -600,8 +597,6 @@ Instructions:
 
 /**
  * 7. AI-Augmented Research Gap Matrix Generator (Feasibility vs. Novelty)
- * Identifies unaddressed methodological and conceptual voids and proposes concrete
- * Ph.D. Dissertation / Master's Thesis / Major Grant proposals with Feasibility vs. Novelty scoring.
  */
 export async function generateResearchGapMatrix(
   datasetId: string,
@@ -788,8 +783,6 @@ Return strictly valid JSON matching this schema:
 
 /**
  * 8. Multi-Source Discrepancy & Indexing Coverage Analyzer
- * Analyzes indexing coverage differentials, citation lag patterns, coverage gaps, and disciplinary skews
- * between Web of Science (WoS), Scopus, and PubMed.
  */
 export async function generateMultiCorpusDiscrepancyAnalysis(
   datasetId: string,
@@ -798,7 +791,6 @@ export async function generateMultiCorpusDiscrepancyAnalysis(
 ): Promise<MultiCorpusDiscrepancyOutput> {
   const total = Math.max(10, corpusDocs.length);
 
-  // Derive empirical or realistic indexing partition
   let wosCount = 0;
   let scopusCount = 0;
   let pubmedCount = 0;
@@ -810,7 +802,6 @@ export async function generateMultiCorpusDiscrepancyAnalysis(
     else wosCount++;
   });
 
-  // If mostly unified or single-source, construct realistic scientometric coverage intersection based on Mongeon & Paul-Hus (2016)
   if (scopusCount === 0 && pubmedCount === 0) {
     wosCount = Math.round(total * 0.78);
     scopusCount = Math.round(total * 0.92);
@@ -849,7 +840,7 @@ export async function generateMultiCorpusDiscrepancyAnalysis(
         exclusiveDocCount: scopusOnly,
         exclusiveRatio: Number(((scopusOnly / scopusCount) * 100).toFixed(1)),
         coverageRatio: Number(((scopusCount / (total + scopusOnly)) * 100).toFixed(1)),
-        avgCitationsRecorded: 34.2, // ~20% citation inflation vs WoS due to broader book/conference indexing
+        avgCitationsRecorded: 34.2,
         openAccessCoveragePct: 74.6,
         authorDisambiguationQuality: "High (ORCID/AuthorID)",
         fundingInformationCoveragePct: 79.1,
@@ -919,8 +910,6 @@ export async function generateMultiCorpusDiscrepancyAnalysis(
 
 /**
  * 9. PRISMA 2020 AI Narrative & Methodology Synthesis Generator
- * Formulates a publication-ready systematic review methodology narrative and quantitative yield assessment
- * conforming to PRISMA 2020 guidelines (Page et al., BMJ 2021).
  */
 export async function generatePrismaSynthesisReport(
   input: PrismaReportInput
@@ -1138,5 +1127,3 @@ Maintain formal, rigorous, high-impact journal methodology style (such as BMJ, L
     return getFallbackReport();
   }
 }
-
-

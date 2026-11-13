@@ -11,6 +11,7 @@ import {
   Calendar,
   Users,
 } from "lucide-react";
+import { apiJson, apiRequest, getApiErrorMessage } from "../utils/apiClient.js";
 import { AlertBanner, Button, Card } from "./CommonUI.js";
 
 interface OpenAlexWork {
@@ -44,6 +45,7 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
   const [sourceType, setSourceType] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -51,18 +53,25 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
 
     setLoading(true);
     setImportSuccess(null);
+    setErrorMsg(null);
     setPage(1);
     try {
-      const res = await fetch(
+      const data = await apiRequest<{
+        works?: OpenAlexWork[];
+        total_online?: number;
+        count?: number;
+        source?: string;
+        has_more?: boolean;
+      }>(
         `/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=1`
       );
-      const data = await res.json();
       setWorks(data.works || []);
       setTotalOnline(data.total_online || data.count || 0);
       setSourceType(data.source || "openalex");
       setHasMore(Boolean(data.has_more));
     } catch (err) {
       console.error("OpenAlex search error:", err);
+      setErrorMsg(getApiErrorMessage(err, "Failed to query OpenAlex API."));
     } finally {
       setLoading(false);
     }
@@ -71,12 +80,15 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
   const handleLoadMore = async () => {
     if (loadingMore || !query.trim()) return;
     setLoadingMore(true);
+    setErrorMsg(null);
     const nextPage = page + 1;
     try {
-      const res = await fetch(
+      const data = await apiRequest<{
+        works?: OpenAlexWork[];
+        has_more?: boolean;
+      }>(
         `/api/openalex/search?query=${encodeURIComponent(query)}&per_page=${perPage}&page=${nextPage}`
       );
-      const data = await res.json();
       const newWorks: OpenAlexWork[] = data.works || [];
       if (newWorks.length > 0) {
         setWorks((prev) => {
@@ -91,6 +103,7 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
       }
     } catch (err) {
       console.error("Error loading more OpenAlex works:", err);
+      setErrorMsg(getApiErrorMessage(err, "Failed to load next page from OpenAlex."));
     } finally {
       setLoadingMore(false);
     }
@@ -100,25 +113,28 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
     if (works.length === 0) return;
     setImporting(true);
     setImportSuccess(null);
+    setErrorMsg(null);
     try {
-      const res = await fetch("/api/openalex/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query,
-          works,
-          dataset_name: `OpenAlex: ${query.slice(0, 35)} (${works.length} works)`,
-        }),
+      const data = await apiJson<{
+        success?: boolean;
+        dataset?: { id: string; name: string };
+        documents_count?: number;
+      }>("/api/openalex/import", {
+        query,
+        works,
+        dataset_name: `OpenAlex: ${query.slice(0, 35)} (${works.length} works)`,
       });
-      const data = await res.json();
       if (data.success && data.dataset) {
         setImportSuccess(
           `Dataset "${data.dataset.name}" successfully created with ${data.documents_count} documents.`
         );
         onDatasetCreated(data.dataset.id);
+      } else {
+        setErrorMsg("Import completed without returning a dataset record.");
       }
     } catch (err) {
       console.error("Import error:", err);
+      setErrorMsg(getApiErrorMessage(err, "Failed to import OpenAlex works into dataset."));
     } finally {
       setImporting(false);
     }
@@ -238,6 +254,12 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
         {importSuccess && (
           <div className="mt-4">
             <AlertBanner tone="success">{importSuccess}</AlertBanner>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="mt-4">
+            <AlertBanner tone="danger">{errorMsg}</AlertBanner>
           </div>
         )}
       </Card>

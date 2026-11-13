@@ -4,15 +4,12 @@ import { DatasetsView } from "./DatasetsView.js";
 import { OpenAlexExplorer } from "./OpenAlexExplorer.js";
 import { SmartMergeStudio } from "./SmartMergeStudio.js";
 import { DataHygieneStudio } from "./DataHygieneStudio.js";
-import { PrismaExtractionReportStudio } from "./PrismaExtractionReportStudio.js";
-import { AlertBanner, Button } from "./CommonUI.js";
+import { AlertBanner } from "./CommonUI.js";
 import {
   Database,
   Globe2,
   GitMerge,
   ShieldCheck,
-  Sparkles,
-  Upload,
 } from "lucide-react";
 
 export type PipelineStep = "repository" | "openalex" | "merge" | "hygiene" | "prisma";
@@ -40,23 +37,23 @@ export function CorpusPipelineStudio({
   initialStep = "repository",
   onStepChange,
 }: Props) {
-  const [activeStep, setActiveStep] = useState<PipelineStep>(initialStep);
-  const [hygieneSubMode, setHygieneSubMode] = useState<"prisma" | "hygiene">("prisma");
+  const [activeStep, setActiveStep] = useState<PipelineStep>(
+    initialStep === "prisma" ? "hygiene" : initialStep
+  );
 
   useEffect(() => {
-    if (initialStep && initialStep !== activeStep) {
-      if (initialStep === "prisma") {
-        setActiveStep("hygiene");
-        setHygieneSubMode("prisma");
-      } else {
-        setActiveStep(initialStep);
+    if (initialStep) {
+      const normalizedStep = initialStep === "prisma" ? "hygiene" : initialStep;
+      if (normalizedStep !== activeStep) {
+        setActiveStep(normalizedStep);
       }
     }
   }, [initialStep]);
 
   const handleStepSelect = (step: PipelineStep) => {
-    setActiveStep(step);
-    onStepChange?.(step);
+    const normalizedStep = step === "prisma" ? "hygiene" : step;
+    setActiveStep(normalizedStep);
+    onStepChange?.(normalizedStep);
   };
 
   const currentDataset = datasets.find((d) => d.id === selectedDatasetId) || datasets[0];
@@ -194,7 +191,7 @@ export function CorpusPipelineStudio({
             onDatasetCreated={(newId) => {
               onRefreshData();
               onSelectDataset?.(newId);
-              handleStepSelect("hygiene");
+              handleStepSelect("repository");
             }}
           />
         )}
@@ -205,103 +202,17 @@ export function CorpusPipelineStudio({
 
         {activeStep === "hygiene" && (
           <div className="space-y-4">
-            {/* Step 4 Sub-View Mode Selector */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-surface-canvas p-3 shadow-card">
-              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border-default bg-surface-subtle p-1">
-                <button
-                  type="button"
-                  id="tab-prisma-report"
-                  onClick={() => setHygieneSubMode("prisma")}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                    hygieneSubMode === "prisma"
-                      ? "bg-brand-500 text-white shadow-xs"
-                      : "text-ink-secondary hover:bg-surface-canvas hover:text-ink-primary"
-                  }`}
-                >
-                  <Sparkles
-                    className={`h-3.5 w-3.5 ${
-                      hygieneSubMode === "prisma" ? "text-white" : "text-brand-500"
-                    }`}
-                  />
-                  PRISMA AI Workflow & Descriptive Report
-                </button>
-
-                <button
-                  type="button"
-                  id="tab-hygiene-audit"
-                  onClick={() => setHygieneSubMode("hygiene")}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                    hygieneSubMode === "hygiene"
-                      ? "bg-brand-500 text-white shadow-xs"
-                      : "text-ink-secondary hover:bg-surface-canvas hover:text-ink-primary"
-                  }`}
-                >
-                  <ShieldCheck
-                    className={`h-3.5 w-3.5 ${
-                      hygieneSubMode === "hygiene" ? "text-white" : "text-ink-secondary"
-                    }`}
-                  />
-                  Dataset Hygiene & Deduplication Engine
-                </button>
-              </div>
-
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border-default bg-surface-subtle px-3 py-1.5">
-                  <Database className="h-3.5 w-3.5 shrink-0 text-brand-500" />
-                  <select
-                    aria-label="Select dataset for PRISMA and Hygiene"
-                    value={currentDataset?.id || ""}
-                    onChange={(event) => onSelectDataset?.(event.target.value)}
-                    disabled={!datasets.length}
-                    className="w-44 max-w-full bg-transparent text-xs font-bold text-ink-primary focus:outline-none disabled:text-ink-subtle sm:w-56"
-                  >
-                    {!datasets.length && <option value="">No datasets available</option>}
-                    {datasets.map((dataset) => (
-                      <option key={dataset.id} value={dataset.id}>
-                        {dataset.name} ({dataset.record_count.toLocaleString()} docs)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={onOpenUpload}
-                  icon={<Upload className="h-3.5 w-3.5" />}
-                >
-                  Upload Dataset
-                </Button>
-              </div>
-            </div>
-
-            {!currentDataset && (
+            {!currentDataset ? (
               <AlertBanner tone="info">
                 Upload a dataset to use the PRISMA and Hygiene tools.
               </AlertBanner>
-            )}
-
-            {/* Sub-mode 1: PRISMA AI Descriptive Report & Extraction Outcomes Generator */}
-            {currentDataset && hygieneSubMode === "prisma" && (
-              <div key={currentDataset.id}>
-                <PrismaExtractionReportStudio
-                  dataset={currentDataset}
-                  allDatasets={datasets}
-                  onSelectDataset={onSelectDataset}
-                  onRefreshData={onRefreshData}
-                />
-              </div>
-            )}
-
-            {/* Sub-mode 2: Detailed Hygiene, Deduplication & Record Cleaner */}
-            {currentDataset && hygieneSubMode === "hygiene" && (
+            ) : (
               <div key={currentDataset.id}>
                 <DataHygieneStudio
                   datasets={datasets}
                   selectedDatasetId={currentDataset.id}
                   onRefreshData={onRefreshData}
-                  initialSubTab="health"
+                  initialSubTab={initialStep === "prisma" ? "prisma" : "health"}
                 />
               </div>
             )}

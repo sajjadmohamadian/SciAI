@@ -496,7 +496,7 @@ export function OverviewView({
     },
     {
       id: "author.productivity",
-      title: "Author Productivity Ranking",
+      title: "Price's Elite Group",
       category: "entities",
       methodology: "Whole counting",
       desc: "Ranks authors by publication output and supports productivity screening before applying Lotka-style distribution tests.",

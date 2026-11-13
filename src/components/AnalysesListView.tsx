@@ -112,8 +112,8 @@ export const SCIENTOMETRIC_MODELS = [
   },
   {
     id: 'author.productivity',
-    name: "Author Productivity & Price's Elite Group",
-    desc: "Publication rankings, multi-authored papers distribution, and Price's Law root-square elite contributors.",
+    name: "Price's Elite Group Identification",
+    desc: "Identifies the root-square (√N) core elite researchers responsible for half of total scholarly output under Price's Law.",
     icon: Users,
     category: 'Scientometric Laws',
     tag: 'Price Law',

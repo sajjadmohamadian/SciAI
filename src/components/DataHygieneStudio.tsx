@@ -338,7 +338,6 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
       {/* Top Header */}
       <div className="border-b border-border-default pb-5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="sciai-kicker">Phase 1</span>
           <span className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 font-mono text-[10px] font-bold text-status-success-text">
             Data & Hygiene
           </span>
@@ -716,51 +715,14 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  loading={isGeneratingPrismaAi}
-                  disabled={
-                    isGeneratingPrismaAi || !prisma.version || !prisma.flow?.consistency.valid
-                  }
-                  onClick={handleGeneratePrismaAi}
-                  icon={!isGeneratingPrismaAi ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
-                >
-                  {prismaAiReport ? "Regenerate AI Report" : "Generate AI PRISMA Report"}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={exportPrismaSvg}
-                  icon={<Download className="h-3.5 w-3.5" />}
-                >
-                  Export PRISMA (SVG)
-                </Button>
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-border-subtle bg-surface-subtle p-4">
-              <PrismaFlowDiagram
-                ref={prismaSvgRef}
-                flow={prisma.flow}
-                reasonsRecorded={hasRecordedExclusions(prisma.version)}
-              />
-            </div>
-
-            <div className="mt-4">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowPrismaEditor(!showPrismaEditor)}
-              >
-                {showPrismaEditor ? "Hide selection count editor" : "Record study-selection counts"}
-              </Button>
-              {showPrismaEditor && (
-                <div className="mt-3 rounded-xl border border-border-default bg-surface-subtle p-4">
+            <div className="mt-5 rounded-xl border border-border-default bg-surface-subtle p-4">
+              <div className="mb-3 border-b border-border-subtle pb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-ink-primary">PRISMA 2020 Screening &amp; Eligibility Selection Criteria</h3>
+                <p className="mt-0.5 text-[11px] text-ink-muted">Define verified record counts and exclusion criteria across identification, screening, and eligibility stages.</p>
+              </div>
                   <PrismaManualEditor
                     flow={prisma.flow}
                     draft={prisma.draft}
@@ -771,8 +733,15 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                     onReasonsChange={prisma.updateReasons}
                     onSave={prisma.save}
                   />
-                </div>
-              )}
+                
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border-subtle bg-surface-subtle p-4">
+              <PrismaFlowDiagram
+                ref={prismaSvgRef}
+                flow={prisma.flow}
+                reasonsRecorded={hasRecordedExclusions(prisma.version)}
+              />
             </div>
 
             {prisma.flow && !prisma.flow.consistency.valid && (

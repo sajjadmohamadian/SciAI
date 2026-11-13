@@ -30,9 +30,38 @@ export function AnalysisResultPanel({ analysis }: Props) {
   if (!analysis) return null;
 
   const result = analysis.result || {};
-  const records: ResultRecord[] = (
+  const capabilityId = analysis.capability_id || analysis.analysis_type || "analysis";
+  const rawRecords: ResultRecord[] = (
     Array.isArray(result.records) ? result.records : []
   ) as ResultRecord[];
+
+  const isPriceElite = capabilityId === "author.productivity";
+  const priceStats = (() => {
+    if (!isPriceElite || rawRecords.length === 0) return null;
+    const sorted = [...rawRecords].sort(
+      (a, b) => Number(b.documents || b.count || 0) - Number(a.documents || a.count || 0)
+    );
+    const totalAuthors = sorted.length;
+    const quota = Math.max(1, Math.ceil(Math.sqrt(totalAuthors)));
+    const threshold = sorted[quota - 1]
+      ? Number(sorted[quota - 1].documents || sorted[quota - 1].count || 1)
+      : 1;
+    const eliteMembers = sorted.filter(
+      (r) => Number(r.documents || r.count || 0) >= threshold
+    );
+    const totalOutput = sorted.reduce(
+      (sum, r) => sum + Number(r.documents || r.count || 0),
+      0
+    );
+    const eliteOutput = eliteMembers.reduce(
+      (sum, r) => sum + Number(r.documents || r.count || 0),
+      0
+    );
+    const sharePct = totalOutput > 0 ? (eliteOutput / totalOutput) * 100 : 0;
+    return { totalAuthors, quota, threshold, eliteMembers, sharePct };
+  })();
+
+  const records: ResultRecord[] = priceStats ? priceStats.eliteMembers : rawRecords;
   const scalarEntries = (
     Array.isArray(result.scalarEntries) ? result.scalarEntries : []
   ) as Array<[string, unknown]>;
@@ -40,14 +69,12 @@ export function AnalysisResultPanel({ analysis }: Props) {
     result.metadata && typeof result.metadata === "object"
       ? (result.metadata as Record<string, unknown>)
       : {};
-  const capabilityId =
-    analysis.capability_id || analysis.analysis_type || "analysis";
 
   const columns: string[] = [];
   if (records.length > 0 && records[0] && typeof records[0] === "object") {
     const keys = Object.keys(records[0]);
     keys.forEach((k) => {
-      if (!["id", "_id"].includes(k)) columns.push(k);
+      if (!["id", "_id"].includes(k) && !(k === "count" && keys.includes("frequency"))) columns.push(k);
     });
   }
 
@@ -156,7 +183,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-black tracking-tight text-ink-primary">
-              {analysis.name ||
+              {(capabilityId === "group.analysis" ? "Country Analysis" : analysis.name) ||
                 capabilityId
                   .replace(/[._]/g, " ")
                   .replace(/\b\w/g, (l) => l.toUpperCase())}

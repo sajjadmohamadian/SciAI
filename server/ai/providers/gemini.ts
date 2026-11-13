@@ -5,6 +5,7 @@ import { createSuccessProvenance, createUnavailableProvenance } from "../prompts
 import { parseJsonObject } from "../schemas.js";
 
 let client: GoogleGenAI | null = null;
+let cachedApiKey: string | null = null;
 
 const isTransientProviderError = (err: unknown) => {
   const text = String(err).toLowerCase();
@@ -20,16 +21,18 @@ export class GeminiProvider implements AiProvider {
   }
 
   isConfigured() {
-    return Boolean(process.env.GEMINI_API_KEY);
+    return Boolean(process.env.GEMINI_API_KEY?.trim());
   }
 
   private getClient() {
-    if (!this.isConfigured()) return null;
-    if (!client) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) return null;
+    if (!client || cachedApiKey !== apiKey) {
       client = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey,
         httpOptions: { headers: { "User-Agent": "SciAI" } },
       });
+      cachedApiKey = apiKey;
     }
     return client;
   }
@@ -64,7 +67,9 @@ export class GeminiProvider implements AiProvider {
         warnings: [],
       };
     } catch (err) {
-      throw new AiProviderError("Gemini provider call failed", "provider_call_failed", isTransientProviderError(err));
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error("[GeminiProvider] Call failed:", detail);
+      throw new AiProviderError(`Gemini provider call failed: ${detail}`, "provider_call_failed", isTransientProviderError(err));
     }
   }
 

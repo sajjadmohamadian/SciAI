@@ -301,21 +301,6 @@ ${report.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
                 <ChevronDown className="h-3.5 w-3.5 text-ink-subtle" />
               )}
             </Button>
-
-            <Button
-              type="button"
-              id="generate-prisma-ai-report-btn"
-              variant="primary"
-              size="sm"
-              loading={isGenerating}
-              disabled={isGenerating || !prisma.flow?.consistency.valid || !prisma.version}
-              onClick={handleGenerateReport}
-              icon={!isGenerating ? <Sparkles className="h-3.5 w-3.5" /> : undefined}
-            >
-              {isGenerating
-                ? "Synthesizing Extraction Outcomes..."
-                : "Generate AI PRISMA Report"}
-            </Button>
           </div>
         </div>
 
