@@ -681,7 +681,7 @@ const capabilities: Capability[] = [
   },
   {
     name: "source.productivity",
-    description: "Bradford's law, leading journals and venues",
+    description: "Publication venues, document volume, and citation impact",
     providers: [
       { name: "SciAINativeProvider", package: "sciai_native", priority: 100, available: true },
       { name: "PyBibXProvider", package: "pybibx", priority: 50, available: true },
@@ -1007,25 +1007,41 @@ function runCapabilityComputation(
     case "citation.distribution": {
       const records = engine.citationDistribution();
       const highlyCited = docs.filter((d) => (d.citations || 0) >= 100).length;
+      const vals = docs.map((d) => Number(d.citations || 0));
+      const n = vals.length;
+      const mean = n > 0 ? vals.reduce((a, b) => a + b, 0) / n : 0;
+      const std = n > 0 ? Math.sqrt(vals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n) : 0;
+      const skewness = n > 0 && std > 0 ? Number((vals.reduce((a, b) => a + Math.pow((b - mean) / std, 3), 0) / n).toFixed(2)) : 0;
       return {
         records,
         scalarEntries: [
           ["unique_citation_brackets", records.length],
           ["papers_with_over_100_citations", highlyCited],
+          ["citation_skewness", skewness],
         ],
         metadata: { distribution_type: "citation_frequency" },
       };
     }
     case "source.productivity": {
-      const records = engine.sourceProductivity(30);
+      const raw = engine.sourceProductivity(50);
+      const records = raw.map((r: any) => {
+        const docs = Number(r.documents || r.count || 0);
+        const cites = Number(r.total_citations || r.citations || 0);
+        return {
+          source: r.source,
+          documents: docs,
+          total_citations: cites,
+          avg_citations: docs > 0 ? Number((cites / docs).toFixed(2)) : 0,
+        };
+      });
       return {
         records,
         scalarEntries: [
           ["unique_venues", records.length],
           ["top_venue", records[0]?.source || "N/A"],
-          ["venue_max_papers", records[0]?.documents || 0],
+          ["top_venue_citations", records[0]?.total_citations || 0],
         ],
-        metadata: { framework: "Bradford's Law of Scattering" },
+        metadata: { framework: "Publication Venues Citation Distribution" },
       };
     }
     case "keyword.frequency": {
@@ -1246,7 +1262,7 @@ function runCapabilityComputation(
           ["chi_square_statistic", res.summary.chi_square_statistic || 0],
           ["degrees_of_freedom", res.summary.degrees_of_freedom || 1],
           ["statistically_significant", res.summary.statistically_significant ? "YES (p < 0.05)" : "NO (p >= 0.05)"],
-          ["collaboration_citation_advantage", res.summary.collaboration_citation_advantage || "0%"],
+          ["citation_advantage_mcp", res.summary.collaboration_citation_advantage || "0%"],
         ],
         metadata: {
           framework: "BiblioGroup Comparative Significance Test",
@@ -4193,7 +4209,7 @@ app.post(["/api/analyses/run", "/api/analysis/run", "/analyses/run", "/analysis/
     const compResult = runCapabilityComputation(cap, docs, mergedParameters);
 
     const newAnalysisId = `analysis-${crypto.randomUUID()}`;
-    const analysisName = name || `${cap.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Analysis`;
+    const analysisName = name || (cap === "source.productivity" ? "Publication Venues & Citation Impact" : cap === "group.comparative_significance" ? "Domestic vs. International Impact (SCP vs. MCP)" : `${cap.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())} Analysis`);
 
     const newAnalysis: Analysis = {
       id: newAnalysisId,

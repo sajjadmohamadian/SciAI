@@ -72,7 +72,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
 
   const columns: string[] = [];
   if (records.length > 0 && records[0] && typeof records[0] === "object") {
-    const keys = Object.keys(records[0]);
+    const keys = Object.keys(records[0]).filter((k) => !(k === "count" && ("documents" in records[0] || "frequency" in records[0])));
     keys.forEach((k) => {
       if (!["id", "_id"].includes(k) && !(k === "count" && keys.includes("frequency"))) columns.push(k);
     });
@@ -183,7 +183,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-black tracking-tight text-ink-primary">
-              {(capabilityId === "group.analysis" ? "Country Analysis" : analysis.name) ||
+              {(capabilityId === "group.analysis" ? "Country Analysis" : capabilityId === "group.comparative_significance" ? "Domestic vs. International Impact (SCP vs. MCP)" : capabilityId === "source.productivity" ? "Publication Venues & Citation Impact" : analysis.name) ||
                 capabilityId
                   .replace(/[._]/g, " ")
                   .replace(/\b\w/g, (l) => l.toUpperCase())}

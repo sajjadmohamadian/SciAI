@@ -279,7 +279,7 @@ export function AuthorsWorkbench({ analyses, onRunAnalysis, datasetName }: Props
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Showing only researchers meeting Price&apos;s square-root elite threshold (≥ {activeProductivityMode === "fractional" ? eliteThreshold.toFixed(2) : eliteThreshold} {activeProductivityMode === "fractional" ? "credit" : "articles"}).
+                        Showing only researchers meeting Price&apos;s square-root elite threshold (≥ {activeProductivityMode === "fractional" ? eliteThreshold.toFixed(2) : eliteThreshold} {activeProductivityMode === "fractional" ? "credit" : "documents"}).
                       </p>
                     </div>
 
@@ -343,7 +343,7 @@ export function AuthorsWorkbench({ analyses, onRunAnalysis, datasetName }: Props
                           <th className="px-4 py-3">#</th>
                           <th className="px-4 py-3">Elite Researcher</th>
                           <th className="px-4 py-3 text-right">
-                            {activeProductivityMode === "fractional" ? "Fractional Credit" : "Articles"}
+                            {activeProductivityMode === "fractional" ? "Fractional Credit" : "Documents"}
                           </th>
                           <th className="px-4 py-3 text-right">Output Share</th>
                           <th className="px-4 py-3 text-right">Citations</th>

@@ -1219,7 +1219,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
             </div>
             <div className="tabular-metrics text-xs font-semibold text-ink-muted">
               Showing {filteredDocs.length} of{" "}
-              {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()} articles
+              {documentTotal === null ? "Not recorded" : documentTotal.toLocaleString()} documents
             </div>
           </div>
 

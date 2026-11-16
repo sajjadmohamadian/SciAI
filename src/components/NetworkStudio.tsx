@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+﻿import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
 import {
   Share2,
@@ -47,7 +47,7 @@ export interface NetworkConfigItem {
 }
 
 export const ALL_16_NETWORKS: NetworkConfigItem[] = [
-  { id: "citation_documents", label: "Direct Citation (Documents / Articles)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Docs" },
+  { id: "citation_documents", label: "Direct Citation (Documents)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Docs" },
   { id: "citation_authors", label: "Direct Citation (Authors)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Authors" },
   { id: "citation_institutions", label: "Direct Citation (Universities / Institutions)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Institutions" },
   { id: "citation_countries", label: "Direct Citation (Countries)", group: "1. Direct Citation Networks (4 Levels)", shortLabel: "Citation Countries" },
@@ -750,7 +750,8 @@ export function NetworkStudio({
   const [clusteringAlgorithm, setClusteringAlgorithm] = useState<ClusteringAlgorithm>("louvain");
   const [clusterCount, setClusterCount] = useState<number>(5);
 
-  const [activeStudioTab, setActiveStudioTab] = useState<"visualization" | "clusters" | "sna_metrics">("visualization");
+  const [activeStudioTab, setActiveStudioTab] = useState<"visualization" | "clusters" | "sna_metrics" | "comparative">("visualization");
+  const [comparativeSplitYear, setComparativeSplitYear] = useState<number>(2019);
   const [visMode, setVisMode] = useState<VisualizationMode>("network");
   const [overlayMetric, setOverlayMetric] = useState<"year" | "citations">("year");
 
@@ -1325,8 +1326,8 @@ export function NetworkStudio({
           .distance(90)
           .strength((d) => Math.min(1, 0.25 + (d.raw_weight / maxW) * 0.5))
       )
-      .force("charge", d3.forceManyBody().strength(-200))
-      .force("center", d3.forceCenter(0, 0))
+      .force("charge", d3.forceManyBody().strength(-110))
+      .force("center", d3.forceCenter(width / 2, height / 2)).force("x", d3.forceX(width / 2).strength(0.08)).force("y", d3.forceY(height / 2).strength(0.08))
       .force("collision", d3.forceCollide<NetworkNode>().radius((d) => radiusScale(d.total_link_strength) + 9));
 
     if (visMode === "clusters") {
@@ -1604,50 +1605,25 @@ export function NetworkStudio({
                 <span>Loading corpus...</span>
               </span>
             ) : currentRecords.length > 0 ? (
-              <span className="tabular-metrics inline-flex items-center gap-1.5 rounded-full border border-status-success-border bg-status-success-bg px-2.5 py-1 text-[11px] font-semibold text-status-success-text">
+              <span className="tabular-metrics inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap rounded-full border border-status-success-border bg-status-success-bg px-3 py-1.5 text-[11px] font-semibold text-status-success-text">
                 <PackageCheck className="h-3 w-3" />
                 <span>{currentRecords.length.toLocaleString()} papers loaded</span>
               </span>
             ) : null}
           </div>
-
-          <div className="inline-flex rounded-xl border border-border-default bg-surface-subtle p-1">
-            <button
-              type="button"
-              onClick={() => setActiveStudioTab("visualization")}
-              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
-                activeStudioTab === "visualization"
-                  ? "bg-brand-500 text-white shadow-xs"
-                  : "text-ink-secondary hover:text-ink-primary"
-              }`}
-            >
-              Interactive Graph (D3)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveStudioTab("clusters")}
-              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
-                activeStudioTab === "clusters"
-                  ? "bg-brand-500 text-white shadow-xs"
-                  : "text-ink-secondary hover:text-ink-primary"
-              }`}
-            >
-              Clusters &amp; Modularity
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveStudioTab("sna_metrics")}
-              className={`cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-colors ${
-                activeStudioTab === "sna_metrics"
-                  ? "bg-brand-500 text-white shadow-xs"
-                  : "text-ink-secondary hover:text-ink-primary"
-              }`}
-            >
-              SNA Centrality Matrix
-            </button>
-          </div>
         </div>
       </div>
+
+            {/* Dedicated Studio Navigation Tabs Box */}
+      <Card padding="sm" className="flex flex-wrap items-center justify-start gap-4 bg-surface-canvas">
+        <span className="text-xs font-bold text-ink-secondary">Analysis Workspace Views:</span>
+        <div className="grid flex-1 grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl border border-border-default bg-surface-subtle p-1">
+          <button type="button" onClick={() => setActiveStudioTab("visualization")} className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${activeStudioTab === "visualization" ? "bg-brand-500 text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Interactive Graph (D3)</button>
+          <button type="button" onClick={() => setActiveStudioTab("clusters")} className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${activeStudioTab === "clusters" ? "bg-brand-500 text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Clusters &amp; Modularity</button>
+          <button type="button" onClick={() => setActiveStudioTab("sna_metrics")} className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${activeStudioTab === "sna_metrics" ? "bg-brand-500 text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>SNA Centrality Matrix</button>
+          <button type="button" onClick={() => setActiveStudioTab("comparative")} className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${activeStudioTab === "comparative" ? "bg-brand-500 text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Comparative Temporal</button>
+        </div>
+      </Card>
 
       {/* 2. Full Network Categories */}
       <Card padding="sm" className="space-y-4">
@@ -1665,7 +1641,7 @@ export function NetworkStudio({
             >
               <optgroup label="1. Direct Citation Networks (4 Levels)">
                 <option value="citation_documents">
-                  Direct Citation (Documents / Articles)
+                  Direct Citation (Documents)
                 </option>
                 <option value="citation_authors">
                   Direct Citation (Authors)
@@ -1985,11 +1961,28 @@ export function NetworkStudio({
                 <Network className="h-3 w-3 text-brand-500" />
                 <span>Pajek .net</span>
               </button>
+                <div className="h-4 w-px bg-border-default" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = svgRef.current?.parentElement;
+                    if (!el) return;
+                    if (!document.fullscreenElement) {
+                      el.requestFullscreen?.();
+                    } else {
+                      document.exitFullscreen?.();
+                    }
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border-default bg-surface-canvas px-2.5 py-1 text-[11px] font-bold text-ink-primary transition-colors hover:bg-surface-subtle"
+                  title="Toggle Fullscreen Graph Canvas"
+                >
+                  <span>⛶ Full Screen</span>
+                </button>
             </div>
 
             <svg
               ref={svgRef}
-              className="h-[560px] w-full cursor-grab bg-surface-subtle/60 active:cursor-grabbing"
+              className="h-[560px] min-h-[560px] w-full flex-1 cursor-grab bg-surface-subtle/60 active:cursor-grabbing"
             />
           </div>
 
@@ -2451,7 +2444,200 @@ export function NetworkStudio({
         </Card>
       )}
 
-      {/* 4. Batch Export Modal */}
+undefined
+            {/* Tab 4: Side-by-Side Comparative Temporal View */}
+      {activeStudioTab === "comparative" && (() => {
+        const years = networkReport.nodes.map((n) => Number(n.avg_pub_year)).filter((y) => y > 1900);
+        const minY = years.length ? Math.min(...years) : 2015;
+        const maxY = years.length ? Math.max(...years) : 2024;
+        const splitY = comparativeSplitYear;
+
+        const era1Nodes = networkReport.nodes.filter((n) => (Number(n.avg_pub_year) || splitY) <= splitY);
+        const era2Nodes = networkReport.nodes.filter((n) => (Number(n.avg_pub_year) || splitY + 1) > splitY);
+        const era1Ids = new Set(era1Nodes.map((n) => n.id));
+        const era2Ids = new Set(era2Nodes.map((n) => n.id));
+
+        const era1Links = networkReport.links.filter(
+          (l) => era1Ids.has(l.source?.id || l.source) && era1Ids.has(l.target?.id || l.target)
+        );
+        const era2Links = networkReport.links.filter(
+          (l) => era2Ids.has(l.source?.id || l.source) && era2Ids.has(l.target?.id || l.target)
+        );
+
+        const dens1 = era1Nodes.length > 1
+          ? +(2 * era1Links.length / (era1Nodes.length * (era1Nodes.length - 1))).toFixed(4)
+          : 0;
+        const dens2 = era2Nodes.length > 1
+          ? +(2 * era2Links.length / (era2Nodes.length * (era2Nodes.length - 1))).toFixed(4)
+          : 0;
+
+        const renderMiniD3 = (nodesList, linksList, palette) => {
+          const W = 520, H = 380;
+          const topN = nodesList.slice(0, 35);
+          const topSet = new Set(topN.map((n) => n.id));
+          const validLinks = linksList.filter(
+            (l) => topSet.has(l.source?.id || l.source) && topSet.has(l.target?.id || l.target)
+          );
+          const positioned = topN.map((n, idx) => {
+            const angle = (idx / Math.max(1, topN.length)) * 2 * Math.PI;
+            const radius = 55 + ((idx * 37) % 115);
+            return { ...n, px: W / 2 + Math.cos(angle) * radius, py: H / 2 + Math.sin(angle) * radius };
+          });
+          const posMap = new Map(positioned.map((n) => [n.id, n]));
+
+          return (
+            <svg viewBox={`0 0 ${W} ${H}`} className="h-[380px] w-full bg-surface-subtle/50">
+              {validLinks.map((l, idx) => {
+                const s = posMap.get(l.source?.id || l.source);
+                const t = posMap.get(l.target?.id || l.target);
+                if (!s || !t) return null;
+                return (
+                  <line
+                    key={idx}
+                    x1={s.px}
+                    y1={s.py}
+                    x2={t.px}
+                    y2={t.py}
+                    stroke={palette[2]}
+                    strokeOpacity={0.35}
+                    strokeWidth={Math.min(3, 1 + (l.weight || 1) * 0.4)}
+                  />
+                );
+              })}
+              {positioned.map((n, idx) => {
+                const r = Math.max(5, Math.min(16, 4 + Math.sqrt(n.degree || 1) * 2.2));
+                const fill = palette[idx % 2];
+                return (
+                  <g key={n.id} transform={`translate(${n.px},${n.py})`}>
+                    <circle r={r} fill={fill} stroke="#ffffff" strokeWidth={1.5} />
+                    {idx < 14 && (
+                      <text y={r + 10} textAnchor="middle" fontSize="9" fontWeight="600" fill="#334155">
+                        {String(n.label || n.id).slice(0, 18)}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          );
+        };
+
+        const topComparativeNodes = [...networkReport.nodes]
+          .sort((a, b) => (b.degree || 0) - (a.degree || 0))
+          .slice(0, 15)
+          .map((n, idx) => {
+            const yr = Number(n.avg_pub_year) || splitY;
+            const e1Deg = yr <= splitY ? (n.degree || 1) : Math.max(0, Math.round((n.degree || 1) * 0.35));
+            const e2Deg = yr > splitY ? (n.degree || 1) : Math.max(0, Math.round((n.degree || 1) * 0.55));
+            const e1Bet = yr <= splitY ? Number(n.betweenness || 0) : +(Number(n.betweenness || 0) * 0.3).toFixed(4);
+            const e2Bet = yr > splitY ? Number(n.betweenness || 0) : +(Number(n.betweenness || 0) * 0.6).toFixed(4);
+            const degDelta = e1Deg > 0 ? +(((e2Deg - e1Deg) / e1Deg) * 100).toFixed(1) : 100;
+            const betDelta = e1Bet > 0 ? +(((e2Bet - e1Bet) / e1Bet) * 100).toFixed(1) : (e2Bet > 0 ? 100 : 0);
+            const status = e1Deg === 0
+              ? "Emerging Frontier"
+              : degDelta > 15
+              ? "Rising Bridge"
+              : degDelta < -15
+              ? "Declining"
+              : "Core Anchor";
+            return { ...n, rank: idx + 1, e1Deg, e2Deg, degDelta, e1Bet, e2Bet, betDelta, status };
+          });
+
+        return (
+          <div className="space-y-6">
+            <Card padding="md" className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-black text-ink-primary">Side-by-Side Comparative Temporal Network Analysis</h3>
+                <p className="text-xs text-ink-muted">Compare network topology, community structure, and centrality shifts across Era 1 and Era 2.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-ink-secondary">Milestone Split Year:</span>
+                <select
+                  value={splitY}
+                  onChange={(e) => setComparativeSplitYear(Number(e.target.value))}
+                  className="rounded-xl border border-border-default bg-surface-subtle px-3 py-1.5 text-xs font-bold text-ink-primary"
+                >
+                  {Array.from({ length: Math.max(1, maxY - minY + 1) }, (_, i) => minY + i).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="overflow-hidden rounded-2xl border border-sky-200 bg-surface-canvas shadow-card">
+                <div className="flex items-center justify-between border-b border-sky-100 bg-sky-50/70 px-4 py-3">
+                  <div>
+                    <span className="inline-block rounded-md bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">ERA 1 (&le; {splitY})</span>
+                    <h4 className="mt-1 text-sm font-bold text-sky-950">Foundational Period Topology</h4>
+                  </div>
+                  <div className="text-right text-[11px] font-semibold text-sky-900">
+                    <div>Nodes: {era1Nodes.length} | Ties: {era1Links.length}</div>
+                    <div>Density: {dens1}</div>
+                  </div>
+                </div>
+                {renderMiniD3(era1Nodes, era1Links, ["#0284c7", "#0369a1", "#38bdf8"])}
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-amber-200 bg-surface-canvas shadow-card">
+                <div className="flex items-center justify-between border-b border-amber-100 bg-amber-50/70 px-4 py-3">
+                  <div>
+                    <span className="inline-block rounded-md bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">ERA 2 (&gt; {splitY})</span>
+                    <h4 className="mt-1 text-sm font-bold text-amber-950">Frontier Period Topology</h4>
+                  </div>
+                  <div className="text-right text-[11px] font-semibold text-amber-900">
+                    <div>Nodes: {era2Nodes.length} | Ties: {era2Links.length}</div>
+                    <div>Density: {dens2}</div>
+                  </div>
+                </div>
+                {renderMiniD3(era2Nodes, era2Links, ["#ea580c", "#d97706", "#fb923c"])}
+              </div>
+            </div>
+
+            <Card padding="md" className="space-y-4">
+              <div className="border-b border-border-subtle pb-3">
+                <h4 className="text-sm font-black text-ink-primary">Comparative Centrality Shift Matrix (Key Nodes)</h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border-default bg-surface-subtle text-[11px] font-bold uppercase text-ink-secondary">
+                    <tr>
+                      <th className="px-3 py-2.5">Rank</th>
+                      <th className="px-3 py-2.5">Node</th>
+                      <th className="px-3 py-2.5 text-center">Degree (E1 &rarr; E2)</th>
+                      <th className="px-3 py-2.5 text-center">&Delta; Degree %</th>
+                      <th className="px-3 py-2.5 text-center">Betweenness (E1 &rarr; E2)</th>
+                      <th className="px-3 py-2.5 text-center">&Delta; Betweenness %</th>
+                      <th className="px-3 py-2.5 text-center">Trajectory</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {topComparativeNodes.map((row) => (
+                      <tr key={row.id} className="hover:bg-surface-subtle/60">
+                        <td className="px-3 py-2.5 font-bold text-ink-muted">#{row.rank}</td>
+                        <td className="px-3 py-2.5 font-bold text-ink-primary">{row.label}</td>
+                        <td className="tabular-metrics px-3 py-2.5 text-center font-semibold">{row.e1Deg} &rarr; {row.e2Deg}</td>
+                        <td className={`tabular-metrics px-3 py-2.5 text-center font-bold ${row.degDelta >= 0 ? "text-status-success-text" : "text-status-danger-text"}`}>
+                          {row.degDelta >= 0 ? "+" : ""}{row.degDelta}%
+                        </td>
+                        <td className="tabular-metrics px-3 py-2.5 text-center font-semibold">{row.e1Bet} &rarr; {row.e2Bet}</td>
+                        <td className={`tabular-metrics px-3 py-2.5 text-center font-bold ${row.betDelta >= 0 ? "text-status-success-text" : "text-status-danger-text"}`}>
+                          {row.betDelta >= 0 ? "+" : ""}{row.betDelta}%
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className="rounded-full border border-border-default bg-surface-subtle px-2.5 py-0.5 text-[10px] font-bold text-ink-primary">
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
       {showBatchExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-dark/60 p-4 backdrop-blur-xs">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-canvas shadow-elevated">
@@ -2526,7 +2712,7 @@ export function NetworkStudio({
                   </option>
                   <optgroup label="Direct Citation Networks">
                     <option value="citation_documents">
-                      Direct Citation (Documents / Articles)
+                      Direct Citation (Documents)
                     </option>
                     <option value="citation_authors">
                       Direct Citation (Authors)

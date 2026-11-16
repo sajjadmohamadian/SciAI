@@ -101,6 +101,9 @@ interface Props {
   focusDimension?: "authors" | "sources" | "institutions";
   focusKey?: string;
   onQuickRun: (capId: string, dsId: string) => Promise<Analysis | null>;
+  embedded?: boolean;
+  externalDimension?: EntityDimension;
+  externalModelId?: string;
 }
 
 type EntityDimension =
@@ -136,6 +139,9 @@ export function EntityExplorerStudio({
   focusDimension,
   focusKey,
   onQuickRun,
+  embedded = false,
+  externalDimension,
+  externalModelId,
 }: Props) {
   const [activeDatasetId, setActiveDatasetId] = useState<string>(
     selectedDatasetId || datasets[0]?.id || ""
@@ -602,6 +608,8 @@ export function EntityExplorerStudio({
     onSelectDataset?.(id);
   };
 
+  useEffect(() => { if (externalModelId && activeViewId !== externalModelId) { selectAnalysis(externalModelId, false); } else if (externalDimension && !externalModelId && activeViewId !== externalDimension) { selectAnalysis(externalDimension, true); } }, [externalDimension, externalModelId]);
+
   const selectAnalysis = async (id: string, local: boolean) => {
     if (running) return;
 
@@ -716,7 +724,7 @@ export function EntityExplorerStudio({
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="space-y-4 border-b border-border-default pb-5">
+      <div className={embedded ? "hidden" : "space-y-4 border-b border-border-default pb-5"}>
         <div className="min-w-0">
           <p className="sciai-kicker">Entity & Actor Intelligence</p>
           <h1 className="mt-1.5 text-2xl font-black tracking-tight text-ink-primary sm:text-3xl">
@@ -761,11 +769,11 @@ export function EntityExplorerStudio({
       </div>
 
       {/* Main Workspace */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(215px,250px)_minmax(0,1fr)]">
+      <div className={embedded ? "grid items-start gap-6 grid-cols-1" : "grid items-start gap-6 lg:grid-cols-[minmax(215px,250px)_minmax(0,1fr)]"}>
         {/* Sidebar */}
         <aside
           aria-label="Entity and author analysis methods"
-          className="rounded-2xl border border-border-default bg-surface-canvas p-3 shadow-card lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"
+          className={embedded ? "hidden" : "rounded-2xl border border-border-default bg-surface-canvas p-3 shadow-card lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto"}
         >
           <div className="px-2 pb-2 pt-1">
             <div className="sciai-kicker">Analysis methods</div>
@@ -923,7 +931,7 @@ export function EntityExplorerStudio({
                           <tr>
                             <th className="p-3.5">Name / Label</th>
                             <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("docCount")}>
-                              <div className="inline-flex items-center gap-1">Articles<ArrowUpDown className="h-3 w-3" /></div>
+                              <div className="inline-flex items-center gap-1">Documents<ArrowUpDown className="h-3 w-3" /></div>
                             </th>
                             {dimension === "authors" && (
                               <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("fractionalDocCount")}>

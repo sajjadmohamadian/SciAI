@@ -65,14 +65,8 @@ const NAV_ITEMS: NavItem[] = [
     description: "Unified 4-Step Dataset Studio",
   },
   {
-    id: "entities",
-    label: "Entity Explorer",
-    icon: <Compass className="h-4 w-4 text-blue-600" />,
-    description: "Authors, Sources, Affiliations & Grants",
-  },
-  {
     id: "descriptive",
-    label: "Descriptive Analytics",
+    label: "Descriptive & Entity Analytics",
     icon: <LineChart className="h-4 w-4 text-purple-600" />,
     description: "Macro Trends, Grants, Lotka & Bradford",
   },

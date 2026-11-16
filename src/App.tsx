@@ -382,7 +382,7 @@ function WorkspaceApp() {
               />
             )}
 
-            {(activeTab === "entities" ||
+            {(false ||
               activeTab === "authors" ||
               activeTab === "sources" ||
               activeTab === "keywords") && (

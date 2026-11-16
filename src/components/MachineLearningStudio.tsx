@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   BrainCircuit,
   Sliders,
@@ -102,87 +102,15 @@ export function MachineLearningStudio({
       activation: "LeakyReLU (negative slope=0.2)",
     },
     trainingMetrics: {
-      finalLoss: 0.0384,
-      rocAuc: 0.946,
-      averagePrecision: 0.923,
-      meanReciprocalRank: 0.889,
-      convergenceEpoch: 38,
+      finalLoss: 0,
+      rocAuc: 0,
+      averagePrecision: 0,
+      meanReciprocalRank: 0,
+      convergenceEpoch: 0,
     },
-    nodeEmbeddings: [
-      { id: "n1", name: "Deep Neural Networks", type: "topic", x: -28.4, y: 19.2, communityGNN: 1, communityLouvain: 1, disruptionScore: 0.88, citations: 1420 },
-      { id: "n2", name: "Convolutional Architectures", type: "topic", x: -32.1, y: 15.6, communityGNN: 1, communityLouvain: 1, disruptionScore: 0.72, citations: 980 },
-      { id: "n3", name: "Graph Attention Networks (GAT)", type: "topic", x: -18.7, y: 24.5, communityGNN: 1, communityLouvain: 2, disruptionScore: 0.94, citations: 850 },
-      { id: "n4", name: "Genomic Sequence Transformers", type: "topic", x: 12.3, y: 31.8, communityGNN: 2, communityLouvain: 3, disruptionScore: 0.82, citations: 620 },
-      { id: "n5", name: "CRISPR-Cas9 Editing Vectors", type: "topic", x: 26.5, y: 28.1, communityGNN: 2, communityLouvain: 3, disruptionScore: 0.91, citations: 1840 },
-      { id: "n6", name: "Single-Cell RNA Transcriptomics", type: "topic", x: 21.0, y: 18.4, communityGNN: 2, communityLouvain: 3, disruptionScore: 0.69, citations: 740 },
-      { id: "n7", name: "Clinical Diagnostic Imaging", type: "topic", x: -14.2, y: -22.5, communityGNN: 3, communityLouvain: 1, disruptionScore: 0.45, citations: 510 },
-      { id: "n8", name: "Multi-Modal Health Records", type: "topic", x: -4.8, y: -16.3, communityGNN: 3, communityLouvain: 2, disruptionScore: 0.64, citations: 430 },
-      { id: "n9", name: "Quantum Molecular Simulation", type: "topic", x: 38.2, y: -12.4, communityGNN: 4, communityLouvain: 4, disruptionScore: 0.96, citations: 320 },
-      { id: "n10", name: "Protein Structure Prediction (ESMFold)", type: "topic", x: 16.4, y: 8.7, communityGNN: 2, communityLouvain: 2, disruptionScore: 0.98, citations: 2100 },
-      { id: "n11", name: "Ethical AI & Algorithmic Bias", type: "topic", x: -36.5, y: -8.9, communityGNN: 3, communityLouvain: 1, disruptionScore: 0.53, citations: 390 },
-      { id: "n12", name: "Federated Learning Privacy", type: "topic", x: -22.8, y: -7.1, communityGNN: 3, communityLouvain: 1, disruptionScore: 0.61, citations: 460 },
-      { id: "n13", name: "Synthetic Biology Bio-Design", type: "topic", x: 32.1, y: 12.0, communityGNN: 2, communityLouvain: 4, disruptionScore: 0.77, citations: 580 },
-      { id: "n14", name: "Diffusion Models for Chemistry", type: "topic", x: 8.5, y: -2.3, communityGNN: 4, communityLouvain: 2, disruptionScore: 0.89, citations: 890 },
-    ],
-    predictedLinks: [
-      {
-        id: "link-pred-1",
-        source: "Graph Attention Networks (GAT)",
-        target: "Protein Structure Prediction (ESMFold)",
-        predictedProbability: 0.934,
-        topologicalDistance: 2,
-        epistemicNovelty: "High Convergence",
-        sharedLatentDim: ["Geometric Invariance", "Residue Contact Maps", "Self-Attention Topology"],
-        mechanism: "GNN message-passing over spatial co-occurrence predicts direct algorithmic fusion between geometric deep learning and structural biology.",
-      },
-      {
-        id: "link-pred-2",
-        source: "Single-Cell RNA Transcriptomics",
-        target: "Diffusion Models for Chemistry",
-        predictedProbability: 0.887,
-        topologicalDistance: 3,
-        epistemicNovelty: "Radical Breakthrough",
-        sharedLatentDim: ["Stochastic Trajectory Modeling", "Cell Fate Permutations", "Generative Perturbation"],
-        mechanism: "Latent manifold vectors show dense cosine proximity despite zero direct co-citations in traditional bibliometric databases.",
-      },
-      {
-        id: "link-pred-3",
-        source: "Federated Learning Privacy",
-        target: "Genomic Sequence Transformers",
-        predictedProbability: 0.852,
-        topologicalDistance: 3,
-        epistemicNovelty: "Cross-Domain Synergy",
-        sharedLatentDim: ["Decentralized Cohorts", "Differential Privacy", "Genomic Data Sovereignty"],
-        mechanism: "Multi-hop graph convolution aggregates privacy-preserving ML features with decentralized international genome repositories.",
-      },
-      {
-        id: "link-pred-4",
-        source: "Quantum Molecular Simulation",
-        target: "CRISPR-Cas9 Editing Vectors",
-        predictedProbability: 0.796,
-        topologicalDistance: 4,
-        epistemicNovelty: "Emergent Paradigm",
-        sharedLatentDim: ["Off-Target Quantum Energetics", "Enzymatic Binding Affinities", "Hamiltonian Ground States"],
-        mechanism: "Sub-graph neighborhood convolution bridges chemical physics and off-target cleavage kinetic prediction.",
-      },
-      {
-        id: "link-pred-5",
-        source: "Multi-Modal Health Records",
-        target: "Ethical AI & Algorithmic Bias",
-        predictedProbability: 0.821,
-        topologicalDistance: 2,
-        epistemicNovelty: "Translational Governance",
-        sharedLatentDim: ["Demographic Stratification", "Fairness Metrics", "Clinical Decision Auditing"],
-        mechanism: "Inductive node representation predicts dense co-authorship formation between clinical informatics and ethics labs.",
-      },
-    ],
-    attentionPairs: [
-      { source: "Protein Structure Prediction (ESMFold)", target: "Deep Neural Networks", alpha: 0.384, citationCount: 240, type: "Foundational Anchor" },
-      { source: "Protein Structure Prediction (ESMFold)", target: "Graph Attention Networks (GAT)", alpha: 0.412, citationCount: 45, type: "High Epistemic Impact (Hidden by Traditional Counts)" },
-      { source: "Single-Cell RNA Transcriptomics", target: "CRISPR-Cas9 Editing Vectors", alpha: 0.355, citationCount: 180, type: "Methodological Synergy" },
-      { source: "Diffusion Models for Chemistry", target: "Quantum Molecular Simulation", alpha: 0.298, citationCount: 12, type: "Emerging Bridge (Very High Latent Weight)" },
-      { source: "Genomic Sequence Transformers", target: "Convolutional Architectures", alpha: 0.142, citationCount: 310, type: "Superficial Historical Citation (Low Epistemic Weight)" },
-    ],
+    nodeEmbeddings: [],
+    predictedLinks: [],
+    attentionPairs: [],
   });
 
   const [gnnError, setGnnError] = useState<string | null>(null);
@@ -195,6 +123,7 @@ export function MachineLearningStudio({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          datasetId: activeDatasetId,
           architecture: gnnArch,
           epochs: gnnEpochs,
           hiddenDim: gnnHiddenDim,
@@ -223,6 +152,13 @@ export function MachineLearningStudio({
       setGnnRunning(false);
     }
   };
+
+  useEffect(() => {
+    if (activeSubTab === "gnn" && activeDatasetId && !gnnRunning) {
+      handleTrainGNN();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDatasetId, activeSubTab]);
 
   // Simulator state
   const [simTeamSize, setSimTeamSize] = useState(4);
@@ -406,7 +342,7 @@ export function MachineLearningStudio({
                 </label>
                 <select
                   id="ml-dataset-select"
-                  className="mt-1 block w-full min-w-0 max-w-full truncate rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 text-xs font-semibold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none sm:w-80"
+                  className="mt-1 block w-full min-w-0 max-w-full leading-snug rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 text-xs font-semibold text-ink-primary shadow-card focus:border-brand-500 focus:outline-none sm:w-80"
                   value={activeDatasetId}
                   onChange={(e) => handleDatasetChange(e.target.value)}
                 >
@@ -461,7 +397,7 @@ export function MachineLearningStudio({
             }`}
           >
             <Layers className="h-3.5 w-3.5" />
-            1. K-Means &amp; PCA 2D Clustering
+            1. K-Means &amp; PCA
           </button>
           <button
             type="button"
@@ -485,7 +421,7 @@ export function MachineLearningStudio({
             }`}
           >
             <Target className="h-3.5 w-3.5" />
-            3. Supervised Impact Classifier &amp; Simulator
+            3. Impact Simulator
           </button>
           <button
             type="button"
@@ -497,7 +433,7 @@ export function MachineLearningStudio({
             }`}
           >
             <Network className="h-3.5 w-3.5" />
-            4. Graph Neural Networks (GNN &amp; pyBibX Vision)
+            4. Graph Neural Networks (GNN)
           </button>
           <button
             type="button"
@@ -509,7 +445,7 @@ export function MachineLearningStudio({
             }`}
           >
             <BrainCircuit className="h-3.5 w-3.5" />
-            <span>5. Statistical Text Classifiers &amp; Stratified K-Fold</span>
+            <span>5. Text Classifiers (K-Fold)</span>
             <span
               className={`tabular-metrics rounded-full px-1.5 py-0.2 text-[9px] font-black ${
                 activeSubTab === "classifiers"
@@ -933,10 +869,10 @@ export function MachineLearningStudio({
                             Cluster {cId}
                           </span>
                         </td>
-                        <td className="max-w-xs truncate px-3 py-2.5 font-medium text-ink-primary">
+                        <td className="max-w-xs leading-snug px-3 py-2.5 font-medium text-ink-primary">
                           {String(doc.title)}
                         </td>
-                        <td className="max-w-44 truncate px-3 py-2.5 text-ink-muted">
+                        <td className="max-w-44 leading-snug px-3 py-2.5 text-ink-muted">
                           {String(doc.source)}
                         </td>
                         <td className="tabular-metrics px-3 py-2.5 text-center font-mono text-ink-muted">
@@ -1625,9 +1561,9 @@ export function MachineLearningStudio({
                       </div>
 
                       <div className="mt-3 flex items-center gap-2 text-xs font-black text-ink-primary">
-                        <span className="truncate">{link.source}</span>
+                        <span className="leading-snug">{link.source}</span>
                         <Share2 className="h-3.5 w-3.5 shrink-0 text-brand-500" />
-                        <span className="truncate">{link.target}</span>
+                        <span className="leading-snug">{link.target}</span>
                       </div>
 
                       <div className="tabular-metrics mt-1 font-mono text-[11px] text-ink-muted">
@@ -2025,3 +1961,5 @@ export function MachineLearningStudio({
     </div>
   );
 }
+
+

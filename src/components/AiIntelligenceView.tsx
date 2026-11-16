@@ -78,7 +78,7 @@ You can ask me questions such as:
 - "Which publications form the nuclear core in Bradford's Zone 1?"
 - "What is the degree of conformity to Lotka's Law and Price's square root conjecture?"
 - "Summarize the major invisible colleges in our collaboration network."
-- "What are the most cited articles published after 2020?"`,
+- "What are the most cited documents published after 2020?"`,
     },
   ]);
 
@@ -1506,7 +1506,7 @@ You can ask me questions such as:
 
               <Card padding="lg" className="space-y-3">
                 <div className="sciai-kicker text-ink-primary!">
-                  Exemplar Article Citation Classifications
+                  Exemplar Document Citation Classifications
                 </div>
                 <div className="space-y-2.5">
                   {citationData.exemplar_analyses.map((ex, i) => (

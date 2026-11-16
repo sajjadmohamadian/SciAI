@@ -70,6 +70,7 @@ export interface ThematicEvolutionOutput {
 export interface SlicingOptions {
   sliceCount?: number; // 2, 3, 4, 5
   customCuts?: number[]; // e.g. [2022, 2024]
+  slicingMode?: "equal_years" | "equal_docs" | "custom";
   minKeywordFreq?: number; // default 2
   inclusionThreshold?: number; // default 0.15
   maxThemesPerSlice?: number; // default 5
@@ -248,7 +249,16 @@ export function computeThematicEvolution(
       }
     }
 
-    // Cluster keywords into themes (Greedy cohesion)
+    const eqMatrix: Record<string, Record<string, number>> = {};
+      for (const k1 of activeKws) {
+        eqMatrix[k1] = {};
+        for (const [k2, cij] of Object.entries(coMatrix[k1] || {})) {
+          const denom = (kwFreq[k1] || 1) * (kwFreq[k2] || 1);
+          eqMatrix[k1][k2] = denom > 0 ? (cij * cij) / denom : 0;
+        }
+      }
+
+      // Cluster keywords into themes (Greedy cohesion)
     const visited = new Set<string>();
     const clusters: Array<{ name: string; keywords: string[]; totalFreq: number }> = [];
 
@@ -257,13 +267,13 @@ export function computeThematicEvolution(
       const themeKws = [seed];
       visited.add(seed);
 
-      const neighbors = Object.entries(coMatrix[seed] || {})
+      const neighbors = Object.entries(eqMatrix[seed] || {})
         .filter(([nbr]) => !visited.has(nbr))
         .sort((a, b) => b[1] - a[1])
         .slice(0, 4);
 
       for (const [nbr, weight] of neighbors) {
-        if (weight >= 1) {
+        if (weight > 0) {
           themeKws.push(nbr);
           visited.add(nbr);
         }
@@ -301,20 +311,20 @@ export function computeThematicEvolution(
       let internalStrength = 0;
       for (let i = 0; i < cluster.keywords.length; i++) {
         for (let j = i + 1; j < cluster.keywords.length; j++) {
-          internalStrength += coMatrix[cluster.keywords[i]]?.[cluster.keywords[j]] || 0;
+          internalStrength += eqMatrix[cluster.keywords[i]]?.[cluster.keywords[j]] || 0;
         }
       }
-      const density = (internalStrength * 10) / Math.max(1, cluster.keywords.length);
+      const density = (internalStrength * 100) / Math.max(1, cluster.keywords.length);
 
       let externalStrength = 0;
       for (const k of cluster.keywords) {
-        for (const [otherKw, weight] of Object.entries(coMatrix[k] || {})) {
+        for (const [otherKw, weight] of Object.entries(eqMatrix[k] || {})) {
           if (!cSet.has(otherKw)) {
             externalStrength += weight;
           }
         }
       }
-      const centrality = externalStrength * 5;
+      const centrality = externalStrength * 10;
 
       // Documents matching this theme
       const matchingDocs = periodDocs.filter((d) =>
@@ -393,7 +403,7 @@ export function computeThematicEvolution(
     const kwsCurrent = periodKeywordsMap.get(p) || new Set<string>();
     const kwsNext = periodKeywordsMap.get(p + 1) || new Set<string>();
     let intersectionCount = 0;
-    for (const kw of kwsCurrent) {
+    for (const kw of Array.from(kwsCurrent)) {
       if (kwsNext.has(kw)) intersectionCount++;
     }
     const unionCount = new Set([...Array.from(kwsCurrent), ...Array.from(kwsNext)]).size;

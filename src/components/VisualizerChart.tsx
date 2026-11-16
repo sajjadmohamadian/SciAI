@@ -314,7 +314,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
               Price&apos;s Elite Group (√N = {eliteMembers.length} Core Contributors)
             </span>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Researchers meeting Price&apos;s square-root elite threshold (≥ {isFractional ? threshold.toFixed(2) : threshold} {isFractional ? "credit" : "articles"}).
+              Researchers meeting Price&apos;s square-root elite threshold (≥ {isFractional ? threshold.toFixed(2) : threshold} {isFractional ? "credit" : "documents"}).
             </p>
           </div>
           <span className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
@@ -344,7 +344,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
               />
               <Bar
                 dataKey="documents"
-                name={isFractional ? "Fractional Credit" : "Articles"}
+                name={isFractional ? "Fractional Credit" : "Documents"}
                 fill="#4f46e5"
                 radius={[0, 4, 4, 0]}
                 barSize={12}
@@ -387,6 +387,34 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
   }
 
   // Citation Total
+  if (capabilityId === "citation.distribution") {
+    const data = records.slice(0, 30).map((r: any) => {
+      const entries = Object.entries(r);
+      const xVal = r.citations ?? r.citation_count ?? r.bracket ?? (entries[0] ? entries[0][1] : 0);
+      const yVal = Number(r.count ?? r.documents ?? r.papers ?? r.frequency ?? (entries[1] ? entries[1][1] : 0));
+      return { citations: String(xVal), papers: yVal };
+    });
+    return (
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-800">Citation Frequency Distribution</span>
+          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200">{records.length} Citation Brackets</span>
+        </div>
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 15 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="citations" stroke="#64748b" fontSize={11} label={{ value: "Citations per Paper", position: "insideBottom", offset: -8, fontSize: 11 }} />
+              <YAxis stroke="#64748b" fontSize={11} />
+              <Tooltip />
+              <Bar dataKey="papers" name="Papers" fill="#315C7C" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  }
+
   if (capabilityId === "citation.total") {
     const totalRec = records.find((r) => r.metric === "citation_total");
     const maxRec = records.find((r) => r.metric === "max_single_citation");
@@ -656,68 +684,86 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
 
   // 5. Source Productivity: Horizontal Bar vs Power BI-style Treemap Decomposition
   if (capabilityId === "source.productivity") {
-    const activeView = currentView || "treemap";
-    const barData = records.slice(0, 8).map((r) => ({
-      source: String(r.source || "Unknown").slice(0, 25) + "...",
-      documents: Number(r.documents || r.count || 0),
-    }));
+    const metric = (currentView === "citations" || currentView === "avg") ? currentView : "documents";
+    const treemapData = records.slice(0, 16).map((r, idx) => {
+      const docs = Number(r.documents || r.count || 0);
+      const cites = Number(r.total_citations || r.citations || 0);
+      const avg = r.avg_citations !== undefined ? Number(r.avg_citations) : (docs > 0 ? Number((cites / docs).toFixed(2)) : 0);
+      const val = metric === "citations" ? cites : metric === "avg" ? avg : docs;
+      return {
+        name: String(r.source || "Unknown"),
+        size: Math.max(0.1, val),
+        documents: docs,
+        citations: cites,
+        avg,
+        fill: PALETTE[idx % PALETTE.length],
+      };
+    });
+    const metricLabel = metric === "citations" ? "Total Citations" : metric === "avg" ? "Avg Citations / Doc" : "Documents";
 
-    const treemapData = records.slice(0, 14).map((r, idx) => ({
-      name: String(r.source || "Unknown"),
-      size: Math.max(1, Number(r.documents || r.count || 1)),
-      count: Number(r.documents || r.count || 0),
-      fill: PALETTE[idx % PALETTE.length],
-    }));
+    const CustomTile = (props: any) => {
+      const { depth, x, y, width, height, name, documents, citations, avg, fill } = props;
+      if (depth === 0 || !width || !height || width < 6 || height < 6) return null;
+      const innerW = Math.max(0, width - 4);
+      const innerH = Math.max(0, height - 4);
+      return (
+        <g>
+          <rect x={x + 2} y={y + 2} width={innerW} height={innerH} rx={6} fill={fill + "22"} stroke={fill} strokeWidth={1.75} />
+          {innerW >= 54 && innerH >= 32 && (
+            <foreignObject x={x + 2} y={y + 2} width={innerW} height={innerH}>
+              <div style={{ width: "100%", height: "100%", padding: "6px 8px", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "space-between", color: "#0f172a", fontFamily: "inherit" }}>
+                <div style={{ fontSize: innerH > 64 ? "11px" : "9.5px", fontWeight: 700, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: innerH > 78 ? 3 : innerH > 52 ? 2 : 1, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>
+                  {name}
+                </div>
+                {innerH >= 44 && (
+                  <div style={{ fontSize: "9.5px", fontWeight: 600, color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "2px" }}>
+                    {documents} docs · {citations} cites · {avg} avg
+                  </div>
+                )}
+              </div>
+            </foreignObject>
+          )}
+        </g>
+      );
+    };
 
     return (
-      <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+      <div className="mt-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <span className="text-xs font-bold text-slate-800">Leading Publication Venues</span>
-            <span className="text-[10px] text-slate-400 block">Decomposition of publication productivity across core journals</span>
+            <span className="text-xs font-bold text-slate-800">Publication Venues Treemap</span>
+            <span className="text-[10px] text-slate-400 block">Proportional distribution of top {treemapData.length} venues by {metricLabel}</span>
           </div>
           <ChartToggle
-            currentView={activeView}
+            currentView={metric}
             onViewChange={setView}
             options={[
-              { id: "treemap", label: "Treemap", icon: LayoutGrid },
-              { id: "bar", label: "Bar Ranking", icon: BarChart3 },
+              { id: "documents", label: "Documents", icon: LayoutGrid },
+              { id: "citations", label: "Total Citations", icon: LayoutGrid },
+              { id: "avg", label: "Avg Citations", icon: LayoutGrid },
             ]}
           />
         </div>
-
-        {activeView === "treemap" ? (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap
-                data={treemapData}
-                dataKey="size"
-                stroke="#ffffff"
-                content={<TreemapTile />}
-              >
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(val: any, name: any, item: any) => [
-                    `${item.payload?.count ?? val} papers`,
-                    item.payload?.name || "Journal",
-                  ]}
-                />
-              </Treemap>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="source" tick={{ fontSize: 10 }} width={120} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="documents" fill="#0f172a" radius={[0, 4, 4, 0]} barSize={14} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <Treemap data={treemapData} dataKey="size" stroke="#fff" content={<CustomTile />}>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload;
+                  return (
+                    <div className="rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md">
+                      <div className="font-bold text-slate-900 mb-1 max-w-[260px]">{d.name}</div>
+                      <div className="text-slate-600">Documents: <strong className="text-slate-900">{d.documents}</strong></div>
+                      <div className="text-slate-600">Total Citations: <strong className="text-emerald-700">{d.citations}</strong></div>
+                      <div className="text-slate-600">Avg Citations: <strong className="text-blue-700">{d.avg}</strong></div>
+                    </div>
+                  );
+                }}
+              />
+            </Treemap>
+          </ResponsiveContainer>
+        </div>
       </div>
     );
   }
@@ -830,7 +876,7 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
                 contentStyle={TOOLTIP_STYLE}
                 formatter={(val: any, name: any, item: any) => [
                   `${val} documents (${item.payload.cumPct}% cumulative) - ${item.payload.zone}`,
-                  "Articles",
+                  "Documents",
                 ]}
               />
               <Bar
@@ -1237,12 +1283,12 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
         ...Object.fromEntries(data.map((d) => [d.group, Math.round((d.documents / maxDocs) * 100)])),
       },
       {
-        metric: "Collaboration Depth",
+        metric: "Total Citations Share",
         ...Object.fromEntries(
-          data.map((d) => [
-            d.group,
-            d.group.toLowerCase().includes("international") || d.group.includes("MCP") ? 90 : 25,
-          ])
+          data.map((d) => {
+            const sumCit = Math.max(1, data.reduce((acc, item) => acc + item.totalCit, 0));
+            return [d.group, Math.round((d.totalCit / sumCit) * 100)];
+          })
         ),
       },
     ];
@@ -1315,6 +1361,32 @@ export function VisualizerChart({ capabilityId, records }: VisualizerProps) {
             ))}
           </div>
         )}
+        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200/80 bg-white">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Group</th>
+                <th className="px-3 py-2">Documents</th>
+                <th className="px-3 py-2">Corpus Share</th>
+                <th className="px-3 py-2">Total Citations</th>
+                <th className="px-3 py-2">Avg Citations (CPP)</th>
+                <th className="px-3 py-2">High Impact Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map((row) => (
+                <tr key={row.group} className="hover:bg-slate-50/70">
+                  <td className="px-3 py-2 font-semibold text-slate-900">{row.group}</td>
+                  <td className="px-3 py-2 text-slate-700">{row.documents}</td>
+                  <td className="px-3 py-2 text-slate-700">{row.percentage}%</td>
+                  <td className="px-3 py-2 font-semibold text-emerald-700">{row.totalCit}</td>
+                  <td className="px-3 py-2 font-semibold text-blue-700">{row.avgCit}</td>
+                  <td className="px-3 py-2 text-slate-700">{row.impactRate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }

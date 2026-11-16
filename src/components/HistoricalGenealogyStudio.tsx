@@ -372,7 +372,7 @@ export function HistoricalGenealogyStudio({
         .attr("fill", node.isMainPath ? "#be123c" : "#27313c")
         .text(`${node.firstAuthor} '${String(node.year).slice(-2)}`);
     });
-  }, [histData, filteredNodes, filteredLinks, selectedNode]);
+  }, [histData, filteredNodes, filteredLinks, selectedNode, subTab]);
 
   // ================= D3 RPYS SPECTROSCOPY CHART =================
   useEffect(() => {
@@ -519,7 +519,7 @@ export function HistoricalGenealogyStudio({
           .text(pt.year);
       }
     });
-  }, [rpysData, selectedBreakoutYear]);
+  }, [rpysData, selectedBreakoutYear, subTab]);
 
   const currentBreakout = useMemo(() => {
     if (!rpysData || !selectedBreakoutYear) return null;
@@ -853,7 +853,7 @@ export function HistoricalGenealogyStudio({
                     </div>
                     {selectedNode.citedNodes.length === 0 ? (
                       <p className="text-[11px] italic text-ink-subtle">
-                        No previous internal papers cited (Epistemic Root).
+                        No previous internal documents cited (Epistemic Root).
                       </p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
@@ -921,7 +921,7 @@ export function HistoricalGenealogyStudio({
               Foundation
             </h3>
             <p className="mt-1 text-xs text-ink-muted">
-              Papers with high LCS represent internal keystones that drive
+              Documents with high LCS represent internal keystones that drive
               subsequent work in this specific community, irrespective of broad
               generic citations.
             </p>
@@ -1027,7 +1027,7 @@ export function HistoricalGenealogyStudio({
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="text-xs font-semibold text-ink-muted">
                 Spectroscopic Peaks indicate historical breakthrough years
-                where foundational papers were published.
+                where foundational documents were published.
               </div>
               <span className="tabular-metrics rounded border border-status-warning-border bg-status-warning-bg px-2 py-0.5 text-[10px] font-bold text-status-warning-text">
                 {rpysData?.milestone_breakouts.length || 0} Historical Breakout
@@ -1044,7 +1044,7 @@ export function HistoricalGenealogyStudio({
                 {rpysError}
               </div>
             ) : (
-              <svg ref={rpysSvgRef} className="h-auto w-full select-none" />
+              <svg ref={rpysSvgRef} className="h-[400px] w-full select-none" />
             )}
           </Card>
 
@@ -1107,7 +1107,7 @@ export function HistoricalGenealogyStudio({
                   {currentBreakout?.landmarkCitations?.length ||
                     currentBreakout?.breakoutWorks?.length ||
                     0}{" "}
-                  Landmark Papers
+                  Landmark Documents
                 </span>
               </div>
 
@@ -1167,7 +1167,7 @@ export function HistoricalGenealogyStudio({
             <div className="mt-6 space-y-4">
               <div className="relative space-y-6 border-l-2 border-brand-500 pl-6">
                 {histData?.nodes
-                  .filter((n) => n.isMainPath)
+                  .filter((n, _, arr) => arr.some(x => x.isMainPath || histData?.main_path_nodes?.includes(x.id)) ? (n.isMainPath || histData?.main_path_nodes?.includes(n.id)) : true).slice(0, 12)
                   .sort((a, b) => a.year - b.year)
                   .map((n, idx) => (
                     <div key={n.id} className="group relative">

@@ -979,7 +979,7 @@ export function FrontierDetectionStudio({
             Sleeping Beauties (SBs) are seminal publications that experience
             years of citation latency with negligible attention (Sleep Duration),
             followed by a sudden awakening or citation surge catalyzed by an
-            influential application paper (“Prince”), becoming central pillars
+            influential application document (“Prince”), becoming central pillars
             of the scientific domain.
             <div className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-brand-200 bg-surface-canvas p-2.5 font-mono text-[11px] md:grid-cols-2">
               <div>
@@ -1013,7 +1013,7 @@ export function FrontierDetectionStudio({
                   type="text"
                   value={searchBeauty}
                   onChange={(e) => setSearchBeauty(e.target.value)}
-                  placeholder="Search article title, author, journal..."
+                  placeholder="Search document title, author, journal..."
                   className="w-full rounded-xl border border-border-default bg-surface-canvas py-1.5 pl-9 pr-3 text-xs text-ink-primary placeholder:text-ink-subtle focus:border-brand-500 focus:outline-none"
                 />
               </div>
@@ -1280,7 +1280,7 @@ export function FrontierDetectionStudio({
                   <Award className="mt-0.5 h-5 w-5 shrink-0 text-brand-500" />
                   <div>
                     <div className="text-xs font-bold text-ink-primary">
-                      Awakening Catalyst Paper (“Prince” Work):
+                      Awakening Catalyst Document (“Prince” Work):
                     </div>
                     <div className="mt-0.5 text-xs font-medium text-brand-700">
                       {selectedBeauty.princeInfo.potentialPrinceWork}
@@ -1311,7 +1311,7 @@ export function FrontierDetectionStudio({
                 <thead className="border-b border-border-default bg-surface-subtle text-[10px] font-bold uppercase text-ink-muted">
                   <tr>
                     <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Article Title &amp; Authors</th>
+                    <th className="px-4 py-3">Document Title &amp; Authors</th>
                     <th className="px-4 py-3 text-center">Publication Year</th>
                     <th className="px-4 py-3 text-center">Sleep Duration</th>
                     <th className="px-4 py-3 text-center">Awakening Year</th>
@@ -1382,7 +1382,7 @@ export function FrontierDetectionStudio({
                               handleCopy(sb.title, sb.id);
                             }}
                             className="cursor-pointer rounded-md p-1 text-ink-subtle transition-colors hover:bg-surface-muted hover:text-ink-primary"
-                            title="Copy paper title"
+                            title="Copy document title"
                           >
                             {copiedId === sb.id ? (
                               <Check className="h-3.5 w-3.5 text-status-success-text" />
@@ -1469,13 +1469,15 @@ export function FrontierDetectionStudio({
                   <span className="tabular-metrics font-semibold text-ink-primary">
                     {data.summary.totalDocuments}
                   </span>{" "}
-                  scholarly records indicating structured thematic drift toward
+                  documents indicating structured thematic drift toward
                   emerging burst concepts.
                 </p>
               </div>
             </div>
 
-            {/* Recommendations */}
+            <div className="mt-6 rounded-2xl border border-border-default bg-surface-canvas p-4"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold text-ink-primary">Cross-Method Triangulation: Active Bursts × Awakened Documents</span><span className="text-[11px] text-ink-muted">Linking Kleinberg frontiers with Ke et al. (2015) catalysts</span></div><div className="grid grid-cols-1 gap-3 md:grid-cols-2"><div className="rounded-xl border border-border-default bg-surface-subtle/50 p-3"><div className="text-[11px] font-bold text-status-danger-text">Top Active Hot Frontiers ({data.burstDetection.topHotFrontiers.length})</div><div className="mt-2 flex flex-wrap gap-1.5">{data.burstDetection.topHotFrontiers.slice(0, 6).map((b) => (<span key={b.id} className="rounded-lg border border-status-danger-border bg-status-danger-bg px-2 py-0.5 text-[11px] font-semibold text-status-danger-text">{b.word} (w={b.weight.toFixed(1)}, {b.beginYear}–{b.endYear})</span>))}{data.burstDetection.topHotFrontiers.length === 0 && <span className="text-xs text-ink-muted">No active terminal bursts detected.</span>}</div></div><div className="rounded-xl border border-border-default bg-surface-subtle/50 p-3"><div className="text-[11px] font-bold text-brand-700">Top Awakened Sleeping Beauties ({data.sleepingBeauties.legendaryBeauties.length})</div><div className="mt-2 space-y-1.5">{data.sleepingBeauties.legendaryBeauties.slice(0, 3).map((sb) => (<div key={sb.id} className="truncate text-[11px] text-ink-secondary" title={sb.title}><span className="font-bold text-brand-700">B={sb.keBeautyCoefficient.toFixed(1)}</span> • {sb.title} <span className="text-ink-muted">(Awake: {sb.awakeningYear})</span></div>))}{data.sleepingBeauties.legendaryBeauties.length === 0 && <span className="text-xs text-ink-muted">No sleeping beauties met the threshold.</span>}</div></div></div></div>
+
+              {/* Recommendations */}
             <div className="mt-6 space-y-2 rounded-xl border border-status-warning-border bg-status-warning-bg/60 p-4 text-xs leading-relaxed text-ink-secondary">
               <div className="flex items-center gap-1.5 text-sm font-bold text-status-warning-text">
                 <Sparkles className="h-4 w-4" />
@@ -1488,7 +1490,7 @@ export function FrontierDetectionStudio({
                   research frontiers.
                 </li>
                 <li>
-                  Monitor dormant publications (“Sleep Phase”) that begin
+                  Monitor dormant documents (“Sleep Phase”) that begin
                   garnering cross-disciplinary citations as early precursors to
                   paradigm shifts.
                 </li>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Analysis, Dataset } from '../types';
 import { AnalysisResultPanel } from './AnalysisResultPanel';
 import {
@@ -70,7 +70,7 @@ export const SCIENTOMETRIC_MODELS = [
   },
   {
     id: 'citation.window_adjusted',
-    name: 'Citation Window & Annual Velocity',
+    name: 'Citations per Paper & Annual Velocity',
     desc: 'Longitudinal exposure-adjusted velocity (citations per year of opportunity) accounting for publication dates.',
     icon: TrendingUp,
     category: 'Hirsch Family & Citations',
@@ -226,7 +226,7 @@ export const SCIENTOMETRIC_MODELS = [
   },
   {
     id: 'source.productivity',
-    name: 'Source Productivity & Bradford Core',
+    name: 'Publication Venues & Citation Impact',
     desc: 'Rank journals and venues by output and citation impact for entity-level source analysis.',
     icon: BookOpen,
     category: 'Scientometric Laws',
@@ -242,7 +242,7 @@ export const SCIENTOMETRIC_MODELS = [
   },
   {
     id: 'group.comparative_significance',
-    name: 'Comparative Group Significance',
+    name: 'Domestic vs. International Impact (SCP vs. MCP)',
     desc: 'Compare defined geographic or institutional groups with statistical significance testing.',
     icon: BarChart3,
     category: 'Knowledge Structures',
@@ -253,7 +253,7 @@ export const SCIENTOMETRIC_MODELS = [
 export const ENTITY_ANALYSIS_IDS = new Set([
   'citation.advanced_hirsch', 'citation.author_h_index', 'author.productivity',
   'source.productivity', 'institution.productivity', 'keyword.frequency',
-  'group.analysis', 'group.comparative_significance',
+  'group.analysis', 'group.comparative_significance', 'funding.agency_distribution', 'funding.grant_analytics', 'funding.agency_distribution', 'funding.grant_analytics', 'funding.agency_distribution', 'funding.grant_analytics',
 ]);
 
 export const AnalysesListView: React.FC<AnalysesListViewProps> = ({

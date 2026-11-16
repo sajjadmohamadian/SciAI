@@ -25,7 +25,7 @@ export function Header({
     openalex: { label: "Dataset & Corpus Pipeline" },
     merge: { label: "Dataset & Corpus Pipeline" },
     descriptive: { label: "Descriptive Analytics" },
-    analyses: { label: "Descriptive Analytics" },
+    analyses: { label: "Descriptive & Entity Analytics" },
     entities: { label: "Entity Explorer" },
     authors: { label: "Entity Explorer" },
     sources: { label: "Entity Explorer" },

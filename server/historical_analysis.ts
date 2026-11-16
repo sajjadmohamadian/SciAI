@@ -227,45 +227,14 @@ export function computeRPYSSpectroscopy(
       title: doc.title,
       source: doc.source || "Journal",
       citations,
-      historicalRole: "Corpus Landmark Article",
+      historicalRole: "Corpus Landmark Document",
     });
     refYearCounts.set(pubYear, directCount);
 
-    // Theoretical historical seeds based on thematic domain (Deep Learning, CRISPR, Medicine, Graph Theory)
-    // Classic foundations: 1953 (DNA Double Helix), 1965 (Lotka / Bradford formalization), 1986 (Backpropagation), 
-    // 1998 (LeNet CNN / RNAi Discovery), 2001 (Human Genome), 2012 (AlexNet / Cas9), 2015 (ResNet), 2017 (Transformer)
-    const historicalMilestones = [
-      { year: 1953, weight: 8, authorYear: "Watson & Crick (1953)", title: "Molecular structure of nucleic acids", source: "Nature", role: "Molecular Biology Foundation" },
-      { year: 1965, weight: 12, authorYear: "Price, D.J.S. (1965)", title: "Networks of scientific papers", source: "Science", role: "Scientometric Citation Network Origin" },
-      { year: 1986, weight: 24, authorYear: "Rumelhart et al. (1986)", title: "Learning representations by back-propagating errors", source: "Nature", role: "Neural Network Optimization Genesis" },
-      { year: 1998, weight: 35, authorYear: "LeCun et al. (1998)", title: "Gradient-based learning applied to document recognition", source: "Proc. IEEE", role: "Convolutional Architecture Standard" },
-      { year: 2001, weight: 28, authorYear: "Lander et al. (2001)", title: "Initial sequencing and analysis of the human genome", source: "Nature", role: "Genomic Paradigm Shift" },
-      { year: 2012, weight: 65, authorYear: "Jinek & Doudna (2012) / Krizhevsky (2012)", title: "A programmable dual-RNA-guided DNA endonuclease in adaptive bacterial immunity / ImageNet", source: "Science / NeurIPS", role: "CRISPR & Deep Vision Revolution" },
-      { year: 2015, weight: 58, authorYear: "He et al. (2015)", title: "Deep residual learning for image recognition (ResNet)", source: "CVPR", role: "Ultra-Deep Network Trainability" },
-      { year: 2017, weight: 82, authorYear: "Vaswani et al. (2017)", title: "Attention is all you need", source: "NeurIPS", role: "Transformer Foundation of Modern AI" },
-      { year: 2020, weight: 45, authorYear: "Brown et al. (2020) / Jumper et al.", title: "Language models are few-shot learners / AlphaFold", source: "NeurIPS / Nature", role: "Large Foundation & Protein Prediction Era" },
-    ];
-
-    historicalMilestones.forEach((m) => {
-      if (pubYear >= m.year) {
-        const item = refYearCounts.get(m.year) || { count: 0, works: [] };
-        // Scale probability
-        item.count += Math.round(m.weight * 0.4);
-        if (!item.works.some((w: any) => w.authorYear === m.authorYear)) {
-          item.works.push({
-            authorYear: m.authorYear,
-            title: m.title,
-            source: m.source,
-            citations: m.weight * 12,
-            historicalRole: m.role,
-          });
-        }
-        refYearCounts.set(m.year, item);
-      }
+    if (Array.isArray((doc as any).references)) { (doc as any).references.forEach((ref: string) => { const m = String(ref).match(/\b(19\d{2}|20\d{2})\b/); if (m) { const ry = Number(m[1]); if (ry <= pubYear) { const entry = refYearCounts.get(ry) || { count: 0, works: [] }; entry.count += 1; if (entry.works.length < 5) entry.works.push({ authorYear: ry.toString(), title: String(ref).slice(0, 110), source: "Cited Reference", citations: 1, historicalRole: "Cited Reference" }); refYearCounts.set(ry, entry); } } }); }
     });
-  });
 
-  // Ensure continuous timeline from 1950 to current year
+    // Ensure continuous timeline from 1950 to current year
   const allYears = Array.from(refYearCounts.keys()).sort((a, b) => a - b);
   const minYear = Math.max(1950, allYears.length ? Math.min(...allYears) : 1970);
   const maxYear = allYears.length ? Math.max(...allYears) : 2025;

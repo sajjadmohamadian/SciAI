@@ -73,6 +73,7 @@ export function ThematicEvolutionStudio({
 
   // Slicing and Filtering Configuration
   const [sliceCount, setSliceCount] = useState<number>(3);
+  const [slicingMode, setSlicingMode] = useState<"equal_years" | "equal_docs" | "custom">("equal_years");
   const [customCutsStr, setCustomCutsStr] = useState<string>("");
   const [isCustomCuts, setIsCustomCuts] = useState<boolean>(false);
   const [minKeywordFreq] = useState<number>(1);
@@ -114,6 +115,7 @@ export function ThematicEvolutionStudio({
           dataset_id: selectedDsId || activeDatasetId,
           sliceCount,
           customCuts,
+          slicingMode,
           minKeywordFreq,
           inclusionThreshold,
           maxThemesPerSlice,
@@ -150,6 +152,7 @@ export function ThematicEvolutionStudio({
     selectedDsId,
     sliceCount,
     isCustomCuts,
+    slicingMode,
     minKeywordFreq,
     inclusionThreshold,
     maxThemesPerSlice,
@@ -643,7 +646,7 @@ export function ThematicEvolutionStudio({
               {data.summary.yearSpan}
             </div>
             <div className="tabular-metrics mt-0.5 text-[10px] text-ink-muted">
-              {data.summary.totalDocuments} articles sliced
+              {data.summary.totalDocuments} documents sliced
             </div>
           </Card>
 
@@ -710,28 +713,7 @@ export function ThematicEvolutionStudio({
             </div>
 
             <div className="flex items-center rounded-xl border border-border-default bg-surface-subtle p-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setIsCustomCuts(false)}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${
-                  !isCustomCuts
-                    ? "bg-brand-500 font-bold text-white shadow-xs"
-                    : "text-ink-secondary hover:text-ink-primary"
-                }`}
-              >
-                Equal Slices
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsCustomCuts(true)}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${
-                  isCustomCuts
-                    ? "bg-brand-500 font-bold text-white shadow-xs"
-                    : "text-ink-secondary hover:text-ink-primary"
-                }`}
-              >
-                Custom Cut Years
-              </button>
+              <button type="button" onClick={() => { setIsCustomCuts(false); setSlicingMode("equal_years"); }} className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${slicingMode === "equal_years" ? "bg-brand-500 font-bold text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Equal Years</button><button type="button" onClick={() => { setIsCustomCuts(false); setSlicingMode("equal_docs"); }} className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${slicingMode === "equal_docs" ? "bg-brand-500 font-bold text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Equal Docs</button><button type="button" onClick={() => { setIsCustomCuts(true); setSlicingMode("custom"); }} className={`cursor-pointer rounded-lg px-2.5 py-1 transition-colors ${slicingMode === "custom" ? "bg-brand-500 font-bold text-white shadow-xs" : "text-ink-secondary hover:text-ink-primary"}`}>Custom Cut Years</button>
             </div>
 
             {!isCustomCuts ? (
@@ -981,7 +963,7 @@ export function ThematicEvolutionStudio({
                           {p.label}
                         </div>
                         <div className="tabular-metrics mt-0.5 flex items-center justify-center gap-2 text-[10px] text-ink-muted">
-                          <span>{p.docCount} papers</span>
+                          <span>{p.docCount} documents</span>
                           <span>•</span>
                           <span>{p.themeCount} themes</span>
                         </div>
@@ -989,7 +971,10 @@ export function ThematicEvolutionStudio({
                           <div className="tabular-metrics mt-1.5 border-t border-border-subtle pt-1 text-[9px] font-bold text-ink-secondary">
                             Stability → P{idx + 2}:{" "}
                             <span className="font-mono text-brand-600">
-                              {(p.stabilityWithNext * 100).toFixed(0)}%
+                              {(p.stabilityWithNext * 100).toFixed(0)}
+                          {p.stabilityWithNext === undefined && (
+                            <div className="mt-1 text-[10px] text-ink-muted font-medium">Terminal Epoch • Active Frontier</div>
+                          )}%
                             </span>
                           </div>
                         )}
@@ -1241,7 +1226,7 @@ export function ThematicEvolutionStudio({
                     {/* Metric Badges */}
                     <div className="grid grid-cols-2 gap-2 text-center">
                       <div className="rounded-xl border border-border-subtle bg-surface-subtle p-2">
-                        <div className="sciai-kicker text-[9px]!">Articles</div>
+                        <div className="sciai-kicker text-[9px]!">Documents</div>
                         <div className="tabular-metrics text-base font-black text-ink-primary">
                           {selectedNode.docCount}
                         </div>
@@ -1643,7 +1628,9 @@ export function ThematicEvolutionStudio({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl border border-border-default bg-surface-subtle/40 p-4"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold text-ink-primary">2D Callon Strategic Map (Centrality vs. Density)</span><span className="text-[11px] text-ink-muted">Bubble size = Document count • Click node to inspect</span></div><svg viewBox="0 0 760 360" className="h-80 w-full rounded-xl border border-border-default bg-surface-canvas"><line x1="380" y1="20" x2="380" y2="340" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,5" /><line x1="40" y1="180" x2="720" y2="180" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="5,5" /><text x="710" y="36" textAnchor="end" className="fill-emerald-700 text-[10px] font-bold">Q1: MOTOR THEMES (High C, High D)</text><text x="50" y="36" textAnchor="start" className="fill-indigo-700 text-[10px] font-bold">Q2: NICHE THEMES (Low C, High D)</text><text x="50" y="330" textAnchor="start" className="fill-amber-700 text-[10px] font-bold">Q3: EMERGING / DECLINING (Low C, Low D)</text><text x="710" y="330" textAnchor="end" className="fill-sky-700 text-[10px] font-bold">Q4: BASIC / TRANSVERSAL (High C, Low D)</text><text x="380" y="354" textAnchor="middle" className="fill-slate-500 text-[10px] font-semibold">CALLON CENTRALITY (External Cohesion) →</text><text x="16" y="180" textAnchor="middle" transform="rotate(-90 16 180)" className="fill-slate-500 text-[10px] font-semibold">CALLON DENSITY (Internal Cohesion) →</text>{(() => { const maxC = Math.max(1, ...data.nodes.map((x) => x.centrality || 0)); const maxD = Math.max(1, ...data.nodes.map((x) => x.density || 0)); return data.nodes.map((n) => { const cx = 65 + ((n.centrality || 0) / maxC) * 630; const cy = 315 - ((n.density || 0) / maxD) * 270; const r = Math.min(26, Math.max(8, 6 + Math.sqrt(n.docCount || 1) * 2.5)); const fill = n.quadrantCode === "Q1" ? "#0D9488" : n.quadrantCode === "Q2" ? "#6366F1" : n.quadrantCode === "Q3" ? "#D97706" : "#315C7C"; return (<g key={n.id} className="cursor-pointer" onClick={() => { setSelectedNodeId(n.id); setActiveSubTab("sankey"); }}><circle cx={cx} cy={cy} r={r} fill={fill} fillOpacity="0.22" stroke={fill} strokeWidth="2" /><text x={cx} y={cy + 3} textAnchor="middle" className="fill-slate-800 text-[9px] font-bold">{n.label.slice(0, 18)} ({n.periodLabel})</text><title>{n.label} | {n.periodLabel} | Docs: {n.docCount} | C: {n.centrality} | D: {n.density}</title></g>); }); })()}</svg></div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {/* Motor Themes */}
                 <div className="space-y-3 rounded-2xl border border-status-success-border bg-status-success-bg/50 p-4">
                   <div className="flex items-center justify-between">

@@ -826,7 +826,7 @@ in
                 {simAvgCitations}
               </div>
               <div className="mt-0.5 text-[10px] text-ink-muted">
-                Citations per article
+                Citations per document
               </div>
             </Card>
 
