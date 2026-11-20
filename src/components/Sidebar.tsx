@@ -202,7 +202,7 @@ export function Sidebar({
   const content = (
     <div className="flex h-full flex-col bg-surface-canvas">
       {/* Brand Header */}
-      <div className="flex h-18 items-center justify-between border-b border-border-default bg-surface-subtle/80 px-5">
+      <div className="flex h-16 items-center justify-between border-b border-border-default bg-surface-subtle/80 px-5">
         <div className="flex items-center gap-3">
           <BrandMark />
           <div>

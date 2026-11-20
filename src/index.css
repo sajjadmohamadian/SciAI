@@ -1,143 +1,138 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   SciAI Design System — Tailwind v4 Tokens & Semantic Primitives
+   SciAI Design System ? Editorial & Academic Minimalism (McKinsey / Springer)
    Target: src/index.css
    ========================================================================== */
 
 @theme {
-  /* --- Brand & Accent Palette --- */
-  --color-brand-50: #eff5f9;
-  --color-brand-100: #d9e7f1;
-  --color-brand-200: #b8d1e4;
-  --color-brand-300: #89b2d1;
-  --color-brand-400: #548cb8;
-  --color-brand-500: #315c7c; /* Primary Brand Steel Blue */
-  --color-brand-600: #284c67;
-  --color-brand-700: #213e54;
-  --color-brand-800: #1c3447;
-  --color-brand-900: #182b3b;
+  /* --- Brand & Accent Palette (McKinsey Deep Navy & Springer Academic Blue) --- */
+  --color-brand-50: #f0f5fa;
+  --color-brand-100: #dce7f3;
+  --color-brand-200: #b9d0e8;
+  --color-brand-300: #87afd8;
+  --color-brand-400: #4d88c4;
+  --color-brand-500: #003b70; /* Academic Deep Navy */
+  --color-brand-600: #002b52; /* McKinsey / Springer Primary Navy */
+  --color-brand-700: #051c2c; /* Deepest Executive Navy */
+  --color-brand-800: #041522;
+  --color-brand-900: #020c14;
 
-  /* --- Neutral & Surface Scale (Alabaster / Slate-Sage) --- */
+  /* --- Neutral & Surface Scale (Crisp Editorial White & Cool Paper Gray) --- */
   --color-surface-canvas: #ffffff;
-  --color-surface-subtle: #f7f8f6;  /* Studio & Card Warm Alabaster */
-  --color-surface-muted: #f0f2ef;
-  --color-surface-dark: #0b1117;    /* Auth / Dark Shell Backdrop */
+  --color-surface-subtle: #f5f7fa;  /* Springer / McKinsey Light Cool Gray */
+  --color-surface-muted: #ebeff5;
+  --color-surface-dark: #051c2c;
 
-  --color-border-subtle: #e5e8e4;
-  --color-border-default: #d8ddd8;  /* Canonical Studio Divider */
-  --color-border-strong: #bcc4bc;
+  --color-border-subtle: #e5e9f0;
+  --color-border-default: #d5dce4;  /* Crisp Hairline Divider */
+  --color-border-strong: #b0bcc9;
 
-  --color-ink-primary: #101820;     /* Headings & Primary Metrics */
-  --color-ink-secondary: #27313c;   /* Body & Nav Labels */
-  --color-ink-muted: #5a6570;       /* Descriptions & Captions */
-  --color-ink-subtle: #828d98;      /* Micro Labels & Placeholders */
+  --color-ink-primary: #051c2c;     /* High-Contrast Executive Ink */
+  --color-ink-secondary: #2c3a47;   /* Editorial Body Text */
+  --color-ink-muted: #556575;       /* Academic Captions & Metadata */
+  --color-ink-subtle: #7a8999;
 
   /* --- Semantic Status Palette --- */
-  --color-status-success-bg: #ecfdf5;
-  --color-status-success-text: #047857;
-  --color-status-success-border: #a7f3d0;
+  --color-status-success-bg: #eef8f3;
+  --color-status-success-text: #0b6e4f;
+  --color-status-success-border: #b7e1cd;
 
-  --color-status-info-bg: #f0f9ff;
-  --color-status-info-text: #0369a1;
-  --color-status-info-border: #bae6fd;
+  --color-status-info-bg: #eef5fc;
+  --color-status-info-text: #005a9c;
+  --color-status-info-border: #bdd8f1;
 
-  --color-status-warning-bg: #fffbeb;
-  --color-status-warning-text: #b45309;
-  --color-status-warning-border: #fde68a;
+  --color-status-warning-bg: #fef8ec;
+  --color-status-warning-text: #9a5b00;
+  --color-status-warning-border: #f5d89e;
 
-  --color-status-danger-bg: #fff1f2;
-  --color-status-danger-text: #be123c;
-  --color-status-danger-border: #fecdd3;
+  --color-status-danger-bg: #fdf1f2;
+  --color-status-danger-text: #b42318;
+  --color-status-danger-border: #f5c2c7;
 
   /* --- Typography --- */
-  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* --- Elevation & Radii --- */
-  --radius-control: 0.375rem;   /* 6px */   /* 12px - Buttons, Inputs, Nav Items */
-  --radius-card: 0.5rem;         /* 8px */         /* 16px - Standard Cards, Modals */
-  --radius-studio: 0.625rem;   /* 10px */     /* 24px - Major Studio Shells */
+  /* --- Sharp Editorial Radii (2px - 4px) & Flat Elevation --- */
+  --radius-control: 0.3125rem; /* 5px */
+  --radius-card: 0.4375rem;      /* 7px */
+  --radius-studio: 0.5rem;       /* 8px */
 
-  --shadow-card: 0 1px 2px 0 rgb(16 24 32 / 0.04);
-  --shadow-elevated: 0 10px 25px -5px rgb(16 24 32 / 0.08), 0 4px 10px -6px rgb(16 24 32 / 0.04);
+  --shadow-card: none;
+  --shadow-elevated: 0 4px 16px -2px rgb(5 28 44 / 0.10);
 }
 
-/* ==========================================================================
-   Base Layer & Scientific Typography Defaults
-   ========================================================================== */
 @layer base {
-  html {
+  html, body {
+    font-size: 15px;
     font-family: var(--font-sans);
     color: var(--color-ink-primary);
-    background-color: var(--color-surface-canvas);
+    background-color: var(--color-surface-subtle);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Tabular numerals for bibliometric tables, citation counts & KPIs */
-  .tabular-metrics,
-  table td,
-  table th {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Consistent accessible focus ring across all interactive elements */
-  :focus-visible {
-    outline: 2px solid var(--color-brand-500);
-    outline-offset: 2px;
-  }
-}
-
-
-/* ==========================================================================
-   Standardized Typography & Crisp Corner Radius Overrides
-   ========================================================================== */
-@layer base {
-  html {
-    font-size: 15px;
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
     line-height: 1.5;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.01em;
   }
 
   h1 {
-    font-size: 1.375rem; /* 20.6px */
+    font-size: 1.5rem; /* 22.5px */
     font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    color: #051c2c;
     text-transform: none;
   }
 
   h2 {
     font-size: 1.125rem; /* 17px */
-    font-weight: 600;
-    line-height: 1.35;
+    font-weight: 700;
+    line-height: 1.3;
     letter-spacing: -0.015em;
+    color: #051c2c;
     text-transform: none;
   }
 
   h3 {
     font-size: 0.9375rem; /* 14px */
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.35;
+    color: #051c2c;
     text-transform: none;
   }
 
+  .tabular-metrics,
+  table td,
   table th {
-    font-size: 0.75rem !important; /* 11.25px */
-    font-weight: 600 !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
+    font-variant-numeric: tabular-nums;
   }
 
-  table td {
-    font-size: 0.8125rem; /* 12.2px */
+  table thead th {
+    background-color: #f5f7fa;
+    color: #051c2c;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    border-bottom: 2px solid #051c2c;
+  }
+
+  table tbody td {
+    font-size: 0.8125rem;
+    border-bottom: 1px solid #e5e9f0;
+  }
+
+  table tbody tr:hover {
+    background-color: #f0f5fa;
+  }
+
+  :focus-visible {
+    outline: 2px solid #005a9c;
+    outline-offset: 2px;
   }
 }
 
 @layer utilities {
-  /* ??? ???? ????????? (ALL CAPS) ? ????? ???? ?????????? */
   .sciai-kicker,
   .uppercase {
     text-transform: none !important;
@@ -146,47 +141,43 @@
     font-weight: 600 !important;
   }
 
-  
-  /* ??????????? ????? ????? ?????? ? ????? ??? ??????? ?? ?? ????????? */
-  main .space-y-8 {
-    row-gap: 1.25rem !important; /* 20px */
-  }
+  /* ?????? ? ????? ?????? ??? ?????? */
   main .space-y-8 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 1.25rem !important;
   }
   main .space-y-6 > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 1.125rem !important; /* 18px */
+    margin-top: 1.125rem !important;
   }
 
-  /* ???? ??? ???? ?? ???? ???????? ?????????? ??????? ? ???????? ?? ?????? */
+  /* ?????? ??? ?? ???? ??????????? ???? ? ???????? ??? McKinsey / Springer */
   .sciai-studio-shell {
     overflow: hidden;
-    border-radius: 0.625rem !important; /* 10px */
-    border: 1px solid var(--color-border-default);
-    background-color: var(--color-surface-subtle);
-    box-shadow: var(--shadow-card);
-  }
-
-  .sciai-card {
     border-radius: 0.5rem !important; /* 8px */
     border: 1px solid var(--color-border-default);
     background-color: var(--color-surface-canvas);
-    box-shadow: var(--shadow-card);
+    box-shadow: none !important;
   }
 
-  .rounded-3xl {
-    border-radius: 0.625rem !important; /* 10px */
+  .sciai-card {
+    border-radius: 0.4375rem !important; /* 7px */
+    border: 1px solid var(--color-border-default);
+    background-color: var(--color-surface-canvas);
+    box-shadow: none !important;
+    transition: border-color 140ms ease;
   }
 
-  .rounded-2xl {
-    border-radius: 0.5rem !important; /* 8px */
+  .sciai-card:hover {
+    border-color: #003b70;
   }
 
+  .rounded-3xl,
+  .rounded-2xl,
   .rounded-xl {
-    border-radius: 0.375rem !important; /* 6px */
+    border-radius: 0.4375rem !important; /* 7px */
   }
 
-  .rounded-lg {
+  .rounded-lg,
+  .rounded-md {
     border-radius: 0.3125rem !important; /* 5px */
   }
 }
