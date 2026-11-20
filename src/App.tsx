@@ -306,7 +306,7 @@ function WorkspaceApp() {
           onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
         />
 
-        <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+        <main className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8">
           {message && (
             <div className="mb-6 flex items-center justify-between rounded-xl border border-border-default bg-surface-canvas px-4 py-3 text-xs font-semibold text-ink-secondary shadow-card">
               <span>{message}</span>

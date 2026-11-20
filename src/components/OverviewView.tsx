@@ -671,7 +671,7 @@ export function OverviewView({
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* 1. Header & Active Dataset Context Selector (Canonical StudioSplitLayout) */}
       <StudioSplitLayout
         main={
