@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { Dataset, Analysis } from "../types.js";
 import { PowerBIDataSources } from "./PowerBIDataSources.js";
 import { PowerBICombinedEvidence } from "./PowerBICombinedEvidence.js";
@@ -97,10 +97,12 @@ export function PowerBIConnectorStudio({
 
   const fetchLiveModel = async () => {
     const requestedDatasetId = currentDatasetId;
+    const requestedVersionId = selectedVersionId;
+    const vQuery = requestedVersionId ? `?version_id=${encodeURIComponent(requestedVersionId)}` : "";
     setLoadingModel(true);
     try {
       const res = await fetch(
-        `/api/powerbi/feed/${encodeURIComponent(requestedDatasetId)}`
+        `/api/powerbi/feed/${encodeURIComponent(requestedDatasetId)}${vQuery}`
       );
       const data = res.ok ? await res.json() : null;
       if (currentDatasetIdRef.current === requestedDatasetId)
@@ -119,7 +121,7 @@ export function PowerBIConnectorStudio({
   useEffect(() => {
     setPowerBiData(null);
     void fetchLiveModel();
-  }, [currentDatasetId]);
+  }, [currentDatasetId, selectedVersionId]);
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text);
@@ -131,7 +133,7 @@ export function PowerBIConnectorStudio({
     setPingStatus({ status: "testing" });
     const start = performance.now();
     try {
-      const res = await fetch(`/api/powerbi/feed/${currentDatasetId}`, {
+      const res = await fetch(`/api/powerbi/feed/${encodeURIComponent(currentDatasetId)}${versionQuery}`, {
         method: "GET",
       });
       const elapsed = Math.round(performance.now() - start);
@@ -156,8 +158,24 @@ export function PowerBIConnectorStudio({
     }
   };
 
-  const handleDownloadPbids = () => {
-    window.location.href = `/api/powerbi/download-pbids?dataset_id=${encodeURIComponent(currentDatasetId)}${versionQuery}`;
+  const handleDownloadPbids = async () => {
+    try {
+      const res = await fetch(
+        `/api/powerbi/download-pbids?dataset_id=${encodeURIComponent(currentDatasetId)}${versionQuery}`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sciai-${currentDatasetId.slice(0, 8)}.pbids`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download .pbids file:", err);
+    }
   };
 
   // Power Query M Scripts
@@ -278,108 +296,103 @@ in
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Header */}
-      <div className="sciai-studio-shell p-6 sm:p-8">
-        <div className="flex flex-col justify-between gap-4 border-b border-border-default pb-6 lg:flex-row lg:items-center">
-          <div>
+      {/* Compact Studio Header & Connection Bar */}
+      <div className="sciai-studio-shell p-4 sm:p-5">
+        <div className="flex flex-col justify-between gap-3 border-b border-border-default/80 pb-4 lg:flex-row lg:items-center">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-status-warning-text px-2.5 py-0.5 text-xs font-black text-white shadow-xs">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
                 <BarChart3 className="h-3.5 w-3.5" />
-                Microsoft Power BI Web Export
               </span>
-              <span className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[11px] font-bold text-status-success-text">
-                JSON Web Import
+              <h1 className="text-lg font-black tracking-tight text-ink-primary sm:text-xl">
+                Power BI Research Export
+              </h1>
+              <span className="rounded-md border border-status-success-border bg-status-success-bg px-2 py-0.5 text-[10px] font-bold text-status-success-text">
+                Live JSON Feed
               </span>
-              <span className="rounded-md border border-border-default bg-surface-canvas px-2 py-0.5 font-mono text-[11px] text-ink-secondary">
-                Versioned research snapshots
-              </span>
+              {powerBiData?.feedMetadata && (
+                <span className="tabular-metrics rounded-md border border-border-default bg-surface-canvas px-2 py-0.5 font-mono text-[10px] text-ink-secondary">
+                  v:{(powerBiData.feedMetadata.dataset_version_id || "latest").slice(0, 8)} ·{" "}
+                  {powerBiData.feedMetadata.total_records} records
+                </span>
+              )}
             </div>
-
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-ink-primary sm:text-3xl">
-              Power BI Research Intelligence Export
-            </h1>
-            <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-muted sm:text-sm">
-              Import bibliometric snapshots and approved organizational or
-              external reference tables into Power BI Desktop. Dataset versions
-              and source provenance are available for reproducible reporting;
-              refresh your Power BI import after a new snapshot is added.
+            <p className="mt-1 text-xs text-ink-muted">
+              Version-pinned bibliometric star schema and governed external snapshots for Power BI Desktop.
             </p>
           </div>
 
-          <div className="flex shrink-0 flex-col items-stretch gap-2.5 sm:flex-row sm:items-center">
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleDownloadPbids}
-              icon={<Download className="h-4 w-4" />}
-            >
-              Download Connector (.pbids)
-            </Button>
-
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={handlePingEndpoint}
-              icon={<Zap className="h-4 w-4 text-status-warning-text" />}
+              icon={<Zap className="h-3.5 w-3.5 text-amber-500" />}
             >
-              Check JSON Feed
+              Test Feed
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={handleDownloadPbids}
+              icon={<Download className="h-3.5 w-3.5" />}
+            >
+              Download .pbids
             </Button>
           </div>
         </div>
 
-        {/* Live URL & Dataset Switcher Row */}
-        <div className="mt-5 grid grid-cols-1 items-center gap-4 lg:grid-cols-3">
-          <div>
-            <label className="sciai-kicker mb-1 block">Active Dataset:</label>
-            <select
-              value={currentDatasetId}
-              onChange={(e) =>
-                onSelectDataset && onSelectDataset(e.target.value)
-              }
-              className="w-full rounded-xl border border-border-default bg-surface-canvas px-3 py-2 text-xs font-bold text-ink-primary focus:border-brand-500 focus:outline-none"
-            >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.record_count || 0} records)
-                </option>
-              ))}
-            </select>
+        {/* Unified Dataset & Endpoint Toolbar */}
+        <div className="mt-3.5 grid grid-cols-1 items-center gap-2.5 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-canvas px-2.5 py-1.5">
+              <Database className="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+              <select
+                aria-label="Active Dataset"
+                value={currentDatasetId}
+                onChange={(e) =>
+                  onSelectDataset && onSelectDataset(e.target.value)
+                }
+                className="w-full truncate bg-transparent text-xs font-bold text-ink-primary focus:outline-none"
+              >
+                {datasets.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.record_count || 0})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="lg:col-span-2">
-            <div className="mb-1 flex items-center justify-between">
-              <label className="sciai-kicker">
-                Web Import URL for Power BI:
-              </label>
-              <span className="flex items-center gap-1 text-[10px] font-bold text-status-success-text">
-                <span className="h-2 w-2 rounded-full bg-status-success-text" />
-                Snapshot available
+          <div className="lg:col-span-8">
+            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-canvas p-1 pl-3">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+                Web URL
               </span>
-            </div>
-            <div className="flex items-center rounded-xl border border-border-default bg-surface-canvas p-1 pl-3 shadow-card">
               <input
                 type="text"
                 readOnly
+                aria-label="Web Import URL for Power BI"
                 value={liveFeedUrl}
-                className="w-full select-all bg-transparent font-mono text-xs text-ink-primary focus:outline-none"
+                className="w-full min-w-0 select-all bg-transparent font-mono text-xs text-ink-primary focus:outline-none"
               />
               <Button
                 type="button"
-                variant="primary"
+                variant="secondary"
                 size="sm"
                 onClick={() => handleCopy(liveFeedUrl, "feedUrl")}
                 icon={
                   copiedField === "feedUrl" ? (
-                    <Check className="h-3.5 w-3.5" />
+                    <Check className="h-3.5 w-3.5 text-status-success-text" />
                   ) : (
                     <Copy className="h-3.5 w-3.5" />
                   )
                 }
                 className="shrink-0"
               >
-                {copiedField === "feedUrl" ? "Copied!" : "Copy Link"}
+                {copiedField === "feedUrl" ? "Copied" : "Copy"}
               </Button>
             </div>
           </div>
@@ -387,7 +400,7 @@ in
 
         {/* Ping Status Alert */}
         {pingStatus.status !== "idle" && (
-          <div className="mt-4">
+          <div className="mt-3">
             <AlertBanner
               tone={
                 pingStatus.status === "testing"
@@ -397,54 +410,37 @@ in
                     : "danger"
               }
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2">
                   {pingStatus.status === "testing" && (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   )}
                   <span>
                     {pingStatus.message || "Checking the JSON feed..."}
                   </span>
                 </div>
                 {pingStatus.latency && (
-                  <span className="tabular-metrics rounded border border-status-success-border bg-surface-canvas px-2 py-0.5 font-mono text-[11px] font-bold text-status-success-text">
-                    Ping: {pingStatus.latency}ms
+                  <span className="tabular-metrics rounded border border-status-success-border bg-surface-canvas px-2 py-0.5 font-mono text-[10px] font-bold text-status-success-text">
+                    {pingStatus.latency}ms
                   </span>
                 )}
               </div>
             </AlertBanner>
           </div>
         )}
-
-        {powerBiData?.feedMetadata && (
-          <p className="mt-3 text-xs text-ink-muted" role="status">
-            Dataset version:{" "}
-            {powerBiData.feedMetadata.dataset_version_id || "Not available"} ·
-            Source date: {powerBiData.feedMetadata.last_sync || "Not available"}{" "}
-            ·{" "}
-            <span className="tabular-metrics font-semibold text-ink-primary">
-              {powerBiData.feedMetadata.total_records}
-            </span>{" "}
-            records. Approximated metrics require expert review.
-          </p>
-        )}
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border-default pb-2">
+      {/* Clean Segmented Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border-default bg-surface-subtle/70 p-1.5">
         {[
-          { id: "overview", label: "1. Data Model & Star Schema", icon: Layers },
-          {
-            id: "sources",
-            label: "Organizational & External Sources",
-            icon: Database,
-          },
-          { id: "combined", label: "Combined Evidence Model", icon: GitMerge },
-          { id: "simulator", label: "2. Snapshot Slicer Preview", icon: BarChart3 },
-          { id: "tables", label: "3. Table Feed Inspector", icon: TableIcon },
-          { id: "powerquery", label: "4. Power Query M Scripts", icon: Code2 },
-          { id: "dax", label: "5. Executive DAX Measures", icon: Sparkles },
-          { id: "guide", label: "6. Integration Guide", icon: BookOpen },
+          { id: "overview", label: "Star Schema", icon: Layers },
+          { id: "sources", label: "External Sources", icon: Database },
+          { id: "combined", label: "Combined Model", icon: GitMerge },
+          { id: "simulator", label: "Slicer Preview", icon: BarChart3 },
+          { id: "tables", label: "Table Inspector", icon: TableIcon },
+          { id: "powerquery", label: "Power Query M", icon: Code2 },
+          { id: "dax", label: "DAX Measures", icon: Sparkles },
+          { id: "guide", label: "Setup Guide", icon: BookOpen },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -453,10 +449,10 @@ in
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+              className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                 isActive
                   ? "bg-brand-500 text-white shadow-xs"
-                  : "bg-surface-subtle text-ink-secondary hover:bg-surface-muted hover:text-ink-primary"
+                  : "text-ink-secondary hover:bg-surface-canvas hover:text-ink-primary"
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -1413,3 +1409,4 @@ DIVIDE(
     </div>
   );
 }
+

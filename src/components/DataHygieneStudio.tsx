@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Dataset, DataHealthMetrics, PrismaAIReport, PrismaFlow, DatasetVersion } from "../types.js";
 import {
   ShieldCheck,
@@ -798,7 +798,7 @@ ${prismaAiReport.recommendationsForAuthors.map((r) => `- ${r}`).join("\n")}
               <div className="max-w-2xl space-y-2">
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-100/70 px-2.5 py-0.5 text-[11px] font-bold text-brand-700">
                   <Sparkles className="h-3 w-3" />
-                  AI Scientometric Copilot
+                  AI Research Assistant
                 </div>
                 <h3 className="text-base font-bold text-ink-primary">
                   Generate PRISMA 2020 Methodology Narrative & Synthesis Report

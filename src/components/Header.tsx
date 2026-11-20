@@ -1,7 +1,7 @@
 import React from "react";
 import { BRAND } from "../brand.js";
 import { NavTab } from "./Sidebar.js";
-import { Menu, LogOut, ShieldCheck, User, Laptop } from "lucide-react";
+import { Menu, LogOut, ShieldCheck, User, Laptop, RefreshCw } from "lucide-react";
 
 interface Props {
   activeTab: NavTab;
@@ -9,6 +9,9 @@ interface Props {
   onRefresh?: () => void;
   onLogout?: () => void;
   userRole?: "admin" | "user";
+  userOrcid?: string | null;
+  syncingOrcid?: boolean;
+  onSyncMyOrcid?: () => void;
 }
 
 export function Header({
@@ -16,6 +19,9 @@ export function Header({
   onToggleMobileNav,
   onLogout,
   userRole,
+  userOrcid,
+  syncingOrcid,
+  onSyncMyOrcid,
 }: Props) {
   const titles: Record<NavTab, { label: string; subtitle?: string }> = {
     overview: { label: "Overview" },
@@ -100,6 +106,22 @@ export function Header({
 
         {/* Right: Session Role Badge & Sign-Out Action */}
         <div className="flex shrink-0 items-center gap-2.5">
+          {userOrcid && onSyncMyOrcid && (
+            <button
+              type="button"
+              onClick={onSyncMyOrcid}
+              disabled={syncingOrcid}
+              title={`Connected ORCID: ${userOrcid} — Click to sync all publications into a corpus`}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-700 transition-all hover:bg-emerald-500/20 disabled:opacity-50 dark:text-emerald-300"
+            >
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-black text-white">
+                iD
+              </span>
+              <RefreshCw className={`h-3 w-3 ${syncingOrcid ? "animate-spin" : ""}`} />
+              <span>{syncingOrcid ? "Syncing ORCID..." : "Sync My ORCID Corpus"}</span>
+            </button>
+          )}
+
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${roleMeta.tone}`}
           >

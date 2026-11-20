@@ -9,6 +9,8 @@ export type AuthUser = {
   active: boolean;
   must_change_password: boolean;
   created_at: string;
+  orcid?: string | null;
+  display_name?: string | null;
 };
 type SessionResponse = { user: AuthUser; csrf_token: string };
 type MeResponse = SessionResponse | { user: null; csrf_token: null; auth_enabled: false };
@@ -19,6 +21,8 @@ type AuthState = {
   signOutFailed: boolean;
   error: string;
   login: (email: string, password: string) => Promise<void>;
+  loginWithOrcid: (orcid: string) => Promise<void>;
+  linkOrcid: (orcid: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -80,6 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await apiJson<SessionResponse>("/api/auth/login", { email, password });
     if (current === revision.current) accept(data);
   }, [accept]);
+  const loginWithOrcid = useCallback(async (orcid: string) => {
+    const current = ++revision.current;
+    const data = await apiJson<SessionResponse>("/api/auth/orcid", { orcid });
+    if (current === revision.current) accept(data);
+  }, [accept]);
+  const linkOrcid = useCallback(async (orcid: string, displayName?: string) => {
+    const current = revision.current;
+    const data = await apiJson<SessionResponse>("/api/auth/link-orcid", { orcid, display_name: displayName });
+    if (current === revision.current) accept(data);
+  }, [accept]);
   const logout = useCallback(async () => {
     // Unmount private workspace state immediately, retaining CSRF only in memory until
     // revocation succeeds so a network failure can safely be retried.
@@ -103,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await apiJson<SessionResponse>("/api/auth/password", { current_password: currentPassword, new_password: newPassword });
     if (current === revision.current) accept(data);
   }, [accept]);
-  const value = useMemo(() => ({ user, authEnabled, loading, signOutFailed, error, login, logout, changePassword, refresh }), [user, authEnabled, loading, signOutFailed, error, login, logout, changePassword, refresh]);
+  const value = useMemo(() => ({ user, authEnabled, loading, signOutFailed, error, login, loginWithOrcid, linkOrcid, logout, changePassword, refresh }), [user, authEnabled, loading, signOutFailed, error, login, loginWithOrcid, linkOrcid, logout, changePassword, refresh]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth() {

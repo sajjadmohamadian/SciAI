@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+﻿import React, { useRef, useState } from "react";
 import { Analysis, ResultRecord } from "../types.js";
 import { AlertBanner, Button, Card, EmptyState, StatusBadge } from "./CommonUI.js";
 import { VisualizerChart } from "./VisualizerChart.js";
@@ -19,6 +19,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
     "visual"
   );
   const [filterQuery, setFilterQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiIsPartial, setAiIsPartial] = useState(false);
@@ -78,12 +79,37 @@ export function AnalysisResultPanel({ analysis }: Props) {
     });
   }
 
-  const filteredRecords = records.filter((r) => {
-    if (!filterQuery) return true;
-    return Object.values(r).some((v) =>
-      String(v).toLowerCase().includes(filterQuery.toLowerCase())
-    );
-  });
+  const filteredRecords = records
+    .filter((r) => {
+      if (!filterQuery) return true;
+      return Object.values(r).some((v) =>
+        String(v).toLowerCase().includes(filterQuery.toLowerCase())
+      );
+    })
+    .sort((a, b) => {
+      if (!sortConfig) return 0;
+      const valA = a[sortConfig.key];
+      const valB = b[sortConfig.key];
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+      const numA = Number(valA);
+      const numB = Number(valB);
+      const comparison =
+        !isNaN(numA) && !isNaN(numB) && typeof valA !== "boolean" && typeof valB !== "boolean"
+          ? numA - numB
+          : String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: "base" });
+      return sortConfig.direction === "asc" ? comparison : -comparison;
+    });
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => {
+      if (prev && prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "desc" };
+    });
+  };
 
   const handleGenerateAiInsight = async () => {
     try {
@@ -178,7 +204,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
   };
 
   return (
-    <Card padding="lg" className="mt-8">
+    <Card padding="lg" className="mt-0">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle pb-5">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -309,19 +335,25 @@ export function AnalysisResultPanel({ analysis }: Props) {
 
       {/* Tab 2: Tabular Records */}
       {activeTab === "table" && (
-        <div className="mt-4">
+        <div className="mt-0">
           {filteredRecords.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-border-default">
-              <table className="min-w-full text-xs">
+            <div className="w-full max-w-full overflow-x-auto rounded-xl border border-border-default">
+              <table className="w-full border-collapse text-xs">
                 <thead className="border-b border-border-default bg-surface-subtle">
                   <tr>
                     {columns.map((col) => (
                       <th
-                        key={col}
-                        className="whitespace-nowrap px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-ink-muted"
-                      >
-                        {col.replace(/_/g, " ")}
-                      </th>
+    key={col}
+    onClick={() => handleSort(col)}
+    className="cursor-pointer select-none whitespace-nowrap px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink-primary"
+  >
+    <div className="inline-flex items-center gap-1">
+      <span>{col.replace(/_/g, " ")}</span>
+      <span className="text-[9px] opacity-70">
+        {sortConfig?.key === col ? (sortConfig.direction === "asc" ? "?" : "?") : "?"}
+      </span>
+    </div>
+  </th>
                     ))}
                   </tr>
                 </thead>
@@ -332,10 +364,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
                       className="transition-colors hover:bg-surface-subtle/70"
                     >
                       {columns.map((col) => (
-                        <td
-                          key={col}
-                          className="whitespace-nowrap px-4 py-2.5 font-medium text-ink-secondary"
-                        >
+                        <td key={col} className={`px-3 py-2.5 font-medium ${col === "source" || col === "title" || col === "author" || col === "institution" ? "max-w-[260px] truncate text-ink-primary" : "whitespace-nowrap tabular-metrics text-ink-secondary"}`} title={String(record[col] ?? "")}>
                           {String(record[col] ?? "—")}
                         </td>
                       ))}
@@ -361,7 +390,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
 
       {/* Tab 3: AI Research Synthesis */}
       {activeTab === "ai" && (
-        <div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-5">
+        <div className="mt-0 rounded-xl border border-brand-200 bg-brand-50/40 p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-bold text-ink-primary">
               <Sparkles className="h-4 w-4 text-brand-500" />
@@ -437,7 +466,7 @@ export function AnalysisResultPanel({ analysis }: Props) {
         !["running", "queued", "pending", "failed", "error"].includes(
           analysis.status || ""
         ) && (
-          <div className="mt-6" data-export-actions>
+          <div className="mt-0" data-export-actions>
             <ContextualExportToolbar
               payload={contextualPayload}
               getSvgElement={

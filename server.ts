@@ -1,4 +1,4 @@
-import "./server/environment.js";
+﻿import "./server/environment.js";
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
 import express from "express";
@@ -14,6 +14,7 @@ import {
   parseWoS,
 } from "./server/scientometrics.js";
 import { getSeedDocuments } from "./server/seed_data.js";
+import { fetchOrcidCorpus, mapOrcidWorksToCanonical, normalizeOrcidId, isValidOrcidId } from "./server/orcid_importer.js";
 import {
   createSource as createPowerBISource,
   createSnapshot as createPowerBISnapshot,
@@ -87,6 +88,7 @@ import {
 import {
   computeCorpusStatistics,
   generateWordDocument,
+  generateWordDocumentBuffer,
   generateExcelWorkbook,
   generatePowerPointPresentation,
   generateLatexManuscript,
@@ -1032,6 +1034,8 @@ function runCapabilityComputation(
           documents: docs,
           total_citations: cites,
           avg_citations: docs > 0 ? Number((cites / docs).toFixed(2)) : 0,
+          h_index: Number(r.h_index || 0),
+          g_index: Number(r.g_index || 0),
         };
       });
       return {
@@ -3378,7 +3382,7 @@ app.get(["/api/datasets/:dataset_id/methodology", "/datasets/:dataset_id/methodo
 });
 
 // Retrieve records/documents for a Dataset
-app.get(["/api/datasets/:dataset_id/documents", "/datasets/:dataset_id/documents"], requireNonLoopbackToken, (req, res) => {
+app.get(["/api/datasets/:dataset_id/documents", "/datasets/:dataset_id/documents"], requireNonLoopbackToken, async (req, res) => {
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
@@ -3405,7 +3409,7 @@ app.get(["/api/datasets/:dataset_id/documents", "/datasets/:dataset_id/documents
 });
 
 // Full Academic Dataset Export (BibTeX, CSV, JSON)
-app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], requireNonLoopbackToken, (req, res) => {
+app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], requireNonLoopbackToken, async (req, res) => {
   const ds = datasets.get(req.params.dataset_id);
   if (!ds) return res.status(404).json({ error: "Dataset not found" });
 
@@ -3465,23 +3469,31 @@ app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], re
     return res.send(csv);
   }
 
-  // Word Document (.doc / MSO XML)
+  const exportOptions = {
+    blueprint: req.query.blueprint ? String(req.query.blueprint) : "executive_dora",
+    sections: req.query.sections ? String(req.query.sections).split(",").filter(Boolean) : undefined,
+    charts: req.query.charts ? String(req.query.charts).split(",").filter(Boolean) : undefined,
+    dpi: req.query.dpi ? Number(req.query.dpi) : 300,
+    includeAiNarrative: req.query.ai_narrative !== "0",
+    blindReviewMode: req.query.blind_review === "1",
+  };
+
+  // Word Document (.docx / MSO XML Edition 3.0)
   if (format === "word" || format === "doc" || format === "docx") {
-    const stats = computeCorpusStatistics(docs, ds.name);
-    // Retrieve any existing AI interpretation or generate a baseline summary
+    const stats = computeCorpusStatistics(docs, ds.name, "whole", exportOptions);
     const matchingAnalysis = Array.from(analyses.values()).find(
       (a) => a.result?.ai_interpretation
     );
     const aiNarrative = matchingAnalysis?.result?.ai_interpretation;
-    const wordContent = generateWordDocument(stats, docs, aiNarrative);
-    res.setHeader("Content-Type", "application/msword; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}_assessment_report.doc"`);
-    return res.send(wordContent);
+    const wordBuffer = await generateWordDocumentBuffer(stats, docs, aiNarrative, exportOptions);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}_assessment_report_v3.docx"`);
+    return res.send(wordBuffer);
   }
 
   // Excel Multi-Sheet Spreadsheet (.xls / XML Spreadsheet 2003)
   if (format === "excel" || format === "xls" || format === "xlsx") {
-    const stats = computeCorpusStatistics(docs, ds.name);
+    const stats = computeCorpusStatistics(docs, ds.name, "whole", exportOptions);
     const excelContent = generateExcelWorkbook(stats, docs);
     res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}_scientometric_tables.xls"`);
@@ -3490,7 +3502,7 @@ app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], re
 
   // PowerPoint Presentation Slide Deck (.ppt / MSO XML)
   if (format === "powerpoint" || format === "ppt" || format === "pptx") {
-    const stats = computeCorpusStatistics(docs, ds.name);
+    const stats = computeCorpusStatistics(docs, ds.name, "whole", exportOptions);
     const pptContent = generatePowerPointPresentation(stats);
     res.setHeader("Content-Type", "application/vnd.ms-powerpoint; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}_executive_slides.ppt"`);
@@ -3499,7 +3511,7 @@ app.get(["/api/datasets/:dataset_id/export", "/datasets/:dataset_id/export"], re
 
   // LaTeX Manuscript (.tex)
   if (format === "latex" || format === "tex") {
-    const stats = computeCorpusStatistics(docs, ds.name);
+    const stats = computeCorpusStatistics(docs, ds.name, "whole", exportOptions);
     const texContent = generateLatexManuscript(stats);
     res.setHeader("Content-Type", "text/x-tex; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}_manuscript.tex"`);
@@ -3980,7 +3992,7 @@ app.get("/api/powerbi/v3/combined-models/:id/refresh-status", requireApiToken, r
 });
 
 // 1. Full Multi-Table Feed for Power BI Web/REST Connector
-app.get(["/api/powerbi/feed/:dataset_id?", "/powerbi/feed/:dataset_id?"], requireNonLoopbackToken, (req, res) => {
+app.get(["/api/powerbi/feed/:dataset_id?", "/powerbi/feed/:dataset_id?"], requireNonLoopbackToken, async (req, res) => {
   try {
     const datasetId = req.params.dataset_id || (req.query.dataset_id as string);
     const versionId = typeof req.query.version_id === "string" ? req.query.version_id : undefined;
@@ -4005,7 +4017,7 @@ app.get(["/api/powerbi/feed/:dataset_id?", "/powerbi/feed/:dataset_id?"], requir
 });
 
 // 2. Single-Table Endpoints for Dedicated Power BI Queries
-app.get(["/api/powerbi/tables/:table_name", "/powerbi/tables/:table_name"], requireNonLoopbackToken, (req, res) => {
+app.get(["/api/powerbi/tables/:table_name", "/powerbi/tables/:table_name"], requireNonLoopbackToken, async (req, res) => {
   try {
     const tableName = String(req.params.table_name).toLowerCase();
     const datasetId = req.query.dataset_id as string;
@@ -4148,7 +4160,7 @@ app.get(["/api/analyses/:analysis_id", "/api/analysis/:analysis_id", "/analyses/
 
 // Canonical: GET /api/analyses/:analysis_id/records
 // Compatibility aliases: GET /api/analysis/:analysis_id/records, GET /analyses/:analysis_id/records, GET /analysis/:analysis_id/records
-app.get(["/api/analyses/:analysis_id/records", "/api/analysis/:analysis_id/records", "/analyses/:analysis_id/records", "/analysis/:analysis_id/records"], requireNonLoopbackToken, (req, res) => {
+app.get(["/api/analyses/:analysis_id/records", "/api/analysis/:analysis_id/records", "/analyses/:analysis_id/records", "/analysis/:analysis_id/records"], requireNonLoopbackToken, async (req, res) => {
   const a = analyses.get(req.params.analysis_id);
   if (!a || !a.result) return res.status(404).json({ error: "Analysis or records not found" });
   res.json(a.result.records || []);
@@ -4417,16 +4429,45 @@ app.post("/api/ai/research-gaps", requireApiToken, async (req, res) => {
     const { dataset_id, dataset_name, clusters, motor_themes, niche_themes, recent_keywords } = req.body;
 
     let targetName = dataset_name || "Active Dataset";
+    let resolvedClusters = Array.isArray(clusters) ? clusters : [];
+    let resolvedKeywords = Array.isArray(recent_keywords) ? recent_keywords : [];
+
     if (dataset_id && datasets.has(dataset_id)) {
       targetName = datasets.get(dataset_id)!.name;
+      if (resolvedClusters.length === 0 || resolvedKeywords.length === 0) {
+        const ver = Array.from(datasetVersions.values()).find((v) => v.dataset_id === dataset_id);
+        const docs = ver && versionDocuments.has(ver.id) ? versionDocuments.get(ver.id) || [] : [];
+        if (docs.length > 0) {
+          const kwCounts = new Map<string, number>();
+          docs.slice(0, 120).forEach((d) => {
+            (d.keywords || []).forEach((k) => {
+              const clean = String(k || "").trim();
+              if (clean) kwCounts.set(clean, (kwCounts.get(clean) || 0) + 1);
+            });
+          });
+          const topKws = Array.from(kwCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 20)
+            .map(([k]) => k);
+          if (resolvedKeywords.length === 0 && topKws.length > 0) {
+            resolvedKeywords = topKws;
+          }
+          if (resolvedClusters.length === 0 && topKws.length >= 4) {
+            resolvedClusters = [
+              { name: "Primary Thematic Core", top_members: topKws.slice(0, 6), size: Math.ceil(docs.length * 0.45) },
+              { name: "Secondary Emerging Cluster", top_members: topKws.slice(6, 12), size: Math.ceil(docs.length * 0.3) },
+            ];
+          }
+        }
+      }
     }
 
     const gaps = await detectResearchGapsAndWhiteSpaces(
       targetName,
-      clusters || [],
+      resolvedClusters,
       motor_themes || [],
       niche_themes || [],
-      recent_keywords || [],
+      resolvedKeywords,
       getAiRequestOptions(req.body)
     );
 
@@ -5008,6 +5049,131 @@ app.post("/api/openalex/import", requireApiToken, (req, res) => {
   }
 });
 
+// ORCID Public API v3.0 Researcher Profile Preview & Corpus Import
+app.all("/api/orcid/profile/:orcid", async (req, res) => {
+  try {
+    const normalized = normalizeOrcidId(req.params.orcid);
+    if (!isValidOrcidId(normalized)) {
+      return res.status(400).json({
+        error: "Invalid ORCID format. Expected 16-digit identifier (e.g., 0000-0002-1825-0097).",
+      });
+    }
+    const enrichOpenAlex = req.query.enrich !== "false";
+    const profile = await fetchOrcidCorpus(normalized, { enrichOpenAlex });
+    res.json({ success: true, profile });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to fetch ORCID public profile";
+    const status = message.includes("not found") ? 404 : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
+app.post("/api/orcid/import", requireApiToken, async (req, res) => {
+  try {
+    const rawOrcid = String(req.body?.orcid || "").trim();
+    const normalized = normalizeOrcidId(rawOrcid);
+    if (!isValidOrcidId(normalized)) {
+      return res.status(400).json({
+        error: "Invalid ORCID format. Expected 16-digit identifier (e.g., 0000-0002-1825-0097).",
+      });
+    }
+
+    const enrichOpenAlex = req.body?.enrich_openalex !== false;
+    const customName = typeof req.body?.dataset_name === "string" ? req.body.dataset_name.trim() : "";
+    const selectedPutCodes = Array.isArray(req.body?.put_codes)
+      ? new Set(req.body.put_codes.map((c: unknown) => Number(c)))
+      : null;
+
+    const profile = await fetchOrcidCorpus(normalized, { enrichOpenAlex });
+    const worksToImport = selectedPutCodes
+      ? profile.works.filter((w) => selectedPutCodes.has(w.put_code))
+      : profile.works;
+
+    if (worksToImport.length === 0) {
+      return res.status(400).json({
+        error: "No public works found on this ORCID profile to import as a corpus.",
+      });
+    }
+
+    const dsId = `dataset-orcid-${normalized}-${Date.now()}`;
+    const verId = `version-orcid-${normalized}-${Date.now()}`;
+    const name = customName || `ORCID: ${profile.name} (${normalized} · ${worksToImport.length} works)`;
+    const canonicalDocs = mapOrcidWorksToCanonical(profile, worksToImport);
+    const bibDocs = canonicalDocs.map(toBibliometricDocument);
+
+    const newDataset: Dataset = {
+      id: dsId,
+      project_id: defaultProject.id,
+      name,
+      description: `Imported via ORCID Public API v3.0 for ${profile.name} (${normalized})${profile.affiliation ? ` · ${profile.affiliation}` : ""}.`,
+      status: "ready",
+      database_type: "orcid",
+      record_count: bibDocs.length,
+      latest_version_id: verId,
+      created_at: new Date().toISOString(),
+    };
+
+    const newVersion: DatasetVersion = {
+      id: verId,
+      dataset_id: dsId,
+      version: 1,
+      version_number: 1,
+      record_count: bibDocs.length,
+      document_count: bibDocs.length,
+      storage_uri: `inmemory://datasets/${dsId}/v1.json`,
+      created_at: new Date().toISOString(),
+    };
+
+    const autoAnalysis: Analysis = {
+      id: `analysis-orcid-${Date.now()}`,
+      project_id: defaultProject.id,
+      dataset_version_id: verId,
+      analysis_type: "publication.year_distribution",
+      capability_id: "publication.year_distribution",
+      name: `ORCID Output Timeline: ${profile.name}`,
+      status: "completed",
+      created_at: new Date().toISOString(),
+      result: {
+        status: "completed",
+        capability: "publication.year_distribution",
+        provider: "SciAINativeProvider",
+        package: "sciai_native",
+        ...runCapabilityComputation("publication.year_distribution", bibDocs),
+      },
+    };
+
+    persistIngestionTransaction({
+      items: [{ dataset: newDataset, version: newVersion, documents: bibDocs }],
+      additionalAnalyses: [autoAnalysis],
+    });
+
+    datasets.set(dsId, newDataset);
+    datasetVersions.set(verId, newVersion);
+    versionDocuments.set(verId, bibDocs);
+    initialSeeds[dsId] = bibDocs;
+    analyses.set(autoAnalysis.id, autoAnalysis);
+
+    res.json({
+      success: true,
+      profile: {
+        orcid: profile.orcid,
+        name: profile.name,
+        affiliation: profile.affiliation,
+        total_works: profile.total_works,
+        works_with_doi: profile.works_with_doi,
+      },
+      dataset: newDataset,
+      version: newVersion,
+      documents_count: bibDocs.length,
+      analysis_id: autoAnalysis.id,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to import ORCID corpus safely";
+    console.error("ORCID import error:", message);
+    res.status(500).json({ error: message });
+  }
+});
+
 // API 404 Handler: Catch unmatched /api routes and return JSON 404 instead of falling through to Vite SPA
 app.all("/api/*", (req, res) => {
   res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
@@ -5062,3 +5228,5 @@ if (isDirectExecution && !isTestMode) {
 }
 
 export { app, startServer };
+
+

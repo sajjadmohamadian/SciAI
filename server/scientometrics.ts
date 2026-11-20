@@ -1,4 +1,4 @@
-import {
+﻿import {
   AuthorCountingMode,
   BibliometricDocument,
   ResultRecord,
@@ -822,71 +822,175 @@ export class ScientometricEngine {
   }
 
   sourceProductivity(limit = 25): ResultRecord[] {
-    const sourceMap: Record<string, { count: number; citations: number }> = {};
+    const sourceMap: Record<string, { count: number; citations: number; citList: number[] }> = {};
     for (const doc of this.docs) {
       const src = doc.source || "Unknown Source";
-      if (!sourceMap[src]) sourceMap[src] = { count: 0, citations: 0 };
+      if (!sourceMap[src]) sourceMap[src] = { count: 0, citations: 0, citList: [] };
+      const cit = doc.citations || 0;
       sourceMap[src].count += 1;
-      sourceMap[src].citations += doc.citations || 0;
+      sourceMap[src].citations += cit;
+      sourceMap[src].citList.push(cit);
     }
 
     return Object.entries(sourceMap)
-      .map(([source, data]) => ({
-        source,
-        documents: data.count,
-        count: data.count,
-        total_citations: data.citations,
-        avg_citations: Number((data.citations / Math.max(1, data.count)).toFixed(2)),
-      }))
+      .map(([source, data]) => {
+        const sortedCits = [...data.citList].sort((a, b) => b - a);
+        let hIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          if (sortedCits[i] >= i + 1) hIndex = i + 1;
+          else break;
+        }
+        let sumCit = 0;
+        let gIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          sumCit += sortedCits[i];
+          if (sumCit >= (i + 1) * (i + 1)) gIndex = i + 1;
+        }
+
+        return {
+          source,
+          documents: data.count,
+          total_citations: data.citations,
+          avg_citations: Number((data.citations / Math.max(1, data.count)).toFixed(2)),
+          h_index: hIndex,
+          g_index: gIndex,
+        };
+      })
       .sort((a, b) => b.documents - a.documents)
       .slice(0, limit);
   }
 
   keywordFrequency(limit = 35): ResultRecord[] {
     const freq: Record<string, number> = {};
+    const docKeywordSets: string[][] = [];
+
     for (const doc of this.docs) {
-      for (const kw of doc.keywords) {
+      const uniqueKws = Array.from(
+        new Set(
+          (doc.keywords || [])
+            .map((k) => String(k || "").trim().toLowerCase())
+            .filter(Boolean)
+        )
+      ).sort();
+
+      docKeywordSets.push(uniqueKws);
+      for (const kw of uniqueKws) {
         freq[kw] = (freq[kw] || 0) + 1;
       }
     }
 
-    return Object.entries(freq)
-      .map(([keyword, count]) => ({
+    const topKeywords = Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit);
+
+    const topSet = new Set(topKeywords.map(([kw]) => kw));
+
+    // ????? ????????? ???????? ??????? ??????? ? ???????? ?? ?????
+    const pairCounts: Record<string, number> = {};
+    const triadCounts: Record<string, number> = {};
+    const tetradCounts: Record<string, number> = {};
+
+    for (const kws of docKeywordSets) {
+      // ????? ???? ?? ?????? ????? ??????? ??? ???? ??? ? ???? ????
+      const activeKws = kws.filter((k) => topSet.has(k)).slice(0, 15);
+      const n = activeKws.length;
+
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const k2 = `${activeKws[i]} + ${activeKws[j]}`;
+          pairCounts[k2] = (pairCounts[k2] || 0) + 1;
+
+          for (let k = j + 1; k < n; k++) {
+            const k3 = `${activeKws[i]} + ${activeKws[j]} + ${activeKws[k]}`;
+            triadCounts[k3] = (triadCounts[k3] || 0) + 1;
+
+            for (let l = k + 1; l < n; l++) {
+              const k4 = `${activeKws[i]} + ${activeKws[j]} + ${activeKws[k]} + ${activeKws[l]}`;
+              tetradCounts[k4] = (tetradCounts[k4] || 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    const findBestTuple = (kw: string, map: Record<string, number>): { label: string; count: number } => {
+      let bestCombo = "";
+      let bestCount = 0;
+      for (const [combo, c] of Object.entries(map)) {
+        const parts = combo.split(" + ");
+        if (parts.includes(kw) && c > bestCount) {
+          bestCount = c;
+          bestCombo = combo;
+        }
+      }
+      return bestCount > 0 ? { label: bestCombo, count: bestCount } : { label: "?", count: 0 };
+    };
+
+    return topKeywords.map(([keyword, count]) => {
+      const pair = findBestTuple(keyword, pairCounts);
+      const triad = findBestTuple(keyword, triadCounts);
+      const tetrad = findBestTuple(keyword, tetradCounts);
+
+      return {
         keyword,
         frequency: count,
+        pair_cooccurrence: pair.label,
+        pair_count: pair.count,
+        triad_cooccurrence: triad.label,
+        triad_count: triad.count,
+        tetrad_cooccurrence: tetrad.label,
+        tetrad_count: tetrad.count,
         count,
-      }))
-      .sort((a, b) => b.frequency - a.frequency)
-      .slice(0, limit);
+      };
+    });
   }
 
   institutionProductivity(limit = 25): ResultRecord[] {
-    const instMap: Record<string, { docs: number; citations: number; countries: Set<string> }> = {};
+    const instMap: Record<string, { docs: number; citations: number; citList: number[]; countries: Set<string> }> = {};
     for (const doc of this.docs) {
       const institutions = (doc as any).institutions && (doc as any).institutions.length > 0
         ? (doc as any).institutions
         : ((doc as any).affiliations || (doc as any).C1 || []).map(extractInstitution).filter(Boolean);
-      
+
       const uniqueInsts = Array.from(new Set(institutions as string[]));
       for (const inst of uniqueInsts) {
         if (!inst || (inst as string).length < 3) continue;
         const instKey = (inst as string).trim();
-        if (!instMap[instKey]) instMap[instKey] = { docs: 0, citations: 0, countries: new Set() };
+        if (!instMap[instKey]) instMap[instKey] = { docs: 0, citations: 0, citList: [], countries: new Set() };
+        const cit = doc.citations || 0;
         instMap[instKey].docs += 1;
-        instMap[instKey].citations += doc.citations || 0;
+        instMap[instKey].citations += cit;
+        instMap[instKey].citList.push(cit);
         if (doc.country) instMap[instKey].countries.add(doc.country);
       }
     }
 
     return Object.entries(instMap)
-      .map(([institution, data]) => ({
-        institution,
-        documents: data.docs,
-        count: data.docs,
-        total_citations: data.citations,
-        avg_citations: Number((data.citations / Math.max(1, data.docs)).toFixed(2)),
-        primary_country: Array.from(data.countries)[0] || "International",
-      }))
+      .map(([institution, data]) => {
+        const sortedCits = [...data.citList].sort((a, b) => b - a);
+        let hIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          if (sortedCits[i] >= i + 1) hIndex = i + 1;
+          else break;
+        }
+        let sumCit = 0;
+        let gIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          sumCit += sortedCits[i];
+          if (sumCit >= (i + 1) * (i + 1)) gIndex = i + 1;
+        }
+
+        return {
+          institution,
+          documents: data.docs,
+          count: data.docs,
+          total_citations: data.citations,
+          avg_citations: Number((data.citations / Math.max(1, data.docs)).toFixed(2)),
+          h_index: hIndex,
+          g_index: gIndex,
+          primary_country: Array.from(data.countries)[0] || "International",
+        };
+      })
       .sort((a, b) => b.documents - a.documents || b.total_citations - a.total_citations)
       .slice(0, limit);
   }
@@ -1047,26 +1151,45 @@ export class ScientometricEngine {
   }
 
   groupAnalysis(limit = 20): ResultRecord[] {
-    const groupItems: Record<string, { docs: number; citations: number; keywords: Set<string> }> = {};
+    const groupItems: Record<string, { docs: number; citations: number; citList: number[]; keywords: Set<string> }> = {};
 
     for (const doc of this.docs) {
       const country = doc.country || "Global";
       if (!groupItems[country]) {
-        groupItems[country] = { docs: 0, citations: 0, keywords: new Set() };
+        groupItems[country] = { docs: 0, citations: 0, citList: [], keywords: new Set() };
       }
+      const cit = doc.citations || 0;
       groupItems[country].docs += 1;
-      groupItems[country].citations += doc.citations || 0;
+      groupItems[country].citations += cit;
+      groupItems[country].citList.push(cit);
       doc.keywords.forEach((k) => groupItems[country].keywords.add(k));
     }
 
     return Object.entries(groupItems)
-      .map(([group, val]) => ({
-        group,
-        documents: val.docs,
-        total_citations: val.citations,
-        top_keyword_count: val.keywords.size,
-        avg_citations: Number((val.citations / Math.max(1, val.docs)).toFixed(2)),
-      }))
+      .map(([group, val]) => {
+        const sortedCits = [...val.citList].sort((a, b) => b - a);
+        let hIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          if (sortedCits[i] >= i + 1) hIndex = i + 1;
+          else break;
+        }
+        let sumCit = 0;
+        let gIndex = 0;
+        for (let i = 0; i < sortedCits.length; i++) {
+          sumCit += sortedCits[i];
+          if (sumCit >= (i + 1) * (i + 1)) gIndex = i + 1;
+        }
+
+        return {
+          group,
+          documents: val.docs,
+          total_citations: val.citations,
+          avg_citations: Number((val.citations / Math.max(1, val.docs)).toFixed(2)),
+          h_index: hIndex,
+          g_index: gIndex,
+          top_keyword_count: val.keywords.size,
+        };
+      })
       .sort((a, b) => b.documents - a.documents)
       .slice(0, limit);
   }
@@ -1590,12 +1713,7 @@ export class ScientometricEngine {
         m_quotient: mQuotient,
         e_index: eIndex,
         i10_index: i10Index,
-        total_citations: totalCit,
-        documents: docCount,
-        avg_citations_per_doc: Number((totalCit / Math.max(1, docCount)).toFixed(1)),
-        career_span_years: careerSpan,
-        first_publication_year: firstYear,
-        latest_publication_year: latestYear,
+
         first_author_docs: firstAuthorDocs,
         first_author_share: firstAuthorShare,
         corresponding_author_docs: corrAuthorDocs,

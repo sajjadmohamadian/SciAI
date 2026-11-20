@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Analysis,
   Dataset,
@@ -349,6 +349,7 @@ You can ask me questions such as:
     setManuscriptLoading(true);
     setManuscriptError(null);
     setManuscriptSection(sec);
+    setManuscriptContent("");
     try {
       const currentDataset = datasets.find((d) => d.id === selectedDatasetId);
       const res = await fetch("/api/ai/manuscript-section", {
@@ -487,44 +488,48 @@ You can ask me questions such as:
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border-default pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black tracking-tight text-ink-primary">
-              Scientometric AI Copilot &amp; Research Studio
-              <span className="rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-xs font-bold text-brand-700">
-                Multi-provider AI
-              </span>
-            </h1>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Full-stack AI assistance: research corpus RAG, research gap
-              mapping, manuscript synthesis, and citation context analysis.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <AiProviderSelector />
-
-          {datasets.length > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 shadow-card">
-              <span className="sciai-kicker text-[10px]!">Active Dataset:</span>
-              <select
-                value={selectedDatasetId}
-                onChange={(e) => setSelectedDatasetId(e.target.value)}
-                className="cursor-pointer bg-transparent text-xs font-bold text-ink-primary focus:outline-none"
-              >
-                {datasets.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.record_count} records)
-                  </option>
-                ))}
-              </select>
+      <div className="sciai-studio-shell p-6">
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
+              <Sparkles className="h-6 w-6" />
             </div>
-          )}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-black tracking-tight text-ink-primary">
+                  AI Research Assistance Studio
+                </h2>
+                <span className="whitespace-nowrap rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-brand-700">
+                  Multi-provider AI
+                </span>
+              </div>
+              <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-ink-muted">
+                Full-stack AI assistance: research corpus RAG, research gap
+                mapping, manuscript synthesis, and citation context analysis.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-4">
+            <AiProviderSelector />
+
+            {datasets.length > 0 && (
+              <div className="flex min-w-0 items-center gap-2 rounded-xl border border-border-default bg-surface-canvas px-3 py-1.5 shadow-card">
+                <span className="sciai-kicker shrink-0 text-[10px]!">Active Dataset:</span>
+                <select
+                  value={selectedDatasetId}
+                  onChange={(e) => setSelectedDatasetId(e.target.value)}
+                  className="min-w-0 max-w-xs cursor-pointer truncate bg-transparent text-xs font-bold text-ink-primary focus:outline-none"
+                >
+                  {datasets.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.record_count} records)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -555,7 +560,7 @@ You can ask me questions such as:
       )}
 
       {/* Feature Mode Switcher Tabs */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {toolItems.map((tool) => {
           const Icon = tool.icon;
           const isActive = activeTool === tool.id;
@@ -660,7 +665,7 @@ You can ask me questions such as:
               disabled={ragLoading || !prompt.trim()}
               icon={!ragLoading ? <Send className="h-3.5 w-3.5" /> : undefined}
             >
-              Ask Copilot
+              Ask Assistant
             </Button>
           </form>
         </Card>
@@ -1316,7 +1321,7 @@ You can ask me questions such as:
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border-default bg-surface-subtle p-1 text-xs">
+            <div className="flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-border-default bg-surface-subtle p-1 text-xs">
               {(
                 ["abstract", "discussion", "limitations", "hypotheses"] as const
               ).map((sec) => (
@@ -1536,3 +1541,5 @@ You can ask me questions such as:
     </div>
   );
 }
+
+

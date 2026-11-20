@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { Dataset, BibliometricDocument, Analysis } from "../types.js";
 import {
   BarChart3,
@@ -29,6 +29,8 @@ import {
   Legend,
 } from "recharts";
 import { AnalysisResultPanel } from "./AnalysisResultPanel.js";
+import { CitationGraphicalSummary } from "./CitationGraphicalSummary.js";
+import { AssociationRulesGraph } from "./AssociationRulesGraph.js";
 import { AlertBanner, Card } from "./CommonUI.js";
 
 const LOCAL_ANALYSES = [
@@ -94,52 +96,45 @@ type LocalAnalysisId = (typeof LOCAL_ANALYSES)[number]["id"];
 
 const SUB_TABS_MAP: Record<string, Array<{ id: string; label: string }>> = {
   authors: [
-    { id: "entity:authors", label: "Authors & Hirsch Table" },
-    { id: "entitymodel:citation.advanced_hirsch", label: "Advanced Hirsch Family (h, g, m, e)" },
-    { id: "entitymodel:author.productivity", label: "Price's Elite Group" },
-    { id: "entitymodel:citation.author_h_index", label: "Author Core H-Index Matrix" },
+    { id: "entitymodel:author.productivity", label: "1. Price's Law & Concentration" },
+    { id: "entity:authors", label: "2. All Authors & Trajectory" },
+    { id: "entitymodel:citation.advanced_hirsch", label: "3. Impact & Leadership Matrix" },
+    { id: "local:lotka", label: "4. Lotka's Law (Author Productivity)" },
   ],
   institutions: [
-    { id: "entity:institutions", label: "Institutions Table" },
     { id: "entitymodel:institution.productivity", label: "Institution Productivity Analytics" },
   ],
   countries: [
-    { id: "entity:countries", label: "Countries Table" },
+    
     { id: "entitymodel:group.analysis", label: "Geographic Map (C1)" },
     { id: "model:group.comparative_significance", label: "Domestic vs. International Impact (SCP vs. MCP)" },
   ],
   sources: [
-    { id: "entity:sources", label: "Sources & Venues Table" },
-    { id: "local:lotka", label: "Lotka's Law" },
+    { id: "entitymodel:source.productivity", label: "Publication Venues & Impact" },
     { id: "local:bradford", label: "Bradford's Law" },
     { id: "entity:documents", label: "Core Documents" },
-    { id: "entitymodel:source.productivity", label: "Publication Venues & Impact" },
   ],
   keywords: [
-    { id: "entity:keywords", label: "Keywords Table" },
-    { id: "entitymodel:keyword.frequency", label: "Co-Occurrence & Vocabulary Growth" },
+    { id: "entitymodel:keyword.frequency", label: "Keyword Frequency" },
+    { id: "local:coword_graph", label: "Co-Word & Association Rules" },
   ],
   grants: [
-    { id: "entity:grants", label: "Grants & Funding Table" },
     { id: "local:grants_overview", label: "Grant Coverage & Funding Breakdown" },
-    { id: "entitymodel:funding.agency_distribution", label: "Funding Agency Distribution" },
-    { id: "entitymodel:funding.grant_analytics", label: "Grant Impact Analytics" },
   ],
   citations: [
-    { id: "local:citations_overview", label: "Citation Frequency Distribution & Skewness" },
-    { id: "model:citation.distribution", label: "Statistical Skewness & Power-Law Model" },
+    { id: "local:citations_overview", label: "Citations Graphical Summary & Normality" },
     { id: "model:citation.window_adjusted", label: "Citations per Document & Annual Velocity" },
   ],
 };
 
 const DEFAULT_INNER_VIEW: Record<LocalAnalysisId, string> = {
   overview: "default",
-  authors: "entity:authors",
-  institutions: "entity:institutions",
-  countries: "entity:countries",
-  sources: "entity:sources",
-  keywords: "entity:keywords",
-  grants: "entity:grants",
+  authors: "entitymodel:author.productivity",
+  institutions: "entitymodel:institution.productivity",
+  countries: "entitymodel:group.analysis",
+  sources: "entitymodel:source.productivity",
+  keywords: "entitymodel:keyword.frequency",
+  grants: "local:grants_overview",
   citations: "local:citations_overview",
 };
 
@@ -522,18 +517,71 @@ export function DescriptiveAnalyticsStudio({
       const yr = Number(d.year || d.PY) || 2023;
       const cits = Number(d.citations ?? d.TC ?? 0);
 
-      const agencies: string[] = Array.isArray(d.funding_agencies)
-        ? d.funding_agencies
-        : [];
-      const grants: string[] = Array.isArray(d.grant_numbers)
-        ? d.grant_numbers
-        : [];
+      const scopusFundingRaw = [
+        d["Funding Details"],
+        d["Funding Texts"],
+        d["Funding Text 1"],
+        d.funding_details,
+        d.funding_text,
+        d.funding,
+        d.Sponsor,
+      ]
+        .filter((v) => v && String(v).trim().length > 0)
+        .map((v) => String(v).trim())
+        .join("; ");
+
+      const scopusAgencies: string[] = [];
+      const scopusGrants: string[] = [];
+      if (scopusFundingRaw) {
+        // ??????? ??? ?????? ???? ? ????? ???? ?? ??? Scopus Funding Details / Texts
+        const parts = scopusFundingRaw.split(/[;|]/).map((p) => p.trim()).filter(Boolean);
+        for (const part of parts) {
+          // ????? ???? Scopus: Agency Name: Grant1, Grant2 ?? Agency Name (Grant1)
+          const colonIdx = part.indexOf(":");
+          if (colonIdx > 2) {
+            const agName = part.slice(0, colonIdx).trim();
+            if (agName.length > 2) scopusAgencies.push(agName);
+            const rest = part.slice(colonIdx + 1);
+            rest.split(/[,;]/).forEach((g) => {
+              const cleanG = g.trim();
+              if (cleanG && /[0-9]/.test(cleanG) && cleanG.length <= 35) {
+                scopusGrants.push(cleanG);
+              }
+            });
+          } else {
+            const bracketMatch = part.match(/^([^(\[]+)[(\[]\s*([^)\]]+)\s*[)\]]/);
+            if (bracketMatch) {
+              const agName = bracketMatch[1].trim();
+              if (agName.length > 2) scopusAgencies.push(agName);
+              bracketMatch[2].split(/[,;]/).forEach((g) => {
+                const cleanG = g.trim();
+                if (cleanG) scopusGrants.push(cleanG);
+              });
+            } else if (part.length > 2 && part.length < 140) {
+              scopusAgencies.push(part);
+            }
+          }
+        }
+      }
+
+      const agencies: string[] = Array.from(
+        new Set([
+          ...(Array.isArray(d.funding_agencies) ? d.funding_agencies : []),
+          ...scopusAgencies,
+        ])
+      );
+      const grants: string[] = Array.from(
+        new Set([
+          ...(Array.isArray(d.grant_numbers) ? d.grant_numbers : []),
+          ...scopusGrants,
+        ])
+      );
       const fu = d.FU
         ? Array.isArray(d.FU)
           ? d.FU
           : String(d.FU).split(";")
         : [];
-      const fx = d.FX;
+      const fx = d.FX || scopusFundingRaw;
 
       const hasFunding =
         agencies.length > 0 ||
@@ -876,7 +924,7 @@ export function DescriptiveAnalyticsStudio({
         <section className="min-w-0 space-y-5" aria-live="polite">
           {runError && <AlertBanner tone="danger">{runError}</AlertBanner>}
 
-          {currentSubTabs.length > 0 && (
+          {currentSubTabs.length > 1 && (
             <div className="flex flex-wrap gap-1.5 rounded-xl border border-border-default bg-surface-subtle p-1.5">
               {currentSubTabs.map((t) => {
                 const active = innerSubView === t.id;
@@ -900,7 +948,7 @@ export function DescriptiveAnalyticsStudio({
             </div>
           )}
 
-          {(innerSubView.startsWith("entity:") ||
+          {((innerSubView.startsWith("entity:") && innerSubView !== "entity:keywords") ||
             innerSubView.startsWith("entitymodel:")) && (
             <EntityExplorerStudio
               datasets={datasets}
@@ -909,7 +957,7 @@ export function DescriptiveAnalyticsStudio({
               onQuickRun={onQuickRun}
               embedded={true}
               externalDimension={
-                innerSubView.startsWith("entity:")
+                (innerSubView.startsWith("entity:") && innerSubView !== "entity:keywords")
                   ? (innerSubView.replace("entity:", "") as any)
                   : undefined
               }
@@ -1093,126 +1141,14 @@ export function DescriptiveAnalyticsStudio({
             </div>
           )}
 
-          {activeSubTab === "citations" && innerSubView === "local:citations_overview" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Card padding="md">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="sciai-kicker">Raw Citations (CPD)</span>
-                    <span className="rounded border border-border-default bg-surface-subtle px-1.5 py-0.5 text-[9px] font-bold text-ink-secondary">
-                      Calculated
-                    </span>
-                  </div>
-                  <div className="tabular-metrics mt-2 text-2xl font-black text-ink-primary">
-                    {macroStats.avgCitationsPerDoc}
-                  </div>
-                  <div className="mt-1 text-[11px] text-ink-muted">
-                    Total citations / total documents
-                  </div>
-                </Card>
-
-                <div className="rounded-2xl border border-brand-200 bg-brand-50/50 p-5 shadow-card">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="sciai-kicker text-brand-700!">Window Velocity</span>
-                    <span className="rounded border border-brand-200 bg-brand-100/70 px-1.5 py-0.5 text-[9px] font-bold text-brand-700">
-                      Window-Adjusted
-                    </span>
-                  </div>
-                  <div className="tabular-metrics mt-2 text-2xl font-black text-brand-800">
-                    {windowMetrics?.windowAdjustedMeanVelocity != null
-                      ? `${windowMetrics.windowAdjustedMeanVelocity}/yr`
-                      : "Unavailable"}
-                  </div>
-                  <div className="mt-1 text-[11px] text-brand-600">
-                    Mean citations per exposure-year
-                  </div>
-                </div>
-
-                <Card padding="md">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="sciai-kicker">Weighted Velocity</span>
-                    <span className="rounded border border-border-default bg-surface-subtle px-1.5 py-0.5 text-[9px] font-bold text-ink-secondary">
-                      Window-Adjusted
-                    </span>
-                  </div>
-                  <div className="tabular-metrics mt-2 text-2xl font-black text-ink-primary">
-                    {windowMetrics?.weightedCorpusVelocity != null
-                      ? `${windowMetrics.weightedCorpusVelocity}/yr`
-                      : "Unavailable"}
-                  </div>
-                  <div className="mt-1 text-[11px] text-ink-muted">
-                    Total citations / total exposure years
-                  </div>
-                </Card>
-
-                <div className="rounded-2xl border border-status-warning-border bg-status-warning-bg/50 p-5 shadow-card">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="sciai-kicker text-status-warning-text!">
-                      Field Normalized
-                    </span>
-                    <span className="rounded border border-status-warning-border bg-status-warning-bg px-1.5 py-0.5 text-[9px] font-bold text-status-warning-text">
-                      Unavailable
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm font-bold text-ink-primary">Reference Missing</div>
-                  <div className="mt-1 text-[11px] text-status-warning-text">
-                    No external baseline population
-                  </div>
-                </div>
-              </div>
-
-              <Card padding="lg" className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-bold text-ink-primary">
-                    Citation Distribution & Power Law Skewness
-                  </h3>
-                  <p className="text-xs text-ink-muted">
-                    Segmenting documents into citation brackets to identify uncited vs highly cited breakthrough works.
-                  </p>
-                </div>
-
-                <div className="h-72 w-full pt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={citationBuckets}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e8e4" />
-                      <XAxis dataKey="range" stroke="#828d98" fontSize={11} />
-                      <YAxis stroke="#828d98" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#101820",
-                          borderRadius: "8px",
-                          border: "none",
-                          fontSize: "11px",
-                          color: "#ffffff",
-                        }}
-                      />
-                      <Bar
-                        dataKey="count"
-                        fill="#315C7C"
-                        radius={[6, 6, 0, 0]}
-                        name="Document Count"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="flex items-start gap-2.5 rounded-xl border border-border-subtle bg-surface-subtle p-3.5 text-xs text-ink-secondary">
-                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
-                  <div>
-                    <span className="font-bold text-ink-primary">
-                      Longitudinal Opportunity Window:{" "}
-                    </span>
-                    <span>
-                      Observation year cutoff: {windowMetrics?.obsYear ?? "Auto"}. Exposure elapsed time is defined as (Cutoff - Publication Year) + 1.0 calendar years ({windowMetrics?.eligible ?? 0} eligible documents). Disciplinary field normalization (MNCS) is preserved as unavailable without external reference baselines.
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </div>
+          {activeSubTab === "keywords" && innerSubView === "local:coword_graph" && (
+            <AssociationRulesGraph documents={documents} />
           )}
+
+          {activeSubTab === "citations" && innerSubView === "local:citations_overview" && (
+            <CitationGraphicalSummary documents={documents} />
+          )}
+
 
           {activeSubTab === "grants" && innerSubView === "local:grants_overview" && (
             <div className="space-y-6">
@@ -1341,7 +1277,7 @@ export function DescriptiveAnalyticsStudio({
             </div>
           )}
 
-          {activeSubTab === "sources" && innerSubView === "local:lotka" && (
+          {activeSubTab === "authors" && innerSubView === "local:lotka" && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card padding="md">
@@ -1610,6 +1546,9 @@ export function DescriptiveAnalyticsStudio({
                 analysis={focusedAnalysis}
                 onRefresh={refreshAnalysis}
               />
+              {activeSubTab === "keywords" && (
+                <AssociationRulesGraph documents={documents} />
+              )}
             </div>
           )}
         </section>

@@ -1,7 +1,8 @@
 import express from "express";
-import { timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { autoBuildOrcidCorpus, buildOrcidAuthorizeUrl, exchangeOrcidCode, isOrcidOAuthConfigured } from "./orcidOAuth.js";
 import {
-  authenticateUser, changePassword, createSession, createUser, csrfForToken, deleteUser,
+  authenticateUser, authenticateWithOrcid, linkOrcidToUser, changePassword, createSession, createUser, csrfForToken, deleteUser,
   getSession, getUser, listUsers, resetPassword, redeemResetToken, revokeSession, updateUser,
   type AuthSession, type AuthUser,
 } from "./service.js";
@@ -22,7 +23,7 @@ export function requestSession(req: express.Request): AuthSession | null {
   return (req as express.Request & { authSession?: AuthSession }).authSession || getSession(cookieToken(req) || "");
 }
 export function safeUser(user: AuthUser) {
-  return { id: user.id, email: user.email, role: user.role, active: user.status === "active", must_change_password: user.mustChangePassword, created_at: user.createdAt };
+  return { id: user.id, email: user.email, role: user.role, active: user.status === "active", must_change_password: user.mustChangePassword, created_at: user.createdAt, orcid: user.orcid ?? null, display_name: user.displayName ?? null };
 }
 function equal(a: string, b: string): boolean { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 export function originAllowed(req: express.Request): boolean {
@@ -114,6 +115,76 @@ export function createAuthRouter(): express.Router {
     const session = requestSession(req); if (!session) return res.status(401).json({ error: "Authentication required" });
     res.json({ user: safeUser(session.user), csrf_token: csrfForToken(cookieToken(req)!) });
   });
+  
+
+  const oauthStates = new Map<string, number>();
+
+  router.get("/auth/orcid/config", (_req, res) => {
+    res.json({ oauth_enabled: isOrcidOAuthConfigured() });
+  });
+
+  router.get("/auth/orcid/authorize", (_req, res) => {
+    if (!isOrcidOAuthConfigured()) {
+      return res.redirect("/?orcid_error=ORCID+OAuth+credentials+are+not+configured+in+.env");
+    }
+    const now = Date.now();
+    for (const [k, exp] of oauthStates) if (exp <= now) oauthStates.delete(k);
+    const state = randomBytes(20).toString("base64url");
+    oauthStates.set(state, now + 10 * 60 * 1000);
+    res.redirect(buildOrcidAuthorizeUrl(state));
+  });
+
+  router.get("/auth/orcid/callback", async (req, res) => {
+    try {
+      const code = typeof req.query.code === "string" ? req.query.code : "";
+      const state = typeof req.query.state === "string" ? req.query.state : "";
+      if (!code || !state || !oauthStates.has(state)) {
+        return res.redirect("/?orcid_error=Invalid+or+expired+ORCID+authorization+state");
+      }
+      oauthStates.delete(state);
+
+      const { orcid } = await exchangeOrcidCode(code);
+      const { user } = await authenticateWithOrcid(orcid);
+      const old = cookieToken(req);
+      if (old) revokeSession(old);
+      const created = createSession(user.id, {}, SESSION_MS);
+      setCookie(res, created.token);
+
+      // Automatically fetch works, enrich metadata via OpenAlex/Crossref, and create corpus
+      await autoBuildOrcidCorpus(orcid);
+      res.redirect("/");
+    } catch (err) {
+      const msg = encodeURIComponent(err instanceof Error ? err.message : "ORCID OAuth sign-in failed");
+      res.redirect(`/?orcid_error=${msg}`);
+    }
+  });
+
+  router.post("/auth/orcid", checkOrigin, rateLimit, async (req, res) => {
+    try {
+      const { user } = await authenticateWithOrcid(String(req.body?.orcid || ""));
+      if (user.orcid) void autoBuildOrcidCorpus(user.orcid);
+      const old = cookieToken(req);
+      if (old) revokeSession(old);
+      const created = createSession(user.id, {}, SESSION_MS);
+      const csrf = setCookie(res, created.token);
+      res.json({ user: safeUser(user), csrf_token: csrf });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "ORCID sign-in failed";
+      res.status(400).json({ error: message });
+    }
+  });
+
+  router.post("/auth/link-orcid", requireSession, csrfGuard, async (req, res) => {
+    try {
+      const session = requestSession(req)!;
+      const updated = linkOrcidToUser(session.user.id, String(req.body?.orcid || ""), req.body?.display_name);
+      res.json({ user: safeUser(updated), csrf_token: csrfForToken(cookieToken(req)!) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to link ORCID iD";
+      res.status(400).json({ error: message });
+    }
+  });
+
   router.post("/auth/logout", requireSession, csrfGuard, (req, res) => { revokeSession(cookieToken(req)!); clearCookie(res); res.json({ success: true }); });
   router.post("/auth/password", requireSession, csrfGuard, rateLimit, async (req, res) => {
     try {

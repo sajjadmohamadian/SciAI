@@ -1,4 +1,4 @@
-import {
+﻿import {
   BibliometricDocument,
   ResearchGapMatrixOutput,
   MultiCorpusDiscrepancyOutput,
@@ -209,12 +209,24 @@ export async function generateManuscriptSection(
   summaryMetrics: Record<string, unknown>,
   options?: AiRequestOptions
 ): Promise<AiServiceResult<string>> {
-  const prompt = withGroundingPolicy(`Draft a publication-style ${section} section for a scientometric manuscript about "${datasetName}".
+  const sectionDirective =
+    section === "hypotheses"
+      ? "Generate 3 to 4 formal, testable scientometric research hypotheses (H1, H2, H3...) grounded directly in the supplied corpus metrics (e.g., Lotka's beta skew, Bradford core concentration, collaboration index, annual growth rate). Do NOT write an Abstract; output only structured Hypotheses with brief empirical rationale for each."
+      : section === "discussion"
+      ? "Draft an academic Discussion section interpreting the empirical bibliometric laws (Lotka, Bradford, collaboration dynamics, and growth rate) observed in the corpus without inventing external findings."
+      : section === "limitations"
+      ? "Draft a rigorous Methodological Limitations section discussing database coverage constraints, metadata completeness, and deterministic metric scope based solely on the supplied parameters."
+      : "Draft a structured academic Abstract (Background, Methods, Empirical Results, Conclusions) grounded strictly in the supplied metrics.";
+
+  const prompt = withGroundingPolicy(`Draft a publication-style ${section.toUpperCase()} section for a scientometric manuscript about "${datasetName}".
+
+Section Requirement:
+${sectionDirective}
 
 Empirical Corpus Metrics:
 ${JSON.stringify(summaryMetrics, null, 2)}
 
-Use only supplied metrics. If a detail required for a conventional manuscript section is not present, write "unavailable" or explicitly state the limitation.`, "Do not add unsupported study details, coefficients, databases, or findings.");
+Use only supplied metrics. Do NOT substitute another section type. If a specific detail is not present in the metrics, explicitly note its scope limitation rather than inventing numbers.`, "Do not add unsupported study details, coefficients, databases, or findings.");
 
   const result = await callAiText({ task: "manuscript_section", prompt, responseFormat: "text", temperature: 0.2, ...parseOptions(options) });
   if (result.status === "available" && result.content) return available(result.content, result.provenance, result.warnings);
@@ -429,3 +441,4 @@ export async function generatePrismaSynthesisReport(
   if (parsed) return available({ ...parsed, yieldMetrics, limitationsAndBiases: [...missing, ...(parsed.limitationsAndBiases || [])] }, result.provenance, [...missing, ...result.warnings]);
   return unavailable(fallback, result.provenance, [...missing, ...result.warnings]);
 }
+

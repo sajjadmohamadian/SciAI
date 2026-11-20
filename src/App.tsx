@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   Project,
   Dataset,
@@ -160,6 +160,7 @@ function WorkspaceApp() {
 
   const [modal, setModal] = useState<"upload" | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [syncingOrcid, setSyncingOrcid] = useState(false);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
 
   const selectedDataset =
@@ -265,6 +266,28 @@ function WorkspaceApp() {
     }
   };
 
+  const handleSyncMyOrcid = async () => {
+    if (!user?.orcid || syncingOrcid) return;
+    setSyncingOrcid(true);
+    try {
+      const result = await apiJson<{
+        success: boolean;
+        dataset: { id: string; name: string };
+        documents_count: number;
+      }>("/api/orcid/import", {
+        orcid: user.orcid,
+        enrich_openalex: true,
+      });
+      await loadDashboard();
+      setSelectedDatasetId(result.dataset.id);
+      setMessage(`Synced ${result.documents_count} publications from ORCID (${user.orcid}) into "${result.dataset.name}".`);
+    } catch (err) {
+      setMessage(getApiErrorMessage(err, "Failed to sync ORCID corpus."));
+    } finally {
+      setSyncingOrcid(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-surface-subtle/50 font-sans text-ink-primary antialiased selection:bg-brand-500 selection:text-white">
       <Sidebar
@@ -281,8 +304,6 @@ function WorkspaceApp() {
           activeTab={activeTab}
           onRefresh={loadDashboard}
           onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)}
-          onLogout={authEnabled ? () => void logout() : undefined}
-          userRole={user?.role}
         />
 
         <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
@@ -305,6 +326,7 @@ function WorkspaceApp() {
               <div className="space-y-8">
                 <OverviewView
                   datasets={datasets}
+                onSelectDataset={setSelectedDatasetId}
                   analyses={analyses}
                   capabilities={capabilities}
                   loading={loading}
@@ -335,7 +357,6 @@ function WorkspaceApp() {
               activeTab === "merge") && (
               <CorpusPipelineStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
                 onOpenUpload={() => setModal("upload")}
                 onOpenDescriptive={(datasetId) => {
@@ -376,7 +397,6 @@ function WorkspaceApp() {
             {(activeTab === "descriptive" || activeTab === "analyses") && (
               <DescriptiveAnalyticsStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
                 onQuickRun={quickRunCapability}
               />
@@ -388,7 +408,6 @@ function WorkspaceApp() {
               activeTab === "keywords") && (
               <EntityExplorerStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
                 focusDimension={activeTab === "sources" ? "sources" : "authors"}
                 focusKey={activeTab}
@@ -399,8 +418,8 @@ function WorkspaceApp() {
             {activeTab === "thematic" && (
               <ThematicEvolutionStudio
                 datasets={datasets}
-                activeDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
+                activeDatasetId={selectedDataset?.id}
                 onNavigateToFrontier={() => setActiveTab("frontier")}
               />
             )}
@@ -408,15 +427,14 @@ function WorkspaceApp() {
             {activeTab === "frontier" && (
               <FrontierDetectionStudio
                 datasets={datasets}
-                activeDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
+                activeDatasetId={selectedDataset?.id}
               />
             )}
 
             {activeTab === "historical" && (
               <HistoricalGenealogyStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
               />
             )}
@@ -424,7 +442,6 @@ function WorkspaceApp() {
             {activeTab === "collaboration" && (
               <NetworkStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
               />
             )}
@@ -433,7 +450,6 @@ function WorkspaceApp() {
               <MachineLearningStudio
                 dataset={selectedDataset}
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
                 analyses={analyses}
                 onTriggerAnalysis={async (capId) => {
@@ -443,29 +459,29 @@ function WorkspaceApp() {
             )}
 
             {activeTab === "benchmark" && (
-              <ComparativeBenchmarkingStudio datasets={datasets} />
+              <ComparativeBenchmarkingStudio datasets={datasets}
+                onSelectDataset={setSelectedDatasetId} />
             )}
 
             {activeTab === "powerbi" && (
               <PowerBIConnectorStudio
                 datasets={datasets}
-                selectedDatasetId={selectedDataset?.id}
                 onSelectDataset={setSelectedDatasetId}
                 analyses={analyses}
               />
             )}
 
-            {activeTab === "reports" && (
+            {(activeTab === "reports" || activeTab === "ai") && (
               <ExportReportsStudio
+                key={activeTab}
                 dataset={selectedDataset}
+                datasets={datasets}
+                onSelectDataset={setSelectedDatasetId}
                 analyses={analyses}
+                initialMode={activeTab === "ai" ? "question_driven_ai" : "packages_and_auto"}
                 onNavigateToPowerBI={() => setActiveTab("powerbi")}
                 onNavigateToAI={() => setActiveTab("ai")}
               />
-            )}
-
-            {activeTab === "ai" && (
-              <AiIntelligenceView datasets={datasets} analyses={analyses} />
             )}
           </StudioExportBoundary>
           {activeTab === "admin" && authEnabled && user?.role === "admin" && (

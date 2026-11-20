@@ -1,3 +1,6 @@
+﻿import { useAuth } from "../context/AuthContext.js";
+import { Settings, LogOut, KeyRound } from "lucide-react";
+import sciaiMark from "../assets/sciai-mark.png";
 import React, { useMemo, useState } from "react";
 import { BRAND } from "../brand.js";
 import { Project } from "../types.js";
@@ -107,12 +110,6 @@ const NAV_ITEMS: NavItem[] = [
     description: "Biblium Cross-Validation",
   },
   {
-    id: "ai",
-    label: "AI Research Assistance",
-    icon: <Sparkles className="h-4 w-4 text-indigo-500" />,
-    description: "AI-Assisted Synthesis",
-  },
-  {
     id: "powerbi",
     label: "Power BI Connector",
     icon: <BarChart3 className="h-4 w-4 text-amber-500" />,
@@ -120,9 +117,9 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "reports",
-    label: "Executive Reports",
+    label: "AI & Executive Reports",
     icon: <FileText className="h-4 w-4 text-rose-500" />,
-    description: "Dossiers & Exports",
+    description: "Synthesis, Dossiers & Exports",
   },
   {
     id: "admin",
@@ -143,8 +140,12 @@ interface Props {
 
 function BrandMark() {
   return (
-    <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-500/25 bg-ink-primary text-white shadow-xs">
-      <span className="text-[13px] font-bold tracking-[-0.04em]">S</span>
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border-default bg-white p-1 shadow-xs">
+      <img
+        src={sciaiMark}
+        alt="SciAI Research Intelligence"
+        className="h-full w-full object-contain"
+      />
     </div>
   );
 }
@@ -157,6 +158,24 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
 }: Props) {
+  const { user, logout, requestPasswordChange } = useAuth();
+  const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
+
+  const displayName = React.useMemo(() => {
+    const rawEmail = user?.email || "sajjad.mohammadian@gmail.com";
+    const localPart = rawEmail.split("@")[0] || "Researcher";
+    return localPart
+      .replace(/[._-]+/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }, [user?.email]);
+
+  const initials = React.useMemo(() => {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return displayName.slice(0, 2).toUpperCase();
+  }, [displayName]);
+
+  const roleSubtitle = user?.role === "admin" ? "Administrator" : "Researcher";
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredItems = useMemo(() => {
@@ -288,16 +307,92 @@ export function Sidebar({
         )}
       </nav>
 
-      {/* Workspace Footer */}
-      <div className="border-t border-border-default p-3">
-        <div className="rounded-xl border border-border-default bg-surface-subtle p-3">
-          <div className="sciai-kicker text-brand-500!">Workspace</div>
-          <div className="mt-1 truncate text-xs font-bold text-ink-primary">
-            {project?.name || `${BRAND.name} Research Intelligence`}
+      {/* Gemini-Style Bottom-Left User Profile & Settings Footer */}
+      <div className="relative border-t border-border-default p-3">
+        {profileMenuOpen && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 rounded-2xl border border-border-default bg-surface-canvas p-1.5 shadow-elevated">
+            <div className="border-b border-border-default px-3 py-2">
+              <div className="truncate text-xs font-bold text-ink-primary">
+                {displayName}
+              </div>
+              <div className="truncate font-mono text-[10px] text-ink-muted">
+                {user?.email || "admin@sciai.local"}
+              </div>
+            </div>
+
+            {user?.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  onChangeTab("admin");
+                  onCloseMobile();
+                }}
+                className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors hover:bg-surface-subtle hover:text-ink-primary"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
+                <span>User Administration</span>
+              </button>
+            )}
+
+            {requestPasswordChange && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  requestPasswordChange();
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-ink-secondary transition-colors hover:bg-surface-subtle hover:text-ink-primary"
+              >
+                <KeyRound className="h-3.5 w-3.5 text-ink-muted" />
+                <span>Change Password</span>
+              </button>
+            )}
+
+            {logout && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  void logout();
+                }}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-status-danger-text transition-colors hover:bg-status-danger-bg"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Sign Out</span>
+              </button>
+            )}
           </div>
-          <div className="mt-0.5 text-[10px] text-ink-muted">
-            Local evidence store · Offline ready
+        )}
+
+        <div className="flex items-center justify-between gap-2.5 rounded-2xl px-2 py-2 transition-colors hover:bg-surface-subtle">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Circular Avatar */}
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white ring-2 ring-brand-500/20">
+              {initials}
+            </div>
+
+            {/* Name & Role Subtitle */}
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-semibold text-ink-primary">
+                {displayName}
+              </div>
+              <div className="mt-0.5 truncate text-xs text-ink-muted">
+                {roleSubtitle}
+              </div>
+            </div>
           </div>
+
+          {/* Settings Gear Button */}
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen((v) => !v)}
+            title="Account & Settings"
+            aria-label="Account & Settings"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-surface-muted hover:text-ink-primary"
+          >
+            <Settings className="h-4.5 w-4.5" />
+          </button>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { Dataset, BibliometricDocument, Analysis } from "../types.js";
 import {
   Users,
@@ -128,6 +128,7 @@ interface EntityMetric {
   gIndex: number;
   firstYear: number;
   lastYear: number;
+  careerSpan: number;
   annualProduction: Record<number, number>;
   matchedDocIndices: number[];
 }
@@ -153,7 +154,7 @@ export function EntityExplorerStudio({
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [sortBy, setSortBy] = useState<"docCount" | "fractionalDocCount" | "totalCitations" | "avgCitations" | "hIndex" | "gIndex" | "citationsPerYear" | "firstYear">("totalCitations");
+  const [sortBy, setSortBy] = useState<"docCount" | "fractionalDocCount" | "totalCitations" | "avgCitations" | "hIndex" | "gIndex" | "citationsPerYear" | "firstYear" | "lastYear" | "careerSpan">("totalCitations");
 
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -527,6 +528,7 @@ export function EntityExplorerStudio({
         gIndex,
         firstYear: minYr,
         lastYear: maxYr,
+        careerSpan: age,
         annualProduction: val.annualMap,
         matchedDocIndices: val.docIndices,
       });
@@ -560,7 +562,13 @@ export function EntityExplorerStudio({
     });
   }, [entities, searchQuery, sortBy, sortOrder]);
 
-  const handleSort = (field: "docCount" | "fractionalDocCount" | "totalCitations" | "avgCitations" | "hIndex" | "gIndex" | "citationsPerYear" | "firstYear") => {
+  useEffect(() => {
+    if (filteredEntities.length > 0 && (!selectedEntity || !filteredEntities.some((e) => e.id === selectedEntity.id))) {
+      setSelectedEntity(filteredEntities[0]);
+    }
+  }, [filteredEntities, selectedEntity]);
+
+  const handleSort = (field: "docCount" | "fractionalDocCount" | "totalCitations" | "avgCitations" | "hIndex" | "gIndex" | "citationsPerYear" | "firstYear" | "lastYear" | "careerSpan") => {
     if (sortBy === field) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -722,7 +730,7 @@ export function EntityExplorerStudio({
   };
 
   return (
-    <div className="space-y-6">
+    <div className={embedded ? "" : "space-y-6"}>
       {/* Top Header */}
       <div className={embedded ? "hidden" : "space-y-4 border-b border-border-default pb-5"}>
         <div className="min-w-0">
@@ -906,9 +914,84 @@ export function EntityExplorerStudio({
               </div>
 
               {/* Main Grid */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {dimension === "authors" && filteredEntities.length > 0 && (
+          <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card padding="md">
+              <div className="sciai-kicker">Total Unique Authors</div>
+              <div className="tabular-metrics mt-1.5 text-2xl font-black text-ink-primary">
+                {entities.length.toLocaleString()}
+              </div>
+              <div className="mt-1 text-[11px] text-ink-muted">Full corpus contributor pool</div>
+            </Card>
+            <Card padding="md">
+              <div className="sciai-kicker">Peak Fractional Credit</div>
+              <div className="tabular-metrics mt-1.5 text-2xl font-black text-amber-700">
+                {Math.max(...entities.map((e) => e.fractionalDocCount)).toFixed(2)}
+              </div>
+              <div className="mt-1 text-[11px] text-ink-muted">1/N co-authorship adjusted</div>
+            </Card>
+            <Card padding="md">
+              <div className="sciai-kicker">Peak Citation Velocity</div>
+              <div className="tabular-metrics mt-1.5 text-2xl font-black text-brand-600">
+                {Math.max(...entities.map((e) => e.citationsPerYear)).toFixed(1)}
+              </div>
+              <div className="mt-1 text-[11px] text-ink-muted">Max citations / active year</div>
+            </Card>
+            <Card padding="md">
+              <div className="sciai-kicker">Longest Active Span</div>
+              <div className="tabular-metrics mt-1.5 text-2xl font-black text-status-info-text">
+                {Math.max(...entities.map((e) => e.careerSpan))} yrs
+              </div>
+              <div className="mt-1 text-[11px] text-ink-muted">Max observed trajectory</div>
+            </Card>
+          </div>
+        )}
+
+        {dimension === "authors" && filteredEntities.length > 0 && (
+          <Card padding="md" className="mb-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <span className="sciai-kicker">Trajectory &amp; Adjusted Credit Overview</span>
+                <h3 className="text-sm font-black text-ink-primary">
+                  Top Authors: Annual Citation Velocity (Cites / Yr) vs. Fractional Credit (1/N)
+                </h3>
+              </div>
+              <span className="rounded-md border border-border-default bg-surface-subtle px-2 py-0.5 font-mono text-[10px] font-semibold text-ink-muted">
+                Top {Math.min(12, filteredEntities.length)} Scholars
+              </span>
+            </div>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={filteredEntities.slice(0, 12).map((e) => ({
+                    name: e.name.length > 18 ? e.name.slice(0, 18) + "..." : e.name,
+                    citesPerYear: e.citationsPerYear,
+                    fractional: e.fractionalDocCount,
+                  }))}
+                  margin={{ top: 8, right: 16, left: 0, bottom: 24 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 10, fill: "#475569" }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                  />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10, fill: "#475569" }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#d97706" }} />
+                  <Tooltip />
+                  <Bar yAxisId="left" dataKey="citesPerYear" name="Citations / Year" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="right" dataKey="fractional" name="Fractional Credit (1/N)" fill="#d97706" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        )}
+
+        <div className={dimension === "authors" ? "space-y-6" : "grid grid-cols-1 gap-6 lg:grid-cols-3"}>
                 {/* Table */}
-                <Card padding="none" className="overflow-hidden lg:col-span-2">
+                <Card padding="none" className={dimension === "authors" ? "overflow-hidden w-full" : "overflow-hidden lg:col-span-2"}>
                   <div className="max-h-[640px] overflow-x-auto overflow-y-auto">
                     <table className="w-full border-collapse text-left text-xs">
                       <thead className="sticky top-0 z-10 border-b border-border-default bg-surface-subtle text-[11px] font-bold uppercase tracking-wider text-ink-muted">
@@ -927,25 +1010,37 @@ export function EntityExplorerStudio({
                             </th>
                             <th className="p-3.5 text-right">Share (%)</th>
                           </tr>
+                        ) : dimension === "authors" ? (
+                          <tr>
+                            <th className="p-3.5">Author Name</th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("fractionalDocCount")}>
+                              <div className="inline-flex items-center gap-1">Fractional (1/N)<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("avgCitations")}>
+                              <div className="inline-flex items-center gap-1">Cites / Doc<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("citationsPerYear")}>
+                              <div className="inline-flex items-center gap-1">Cites / Yr<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("firstYear")}>
+                              <div className="inline-flex items-center gap-1">First Yr<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("lastYear")}>
+                              <div className="inline-flex items-center gap-1">Latest Yr<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                            <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("careerSpan")}>
+                              <div className="inline-flex items-center gap-1">Span (Yrs)<ArrowUpDown className="h-3 w-3" /></div>
+                            </th>
+                          </tr>
                         ) : (
                           <tr>
                             <th className="p-3.5">Name / Label</th>
                             <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("docCount")}>
                               <div className="inline-flex items-center gap-1">Documents<ArrowUpDown className="h-3 w-3" /></div>
                             </th>
-                            {dimension === "authors" && (
-                              <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("fractionalDocCount")}>
-                                <div className="inline-flex items-center gap-1">Fractional<ArrowUpDown className="h-3 w-3" /></div>
-                              </th>
-                            )}
                             <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("totalCitations")}>
                               <div className="inline-flex items-center gap-1">Citations<ArrowUpDown className="h-3 w-3" /></div>
                             </th>
-                            {dimension === "authors" && (
-                              <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("avgCitations")}>
-                                <div className="inline-flex items-center gap-1">Cites / Doc<ArrowUpDown className="h-3 w-3" /></div>
-                              </th>
-                            )}
                             <th className="cursor-pointer p-3.5 text-right transition-colors hover:text-ink-primary" onClick={() => handleSort("hIndex")}>
                               <div className="inline-flex items-center gap-1">H-Index<ArrowUpDown className="h-3 w-3" /></div>
                             </th>
@@ -977,6 +1072,24 @@ export function EntityExplorerStudio({
                             );
                           }
 
+                          if (dimension === "authors") {
+                            return (
+                              <tr
+                                key={entity.id}
+                                onClick={() => setSelectedEntity(entity)}
+                                className={`cursor-pointer transition-colors hover:bg-surface-subtle/70 ${isSelected ? "bg-brand-50/70 font-semibold" : ""}`}
+                              >
+                                <td className="line-clamp-1 max-w-[210px] p-3.5 font-bold text-ink-primary">{entity.name}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono font-semibold text-amber-700">{entity.fractionalDocCount.toFixed(2)}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono font-semibold text-emerald-700">{entity.avgCitations.toFixed(1)}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono font-semibold text-brand-600">{entity.citationsPerYear.toFixed(2)}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono text-ink-secondary">{entity.firstYear}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono text-ink-secondary">{entity.lastYear}</td>
+                                <td className="tabular-metrics p-3.5 text-right font-mono font-bold text-status-info-text">{entity.careerSpan}</td>
+                              </tr>
+                            );
+                          }
+
                           return (
                             <tr
                               key={entity.id}
@@ -985,13 +1098,7 @@ export function EntityExplorerStudio({
                             >
                               <td className="line-clamp-1 max-w-[220px] p-3.5 font-bold text-ink-primary">{entity.name}</td>
                               <td className="tabular-metrics p-3.5 text-right font-mono text-ink-primary">{entity.docCount.toLocaleString()}</td>
-                              {dimension === "authors" && (
-                                <td className="tabular-metrics p-3.5 text-right font-mono text-amber-700 font-semibold">{entity.fractionalDocCount.toFixed(2)}</td>
-                              )}
                               <td className="tabular-metrics p-3.5 text-right font-mono font-bold text-status-success-text">{entity.totalCitations.toLocaleString()}</td>
-                              {dimension === "authors" && (
-                                <td className="tabular-metrics p-3.5 text-right font-mono text-emerald-700 font-semibold">{entity.avgCitations.toFixed(1)}</td>
-                              )}
                               <td className="tabular-metrics p-3.5 text-right font-mono font-bold text-brand-600">{entity.hIndex}</td>
                               <td className="tabular-metrics p-3.5 text-right font-mono text-status-info-text">{entity.gIndex}</td>
                             </tr>
@@ -1003,7 +1110,7 @@ export function EntityExplorerStudio({
                 </Card>
 
                 {/* Drill-down Detail Inspector */}
-                <div className="space-y-6">
+                <div className={embedded ? "" : "space-y-6"}>
                   {selectedEntity ? (
                     <Card padding="lg" className="space-y-5">
                       <div className="border-b border-border-subtle pb-3">
@@ -1201,7 +1308,7 @@ export function EntityExplorerStudio({
           {/* Capability Model Results */}
           {selectedModel && focusedAnalysis && (
             <div key={focusedAnalysis.id}>
-              <AnalysisResultPanel
+              <AnalysisResultPanel className={embedded ? "!mt-0" : ""}
                 analysis={focusedAnalysis}
                 onRefresh={refreshAnalysis}
               />

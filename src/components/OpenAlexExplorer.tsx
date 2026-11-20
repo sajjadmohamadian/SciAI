@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   Search,
   Globe2,
@@ -417,28 +417,8 @@ export function OpenAlexExplorer({ onDatasetCreated }: Props) {
             </div>
           </Card>
         )}
-
-        {works.length === 0 && !loading && (
-          <div className="rounded-2xl border border-dashed border-border-default bg-surface-subtle p-12 text-center">
-            <Globe2 className="mx-auto mb-2 h-8 w-8 text-brand-500" />
-            <h3 className="text-xs font-bold text-ink-primary">Explore OpenAlex Knowledge Graph</h3>
-            <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-ink-muted">
-              Enter any research topic above to retrieve literature, citations, and metadata
-              directly via the OpenAlex REST API.
-            </p>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => handleSearch()}
-              icon={<Search className="h-3.5 w-3.5" />}
-              className="mt-4"
-            >
-              Search Data Science
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
 }
+

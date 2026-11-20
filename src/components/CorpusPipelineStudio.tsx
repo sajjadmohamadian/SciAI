@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Dataset } from "../types.js";
 import { DatasetsView } from "./DatasetsView.js";
 import { OpenAlexExplorer } from "./OpenAlexExplorer.js";
+import { OrcidImporter } from "./OrcidImporter.js";
 import { SmartMergeStudio } from "./SmartMergeStudio.js";
 import { DataHygieneStudio } from "./DataHygieneStudio.js";
 import { AlertBanner } from "./CommonUI.js";
 import {
   Database,
-  Globe2,
+  Globe2, UserCheck,
   GitMerge,
   ShieldCheck,
 } from "lucide-react";
@@ -70,10 +71,10 @@ export function CorpusPipelineStudio({
     {
       id: "openalex" as PipelineStep,
       stepNumber: "2",
-      title: "OpenAlex Explorer",
-      subtitle: "Live Global Fetch",
+      title: "Live Graph & ORCID",
+      subtitle: "OpenAlex & Author Sync",
       icon: Globe2,
-      badge: "250M+ Works",
+      badge: "Live APIs",
     },
     {
       id: "merge" as PipelineStep,
@@ -185,16 +186,25 @@ export function CorpusPipelineStudio({
             onDatasetDeleted={onDatasetDeleted}
           />
         )}
+          {activeStep === "openalex" && (
+            <div className="space-y-6">
+              <OpenAlexExplorer
+                onDatasetCreated={(newId) => {
+                  onRefreshData();
+                  onSelectDataset?.(newId);
+                  handleStepSelect("repository");
+                }}
+              />
 
-        {activeStep === "openalex" && (
-          <OpenAlexExplorer
-            onDatasetCreated={(newId) => {
-              onRefreshData();
-              onSelectDataset?.(newId);
-              handleStepSelect("repository");
-            }}
-          />
-        )}
+              <OrcidImporter
+                onDatasetCreated={(newId) => {
+                  onRefreshData();
+                  onSelectDataset?.(newId);
+                  handleStepSelect("repository");
+                }}
+              />
+            </div>
+          )}
 
         {activeStep === "merge" && (
           <SmartMergeStudio datasets={datasets} onRefreshData={onRefreshData} />
@@ -222,3 +232,6 @@ export function CorpusPipelineStudio({
     </div>
   );
 }
+
+
+

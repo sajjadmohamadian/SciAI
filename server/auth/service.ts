@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb, runTransaction } from "../db.js";
+import { normalizeOrcidId, isValidOrcidId } from "../orcid_importer.js";
 
 export type AuthRole = "admin" | "user";
 export type AuthStatus = "active" | "disabled";
@@ -8,6 +9,8 @@ export interface AuthUser {
   id: string; email: string; role: AuthRole; status: AuthStatus;
   createdAt: string; updatedAt: string; lastLoginAt: string | null;
   mustChangePassword: boolean;
+  orcid?: string | null;
+  displayName?: string | null;
 }
 export interface AuthSession {
   id: string; userId: string; createdAt: string; expiresAt: string;
@@ -28,7 +31,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 // Fixed, structurally valid dummy credential: missing accounts still perform one full scrypt.
 const DUMMY_HASH = `scrypt$${Buffer.alloc(16, 71).toString("base64url")}$${Buffer.alloc(64, 93).toString("base64url")}`;
-type UserRow = { id: string; email: string; password_hash: string; role: AuthRole; status: AuthStatus; created_at: string; updated_at: string; last_login_at: string | null; must_change_password: number };
+type UserRow = { id: string; email: string; password_hash: string; role: AuthRole; status: AuthStatus; created_at: string; updated_at: string; last_login_at: string | null; must_change_password: number; orcid?: string | null; display_name?: string | null };
 type SessionRow = { id: string; user_id: string; created_at: string; expires_at: string; revoked_at: string | null; metadata: string; };
 type ResetRow = { id: string; user_id: string; expires_at: string; used_at: string | null };
 type AuditRow = { id: string; user_id: string | null; actor_id: string | null; action: string; success: number; metadata: string; created_at: string };
@@ -82,7 +85,7 @@ function safeMetadata(metadata: Record<string, unknown>): Record<string, unknown
   return safe;
 }
 function userFromRow(row: UserRow): AuthUser {
-  return { id: row.id, email: row.email, role: row.role, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at, lastLoginAt: row.last_login_at, mustChangePassword: row.must_change_password === 1 };
+  return { id: row.id, email: row.email, role: row.role, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at, lastLoginAt: row.last_login_at, mustChangePassword: row.must_change_password === 1, orcid: row.orcid ?? null, displayName: row.display_name ?? null };
 }
 function getUserRow(db: DatabaseSync, id: string): UserRow | undefined { return db.prepare("SELECT * FROM auth_users WHERE id = ?").get(id) as UserRow | undefined; }
 function audit(db: DatabaseSync, action: string, userId: string | null, success: boolean, metadata: Record<string, unknown> = {}, actorId?: string): void {
@@ -273,4 +276,104 @@ export function listAuditLogs(limit = 100, userId?: string): AuditRecord[] {
   const db = getDb();
   const rows = (userId ? db.prepare("SELECT * FROM auth_audit_logs WHERE user_id=? ORDER BY created_at DESC LIMIT ?").all(userId, safeLimit) : db.prepare("SELECT * FROM auth_audit_logs ORDER BY created_at DESC LIMIT ?").all(safeLimit)) as AuditRow[];
   return rows.map((r) => ({ id: r.id, userId: r.user_id, actorId: r.actor_id, action: r.action, success: r.success === 1, metadata: parseObject(r.metadata), createdAt: r.created_at }));
+}
+
+
+function ensureOrcidColumns(db: DatabaseSync): void {
+  const cols = db.prepare("PRAGMA table_info(auth_users)").all() as Array<{ name: string }>;
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has("orcid")) {
+    db.exec("ALTER TABLE auth_users ADD COLUMN orcid TEXT");
+  }
+  if (!names.has("display_name")) {
+    db.exec("ALTER TABLE auth_users ADD COLUMN display_name TEXT");
+  }
+}
+
+export async function authenticateWithOrcid(rawOrcid: string): Promise<{ user: AuthUser; profileName: string; affiliation: string }> {
+  const orcid = normalizeOrcidId(rawOrcid);
+  if (!isValidOrcidId(orcid)) {
+    throw new Error("Please enter a valid 16-digit ORCID identifier (e.g., 0000-0002-1825-0097).");
+  }
+
+  let profileName = orcid;
+  let affiliation = "";
+  try {
+    const res = await fetch(`https://pub.orcid.org/v3.0/${orcid}/record`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "SciAI-ScientometricWorkbench/1.0",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (res.status === 404) {
+      throw new Error(`ORCID record '${orcid}' was not found on pub.orcid.org.`);
+    }
+    if (res.ok) {
+      const json = (await res.json()) as any;
+      const person = json?.person || {};
+      const given = person?.name?.["given-names"]?.value || "";
+      const family = person?.name?.["family-name"]?.value || "";
+      const credit = person?.name?.["credit-name"]?.value || "";
+      profileName = credit || `${given} ${family}`.trim() || orcid;
+      const employments = json?.["activities-summary"]?.employments?.["affiliation-group"] || [];
+      affiliation = employments[0]?.summaries?.[0]?.["employment-summary"]?.organization?.name || "";
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("not found")) {
+      throw err;
+    }
+  }
+
+  const db = getDb();
+  ensureOrcidColumns(db);
+  const placeholderHash = await hashPassword(randomBytes(24).toString("base64url"));
+
+  const user = runTransaction(db, () => {
+    const existing = db.prepare("SELECT * FROM auth_users WHERE orcid = ?").get(orcid) as UserRow | undefined;
+    const timestamp = now();
+
+    if (existing) {
+      if (existing.status !== "active") {
+        throw new Error("This researcher account is disabled.");
+      }
+      db.prepare("UPDATE auth_users SET last_login_at=?, updated_at=?, display_name=COALESCE(?, display_name) WHERE id=?")
+        .run(timestamp, timestamp, profileName !== orcid ? profileName : null, existing.id);
+      audit(db, "orcid_login", existing.id, true, { role: existing.role });
+      return userFromRow(getUserRow(db, existing.id)!);
+    }
+
+    const id = randomUUID();
+    const syntheticEmail = `${orcid.toLowerCase()}@orcid.sciai.local`;
+    const role: AuthRole = db.prepare("SELECT 1 FROM auth_users LIMIT 1").get() ? "user" : "admin";
+
+    db.prepare(
+      "INSERT INTO auth_users (id,email,password_hash,role,status,created_at,updated_at,last_login_at,must_change_password,orcid,display_name) VALUES (?,?,?,?,?,?,?,?,0,?,?)"
+    ).run(id, syntheticEmail, placeholderHash, role, "active", timestamp, timestamp, timestamp, orcid, profileName);
+
+    audit(db, "orcid_register_login", id, true, { role });
+    return userFromRow(getUserRow(db, id)!);
+  });
+
+  return { user, profileName, affiliation };
+}
+
+export function linkOrcidToUser(userId: string, rawOrcid: string, displayName?: string): AuthUser {
+  const orcid = normalizeOrcidId(rawOrcid);
+  if (!isValidOrcidId(orcid)) {
+    throw new Error("Invalid 16-digit ORCID identifier.");
+  }
+  const db = getDb();
+  ensureOrcidColumns(db);
+  return runTransaction(db, () => {
+    const row = getUserRow(db, userId);
+    if (!row || row.status !== "active") throw new Error("Active user not found");
+    const conflict = db.prepare("SELECT id FROM auth_users WHERE orcid = ? AND id != ?").get(orcid, userId) as { id: string } | undefined;
+    if (conflict) throw new Error("This ORCID iD is already linked to another SciAI account.");
+    const timestamp = now();
+    db.prepare("UPDATE auth_users SET orcid = ?, display_name = COALESCE(?, display_name), updated_at = ? WHERE id = ?")
+      .run(orcid, displayName || null, timestamp, userId);
+    audit(db, "orcid_linked", userId, true);
+    return userFromRow(getUserRow(db, userId)!);
+  });
 }
